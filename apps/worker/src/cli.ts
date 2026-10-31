@@ -34,8 +34,12 @@ const deps: JobDeps = {
 };
 
 console.log(`order ${orderId}`);
-const out = await runPipeline(deps, orderId, brief);
+const out = await runPipeline(deps, orderId, brief).catch(async (e) => {
+  await media.put(orderId, "artifacts.json", Buffer.from(JSON.stringify(Object.fromEntries([...store].map(([k, v]) => [k.split("/")[1], v])), null, 1)));
+  throw e;
+});
 console.log(`\n${JSON.stringify(out)} — ${calls} model calls in ${Math.round((Date.now() - t0) / 1000)}s`);
 const review = store.get(`${orderId}/review`) as { rounds?: { review: { score: number } }[] } | undefined;
 if (review?.rounds) console.log(`review scores: ${review.rounds.map((r) => r.review.score).join(" → ")}`);
+await media.put(orderId, "artifacts.json", Buffer.from(JSON.stringify(Object.fromEntries([...store].map(([k, v]) => [k.split("/")[1], v])), null, 1)));
 console.log(`files in ${media.path(orderId, "")}`);

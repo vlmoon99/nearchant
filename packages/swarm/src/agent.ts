@@ -1,5 +1,5 @@
 import type { ResultEnvelope } from "@nearchant/contracts";
-import type { CapabilityRequest } from "@nearchant/providers";
+import { NoEndpointError, type CapabilityRequest } from "@nearchant/providers";
 import type { AgentEnv, Role } from "./env.js";
 
 export interface ModelRouter {
@@ -38,7 +38,7 @@ export interface Asker {
 }
 
 /** Builds the role caller for one job. `track` receives every envelope (metering, proof). */
-export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultEnvelope, role: string) => Promise<void>): Asker {
+export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultEnvelope, role: string) => Promise<void>, onDegrade?: (role: string, model: string, reason: string) => void): Asker {
   return async function ask<T>(roleName: string, user: string): Promise<T> {
     const role: Role | undefined = env.roles[roleName];
     if (!role) throw new Error(`unknown role ${roleName}`);
@@ -48,13 +48,19 @@ export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultE
       { role: "user", content: user },
     ];
     let maxTokens = role.max_tokens;
+    let seatModel = model;
     for (let attempt = 0; attempt < 2; attempt++) {
-      const e = await router.call({
-        capability: "chat",
-        dataClass: "private",
-        ...(model ? { model } : {}),
-        input: { messages, temperature: role.temperature, max_tokens: maxTokens },
-      });
+      const req = { capability: "chat" as const, dataClass: "private" as const, input: { messages, temperature: role.temperature, max_tokens: maxTokens } };
+      let e: ResultEnvelope;
+      try {
+        e = await router.call(seatModel ? { ...req, model: seatModel } : req);
+      } catch (err) {
+        // The second seat is a preference: if its model is unreachable, degrade to the main route (architecture §3.10).
+        if (!(err instanceof NoEndpointError) || !seatModel) throw err;
+        onDegrade?.(roleName, seatModel, (err as Error).message);
+        seatModel = undefined;
+        e = await router.call(req);
+      }
       await track(e, roleName);
       const text = contentOf(e);
       // Reasoning models can spend the whole budget thinking: retry the same request with more room.

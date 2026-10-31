@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ResultEnvelope } from "@nearchant/contracts";
-import type { CapabilityRequest } from "@nearchant/providers";
+import { NoEndpointError, type CapabilityRequest } from "@nearchant/providers";
 import { block, checkDeck, citedIds, extractJson, loadAgentEnv, runPipeline, slideCount, type JobDeps, type ProofEntry } from "../src/index.js";
 
 const env = loadAgentEnv(new URL("../../../envs/deck-seller", import.meta.url).pathname);
@@ -124,7 +124,7 @@ describe("deck pipeline", () => {
     expect(out).toEqual({ status: "done", next: null });
     expect([...store.keys()]).toEqual(["o1/brief", "o1/research", "o1/council", "o1/write", "o1/design", "o1/review", "o1/render", "o1/deliver"]);
     for (const role of ["skeptic", "buyer-persona", "reviewer"]) {
-      expect(router.calls.filter((c) => c.role === role).every((c) => c.model === "z-ai/glm-5.3-flash")).toBe(true);
+      expect(router.calls.filter((c) => c.role === role).every((c) => c.model === "deepseek/deepseek-v4.1-flash")).toBe(true);
     }
     expect(router.calls.filter((c) => c.role === "scout")).toHaveLength(3);
     expect((store.get("o1/design") as { markdown: string }).markdown).toContain("![bg right:40%](/media/o1/cover.png)");
@@ -170,6 +170,23 @@ describe("deck pipeline", () => {
     const lying = fakeRouter({ copywriter: () => DECK.replace("[f3]", "[f9]") });
     const { d } = deps(lying);
     expect(await runPipeline(d, "o5", "seed deck please, coffee")).toMatchObject({ status: "stopped", kind: "failed_review" });
+  });
+});
+
+describe("degraded modes", () => {
+  it("falls back to the main seat when the second-family model is unreachable", async () => {
+    const router = fakeRouter();
+    const inner = router.call.bind(router);
+    router.call = async (req) => {
+      if (req.model) throw new NoEndpointError("chat", { nearai: "down" });
+      return inner(req);
+    };
+    const { d } = deps(router);
+    const logs: string[] = [];
+    d.log = (m) => logs.push(m);
+    expect((await runPipeline(d, "o6", "seed deck please, coffee")).status).toBe("done");
+    expect(router.calls.filter((c) => c.role === "skeptic").every((c) => c.model === undefined)).toBe(true);
+    expect(logs.some((l) => l.includes("fell back"))).toBe(true);
   });
 });
 

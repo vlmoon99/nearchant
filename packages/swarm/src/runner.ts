@@ -35,7 +35,7 @@ export async function runStep(d: JobDeps, orderId: string, brief: string, step: 
   };
   const ctx: StepContext = {
     orderId, brief, env: d.env, router: d.router, done,
-    ask: makeAsker(d.env, d.router, track), track,
+    ask: makeAsker(d.env, d.router, track, (role, model, why) => d.log?.(`${orderId} ${step}: ${role} fell back from ${model} to the main seat (${why.slice(0, 120)})`)), track,
     media: d.media, render: d.render, deliver: d.deliver, search: d.search, log: d.log,
     attestationRef: async () => {
       if (attestations.length) return attestations.at(-1)!;
