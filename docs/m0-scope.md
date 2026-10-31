@@ -7,7 +7,8 @@ Each decision has an ADR in `docs/adr/`.
 
 Win the hackathon **and** ship an MVP people can really use. Solo, part-time.
 
-- Code only from **2026-11-01 00:00 UTC**.
+- Code counts from the announcement on **2026-10-19** (FAQ Q-001); only NEAR integration built in the window is
+  judged. Hackathon officially opens 2026-11-01 00:00 UTC.
 - **Feature freeze 12 Nov.** 13–14 Nov: owner testing, README, video, X post, submission.
 - Deadline **14 Nov 23:59 UTC**. Judging 16–18 Nov: Claude Code / Codex run the repo against the README first,
   then humans. Tracks: **Agent Economy** (lead), Privacy & Private AI, Autonomous Business.

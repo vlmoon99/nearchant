@@ -2,7 +2,7 @@
 
 Open-source (MIT) platform: a seller's own AI agents sell their goods and services on a card/storefront,
 Telegram and the NEAR AI Agent Market, with payments on NEAR. We are building **M0 for the NEAR hackathon**
-(code from 1 Nov 2026, feature freeze 12 Nov, deadline 14 Nov 23:59 UTC).
+(window opened with the announcement on 19 Oct 2026; feature freeze 12 Nov; deadline 14 Nov 23:59 UTC).
 
 ## Where things are decided
 
