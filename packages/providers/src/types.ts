@@ -33,6 +33,8 @@ export interface CapabilityAdapter {
   call(capability: Capability, input: Record<string, unknown>, ctx: CallContext): Promise<AdapterResult>;
   /** Model ids served right now (OpenAI GET /models). */
   listModels(): Promise<string[]>;
+  /** Ids plus prices when the endpoint publishes them (NEAR AI does, in `pricing`). */
+  catalog?(): Promise<ModelInfo[]>;
   /** TEE attestation for a model; only for endpoints with `attestation` set. */
   attest?(model: string): Promise<AttestationRef>;
 }
@@ -60,3 +62,6 @@ export class NoEndpointError extends Error {
 }
 
 export type FetchFn = typeof fetch;
+
+export interface ModelPrice { inputPerMTok?: number; outputPerMTok?: number; perImage?: number; perAudioMinute?: number }
+export interface ModelInfo { id: string; price?: ModelPrice }

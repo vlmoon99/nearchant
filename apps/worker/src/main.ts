@@ -9,6 +9,10 @@ import { PIPELINE, loadAgentEnv, runStep, type JobDeps, type Step } from "@nearc
 import { parse } from "yaml";
 import { readFileSync } from "node:fs";
 import { deliver, type DeliverPayload } from "./deliver.js";
+import { buildBatch, leafHash, usageRecord } from "@nearchant/billing";
+import { KeyPair, type KeyPairString } from "near-api-js";
+import type { ResultEnvelope } from "@nearchant/contracts";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { makeRouter } from "./router.js";
 import { localMedia, marpServerRender, searxng } from "./tools.js";
 
@@ -55,9 +59,34 @@ const deckStep: Task = async (payload, helpers) => {
   if (out.next) await helpers.addJob("deck_step", { orderId, step: out.next }, { jobKey: `${orderId}:${out.next}`, maxAttempts: 5 });
 };
 
+// Flow 2 (architecture.md §4): envelopes → signed usage records → Merkle batch → billing.settle_batch.
+const policy = { marginBps: Number(gw.billing?.margin_bps ?? 1000), unitsPerUsd: Number(gw.billing?.units_per_usd ?? 1_000_000) };
+const signer = KeyPair.fromString(need("NEAR_RELAYER_KEY") as KeyPairString);
+const billingSettle: Task = async (_p, helpers) => {
+  if (gw.profile === "free-local") return;
+  const rows = await envelopes.unsettled(400);
+  if (rows.length === 0) return;
+  const records = rows.map((r) => {
+    const rec = usageRecord(`env-${r.id}`, r.accountId, r.envelope as ResultEnvelope, policy);
+    return { ...rec, signature: Buffer.from(signer.sign(Buffer.from(leafHash(rec), "hex")).signature).toString("base64") };
+  });
+  const batch = buildBatch(`b-${rows[0]!.id}-${rows.at(-1)!.id}`, records);
+  // The statement (all records + root) is published next to the deliverables so sellers can verify charges.
+  mkdirSync(join(media.path("batches", "")), { recursive: true });
+  writeFileSync(media.path("batches", `${batch.batchId}.json`), JSON.stringify({ ...batch, signer: signer.getPublicKey().toString() }, null, 1));
+  await envelopes.settleInto(rows.map((r) => r.id), batch.batchId, "billing.settle", { batch_id: batch.batchId, merkle_root: batch.merkleRoot, entries: batch.entries });
+  helpers.logger.info(`billing: batch ${batch.batchId} with ${records.length} records, ${batch.entries.length} charged accounts`);
+  await helpers.addJob("outbox_drain", {}, { jobKey: "outbox_drain", runAt: new Date() });
+};
+
 const outboxDrain: Task = async (_p, helpers) => {
   const n = await outbox.drain(async (kind, payload) => {
     if (kind === "deliver") return deliver({ chain, accounts, db: conn.db, sealer, store }, payload as DeliverPayload);
+    if (kind === "billing.settle") {
+      const p = payload as { batch_id: string; merkle_root: string; entries: unknown[] };
+      if (p.entries.length === 0) return { skipped: "no charges" };
+      return { charged: await chain.call<string>(accounts.billing, "settle_batch", p, { gasTgas: 150 }) };
+    }
     throw new Error(`no handler for outbox kind ${kind}`);
   });
   if (n) helpers.logger.info(`outbox: sent ${n}`);
@@ -68,8 +97,8 @@ const runner = await run({
   concurrency: Number(process.env.WORKER_CONCURRENCY ?? 4),
   noHandleSignals: false,
   pollInterval: 1000,
-  taskList: { deck_step: deckStep, outbox_drain: outboxDrain },
-  crontab: "* * * * * outbox_drain ?jobKey=outbox_drain",
+  taskList: { deck_step: deckStep, outbox_drain: outboxDrain, billing_settle: billingSettle },
+  crontab: ["* * * * * outbox_drain ?jobKey=outbox_drain", "*/5 * * * * billing_settle ?jobKey=billing_settle"].join("\n"),
 });
-console.info(`[worker] up: ${Object.keys({ deck_step: 1, outbox_drain: 1 }).join(", ")}`);
+console.info("[worker] up: deck_step, outbox_drain, billing_settle");
 await runner.promise;

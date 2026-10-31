@@ -21,7 +21,7 @@ export async function fakeOpenAI(models: string[], reply = "ok"): Promise<Fake> 
     const path = req.url ?? "";
     hits.push({ path, body, auth: req.headers.authorization });
     res.setHeader("content-type", "application/json");
-    if (path === "/v1/models") return res.end(JSON.stringify({ data: models.map((id) => ({ id })) }));
+    if (path === "/v1/models") return res.end(JSON.stringify({ data: models.map((id) => ({ id, pricing: { prompt: "0.000003", completion: "0.000004", image: "0.01" } })) }));
     if (path.startsWith("/v1/attestation/report")) return res.end(JSON.stringify({ gateway_attestation: { signing_address: "0xabc" } }));
     if (path === "/v1/chat/completions") {
       if (fails > 0) {

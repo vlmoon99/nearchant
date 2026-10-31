@@ -1,0 +1,25 @@
+{
+  "name": "@nearchant/billing",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "Metering: usage records from envelopes, Merkle batches, settlement against the billing contract (architecture.md §4).",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nearchant/contracts": "workspace:*",
+    "@nearchant/providers": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2"
+  }
+}

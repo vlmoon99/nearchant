@@ -1,6 +1,6 @@
 import type { AttestationRef, Capability, Endpoint } from "@nearchant/contracts";
 import { sha256 } from "../hash.js";
-import { type AdapterResult, type CallContext, type CapabilityAdapter, type FetchFn, ProviderError } from "../types.js";
+import { type AdapterResult, type CallContext, type CapabilityAdapter, type FetchFn, type ModelInfo, ProviderError } from "../types.js";
 
 const PATHS: Partial<Record<Capability, string>> = {
   chat: "/chat/completions",
@@ -101,8 +101,18 @@ export class OpenAICompatibleAdapter implements CapabilityAdapter {
   }
 
   async listModels(): Promise<string[]> {
-    const raw = (await this.request("/models", { headers: this.headers() }, 15_000)) as { data?: { id: string }[] };
-    return (raw.data ?? []).map((m) => m.id);
+    return (await this.catalog()).map((m) => m.id);
+  }
+
+  async catalog(): Promise<ModelInfo[]> {
+    const raw = (await this.request("/models", { headers: this.headers() }, 15_000)) as { data?: { id: string; pricing?: Record<string, string | number> }[] };
+    return (raw.data ?? []).map((m) => {
+      const p = m.pricing;
+      if (!p) return { id: m.id };
+      // `prompt` / `completion` are USD per token, `image` USD per image (OpenRouter-style, used by NEAR AI).
+      const perTok = (v: unknown) => (v === undefined ? undefined : Number(v) * 1e6);
+      return { id: m.id, price: { inputPerMTok: perTok(p.prompt), outputPerMTok: perTok(p.completion), perImage: p.image === undefined ? undefined : Number(p.image) } };
+    });
   }
 
   /** NEAR AI: GET /attestation/report?model=&nonce=. M0 pins the report hash; it does not verify the quote. */

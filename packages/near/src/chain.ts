@@ -42,9 +42,9 @@ export class Chain {
   }
 
   /** A function call signed by another account's key (e.g. a seller's agent function-call key). */
-  async callAs<T = unknown>(accountId: string, secretKey: string, contractId: string, methodName: string, args: Record<string, unknown>, gasTgas = 100): Promise<T> {
+  async callAs<T = unknown>(accountId: string, secretKey: string, contractId: string, methodName: string, args: Record<string, unknown>, gasTgas = 100, depositYocto = 0n): Promise<T> {
     const account = new Account(accountId, this.provider, KeyPairSigner.fromSecretKey(secretKey as KeyPairString));
-    return (await account.callFunction({ contractId, methodName, args, gas: BigInt(gasTgas) * 10n ** 12n, deposit: 0n })) as T;
+    return (await account.callFunction({ contractId, methodName, args, gas: BigInt(gasTgas) * 10n ** 12n, deposit: depositYocto })) as T;
   }
 
   /** A function call signed by the relayer. Returns the decoded return value. */

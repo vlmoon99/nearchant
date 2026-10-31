@@ -77,6 +77,16 @@ describe("router", () => {
     expect(env.endpointId).toBe("pub");
   });
 
+  it("prices from the TEE catalog when config has none; local stays free", async () => {
+    const { local, config } = await two();
+    local.failNext(10);
+    const r = Router.fromConfig({ ...config, prices: {} }, { ...quiet, env: {} });
+    await r.discover();
+    const env = await r.call(chat());
+    expect(env.endpointId).toBe("nearai");
+    expect(env.costUsd).toBeCloseTo((10 * 3 + 2 * 4) / 1e6); // catalog: $3/M in, $4/M out
+  });
+
   it("skips endpoints that don't serve the requested model", async () => {
     const { config } = await two();
     const r = Router.fromConfig(config, { ...quiet, env: {} });

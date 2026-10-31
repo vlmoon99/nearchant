@@ -90,6 +90,14 @@ export class Envelopes {
     if (ids.length === 0) return;
     await this.db.update(schema.envelopes).set({ settledBatch: batchId }).where(inArray(schema.envelopes.id, ids));
   }
+  /** Marks envelopes settled into `batchId` and enqueues the chain call in one transaction (no double charge). */
+  async settleInto(ids: number[], batchId: string, outboxKind: string, payload: unknown): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      await tx.update(schema.envelopes).set({ settledBatch: batchId }).where(and(inArray(schema.envelopes.id, ids), isNull(schema.envelopes.settledBatch)));
+      await tx.insert(schema.outbox).values({ key: `settle:${batchId}`, kind: outboxKind, payload }).onConflictDoNothing();
+    });
+  }
+
   async forOrder(orderId: string) {
     return this.db.select().from(schema.envelopes).where(eq(schema.envelopes.orderId, orderId)).orderBy(schema.envelopes.id);
   }

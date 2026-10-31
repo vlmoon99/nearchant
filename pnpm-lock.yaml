@@ -221,6 +221,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@nearchant/billing':
+        specifier: workspace:*
+        version: link:../../packages/billing
       '@nearchant/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -239,9 +242,25 @@ importers:
       graphile-worker:
         specifier: 0.18.0
         version: 0.18.0(supports-color@7.2.0)(typescript@7.0.2)
+      near-api-js:
+        specifier: 7.4.0
+        version: 7.4.0
       yaml:
         specifier: ^2.9.1
         version: 2.9.1
+
+  packages/billing:
+    dependencies:
+      '@nearchant/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@nearchant/providers':
+        specifier: workspace:*
+        version: link:../providers
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
 
   packages/contracts:
     dependencies:

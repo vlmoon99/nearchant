@@ -8,3 +8,6 @@ dashboard_origin: https://app.nearchant.com
 rpc_urls: [https://test.rpc.fastnear.com, https://rpc.testnet.near.org]
 listen: { host: 0.0.0.0, port: 8787 }
 token: { symbol: nUSD, decimals: 6, test: true }
+billing:                   # operator profile only (ADR 0005); free-local has no billing
+  margin_bps: 1000         # 10% on top of provider cost, shown on statements
+  units_per_usd: 1000000   # nUSD/USDC base units per USD

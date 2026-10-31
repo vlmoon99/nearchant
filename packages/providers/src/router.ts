@@ -2,7 +2,7 @@ import { validate, type AttestationRef, type Capability, type Endpoint, type Pro
 import { OpenAICompatibleAdapter } from "./adapters/openai-compatible.js";
 import { ReplayAdapter, ReplayStore } from "./adapters/replay.js";
 import { hashOf } from "./hash.js";
-import { type CapabilityAdapter, type CapabilityRequest, type FetchFn, NoEndpointError, ProviderError } from "./types.js";
+import { type CapabilityAdapter, type CapabilityRequest, type FetchFn, type ModelInfo, NoEndpointError, ProviderError } from "./types.js";
 
 export interface RouterOptions {
   /** Where `api_key_env` names are looked up. */
@@ -34,6 +34,8 @@ const ATTEST_TTL_MS = 10 * 60_000;
 export class Router {
   private readonly state = new Map<string, EndpointState>();
   private readonly attestations = new Map<string, AttestationRef & { at: number }>();
+  /** Prices discovered from endpoint catalogs; `config.prices` overrides them. */
+  private readonly discoveredPrices = new Map<string, NonNullable<ProvidersConfig["prices"]>[string]>();
   private readonly opts: Required<Pick<RouterOptions, "retries" | "breaker" | "now" | "sleep" | "log">> & RouterOptions;
 
   static fromConfig(config: unknown, opts: RouterOptions = {}): Router {
@@ -77,8 +79,10 @@ export class Router {
       [...this.state.entries()].map(async ([id, s]) => {
         if (s.adapter.endpoint.discover_models === false || s.adapter.endpoint.adapter === "replay") return;
         try {
-          const models = await s.adapter.listModels();
+          const infos: ModelInfo[] = s.adapter.catalog ? await s.adapter.catalog() : (await s.adapter.listModels()).map((m) => ({ id: m }));
+          const models = infos.map((m) => m.id);
           s.catalog = new Set(models);
+          for (const m of infos) if (m.price && s.adapter.endpoint.privacy_tier !== "local") this.discoveredPrices.set(m.id, m.price);
           out[id] = models;
         } catch (e) {
           out[id] = { error: (e as Error).message };
@@ -224,7 +228,7 @@ export class Router {
   }
 
   private cost(model: string, u: Usage): number {
-    const p = this.config.prices?.[model];
+    const p = this.config.prices?.[model] ?? this.discoveredPrices.get(model);
     if (!p) return 0;
     const c =
       ((u.inputTokens ?? 0) * (p.inputPerMTok ?? 0) + (u.outputTokens ?? 0) * (p.outputPerMTok ?? 0)) / 1e6 +
