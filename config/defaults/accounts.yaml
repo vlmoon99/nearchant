@@ -1,0 +1,12 @@
+# Platform accounts per network. Code reads these; nothing hard-codes an account id (CLAUDE.md).
+testnet:
+  root: nearchant.testnet          # also hosts the `handles` factory
+  nusd: nusd.nearchant.testnet     # test token (ADR 0001)
+  orders: orders.nearchant.testnet
+  billing: billing.nearchant.testnet
+  proofs: proofs.nearchant.testnet
+  escrow: escrow.nearchant.testnet
+  treasury: treasury.nearchant.testnet
+  relayer: relayer.nearchant.testnet
+mainnet:
+  root: nearchant.near

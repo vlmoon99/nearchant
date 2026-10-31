@@ -25,8 +25,33 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - testnet balance topped up to ~20 NEAR (throwaway faucet accounts deleted into `nearchant.testnet`). Docker
   Desktop started; pgvector:pg16, cloudflared, node:24-slim pulled; pnpm enabled via corepack.
 
+## 2026-10-31 / 11-01 night — contracts done and live on testnet
+
+- **Done:** six contracts in `contracts/` (Rust, near-sdk 5.30, cargo-near 0.22): `nusd`, `handles`, `proof-log`,
+  `orders`, `billing`, `escrow-policy`, following `docs/contracts.md`. `make test-contracts` builds all and runs
+  the sandbox suite. `deploy/testnet/deploy.sh` creates/upgrades every contract (idempotent, keys from the
+  Keychain). Account ids in `config/defaults/accounts.yaml`.
+- **Verified:** 25 near-workspaces sandbox tests pass (faucet limits; handle names/reserved/rollback+refund/
+  scoped agent keys; proofs bound to author+order; orders happy path, duplicates, unknown seller, revision →
+  refund, release timeout, delivery deadline, failed payout reverts; billing caps/idempotent batches/sweep/
+  withdraw; escrow auto vs approval, in-flight daily limit, 5% fee to Nearchant payees, close refund, failed
+  transfer releases reservation). **Live testnet loop:** `link demo` → faucet → pay 5 nUSD → `order_created`
+  → proof → `mark_delivered` → `accept` → `order_released`, orders balance back to 0
+  (tx `9hjiTYf3fY8sMYKk8mdyHxH1MEMzzhpqdu1DUTs9w692`).
+- **Fixed on the way:** the first deploy left contracts uninitialised (my probe was wrong) — anyone could have
+  called `new`. Initialised them within minutes signed by each contract account; every `new` is now
+  `#[private]` and the script inits only on "not initialized".
+- **Local model:** `gx10-8695` runs `nc-llm` (vLLM, Qwen3.6-35B-A3B NVFP4, 32k ctx) on `100.64.0.13:8010`,
+  key in `~/nearchant-node/engine.env` on that machine (not in the repo). Loads in ~3.5 min; reasoning is on by
+  default (send `chat_template_kwargs: {enable_thinking: false}` for fast calls).
+- **Not verified:** `claim`/`claim_for` on live testnet (only in sandbox); billing and escrow on live testnet;
+  reproducible builds (using non-reproducible wasm for now).
+- **Next:** monorepo skeleton (pnpm + Turborepo), `spec/schemas` + generated types, router with `nearai`,
+  `local` (gx10-8695) and `replay` adapters, then the gateway.
+
 ### Owner actions
 - ~~`gx10-8695`: add `server` to the docker group~~ — done 2026-10-31; Docker 29.6 + GPU in containers verified.
-- Testnet NEAR: 10 NEAR may not cover six contract deployments; I'll top up with extra faucet accounts.
+- Testnet NEAR: root has ~7.9 NEAR after deploying; each sponsored shop costs ~0.2 NEAR. I'll top up from the
+  faucet as needed.
 - Phala Cloud account with credit, needed by ~8 Nov.
 - Cloudflare: a tunnel token for `*.nearchant.com` (or API token so I can create it), needed by ~6 Nov.

@@ -50,6 +50,7 @@ pub struct Contract {
 #[near]
 impl Contract {
     #[init]
+    #[private]
     pub fn new(owner_id: AccountId, relayer_id: AccountId) -> Self {
         let metadata = FungibleTokenMetadata {
             spec: FT_METADATA_SPEC.to_string(),

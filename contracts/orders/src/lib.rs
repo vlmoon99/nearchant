@@ -118,6 +118,7 @@ fn event(name: &str, data: serde_json::Value) {
 #[near]
 impl Contract {
     #[init]
+    #[private]
     pub fn new(
         owner_id: AccountId,
         handles_id: AccountId,

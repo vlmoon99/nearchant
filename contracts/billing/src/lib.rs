@@ -109,6 +109,7 @@ impl Acct {
 #[near]
 impl Contract {
     #[init]
+    #[private]
     pub fn new(owner_id: AccountId, relayer_id: AccountId, token_id: AccountId, treasury_id: AccountId) -> Self {
         Self {
             owner_id,

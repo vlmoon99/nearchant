@@ -114,6 +114,7 @@ fn check_policy(p: &Policy) {
 #[near]
 impl Contract {
     #[init]
+    #[private]
     pub fn new(owner_id: AccountId, token_id: AccountId, treasury_id: AccountId, handles_root: AccountId) -> Self {
         Self {
             owner_id,
@@ -228,6 +229,10 @@ impl Contract {
 
     pub fn get_payment(&self, payment_id: U64) -> Option<Payment> {
         self.payments.get(&payment_id.0).cloned()
+    }
+
+    pub fn get_agent_fee_bps(&self) -> u16 {
+        self.agent_fee_bps
     }
 
     pub fn set_agent_fee_bps(&mut self, bps: u16) {

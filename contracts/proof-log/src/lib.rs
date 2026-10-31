@@ -56,6 +56,7 @@ fn short(s: &str, max: usize, what: &str) {
 #[near]
 impl Contract {
     #[init]
+    #[private]
     pub fn new() -> Self {
         Self { entries: LookupMap::new(b"e"), next_id: 1 }
     }
@@ -90,6 +91,10 @@ impl Contract {
         env::log_str(&format!("EVENT_JSON:{ev}"));
         self.entries.insert(id, e);
         U64(id)
+    }
+
+    pub fn get_next_id(&self) -> U64 {
+        U64(self.next_id)
     }
 
     pub fn get(&self, proof_id: U64) -> Option<Entry> {

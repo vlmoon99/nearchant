@@ -116,6 +116,7 @@ fn check_card(card: &Card) {
 #[near]
 impl Contract {
     #[init]
+    #[private]
     pub fn new(owner_id: AccountId, relayer_id: AccountId, agent_receivers: Vec<AccountId>) -> Self {
         let mut reserved = LookupSet::new(b"r");
         for n in DEFAULT_RESERVED {
@@ -284,6 +285,13 @@ impl Contract {
 
     pub fn get_handles_by_owner(&self, account_id: AccountId) -> Vec<String> {
         self.by_owner.get(&account_id).cloned().unwrap_or_default()
+    }
+
+    pub fn get_params(&self) -> near_sdk::serde_json::Value {
+        json!({
+            "owner_id": self.owner_id, "relayer_id": self.relayer_id, "agent_receivers": self.agent_receivers,
+            "sponsor_amount": self.sponsor_amount, "min_claim_deposit": self.min_claim_deposit,
+        })
     }
 
     pub fn is_reserved(&self, name: String) -> bool {
