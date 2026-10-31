@@ -8,7 +8,8 @@ pub const ONE_NUSD: u128 = 1_000_000;
 
 /// Reads a contract built by `make contracts` (cargo near build).
 pub fn wasm(name: &str) -> Vec<u8> {
-    let path = format!("{}/../target/near/{name}/{}.wasm", env!("CARGO_MANIFEST_DIR"), name.replace('-', "_"));
+    let n = name.replace("-", "_");
+    let path = format!("{}/../target/near/{n}/{n}.wasm", env!("CARGO_MANIFEST_DIR"));
     std::fs::read(&path).unwrap_or_else(|_| panic!("missing {path}: run `make contracts` first"))
 }
 
