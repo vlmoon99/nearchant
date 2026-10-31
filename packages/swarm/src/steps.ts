@@ -178,7 +178,8 @@ export const STEPS: Record<Step, (c: StepContext) => Promise<unknown>> = {
       // One rework: the copywriter gets the issues and rewrites (the cover image line is kept).
       const cover = md.match(/!\[bg right:40%\]\([^)]+\)\n\n/)?.[0] ?? "";
       const fix = { reviewer_issues: review.issues, untraced_claims: review.untraced_claims, checks: problems };
-      let next = cleanDeck(await c.ask<string>("copywriter", [block("brief", brief), block("dossier", dossier), block("draft", strategy), block("findings", fix), "Rewrite the whole deck fixing every issue listed above."].join("\n\n")));
+      // Edit the existing draft rather than starting over, so fixed slides don't regress.
+      let next = cleanDeck(await c.ask<string>("copywriter", [block("brief", brief), block("dossier", dossier), block("draft", md), block("findings", fix), "Edit the deck in <draft>: fix every issue listed in <findings>, keep everything else, and return the whole corrected deck."].join("\n\n")));
       if (cover) next = next.replace(/(^---\n[\s\S]*?\n---\n\s*\n?)(#)/, `$1${cover}$2`);
       md = next;
     }

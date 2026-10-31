@@ -87,6 +87,24 @@ describe("router", () => {
     expect(env.costUsd).toBeCloseTo((10 * 3 + 2 * 4) / 1e6); // catalog: $3/M in, $4/M out
   });
 
+  it("a model without attestation is refused for private data but doesn't block the endpoint", async () => {
+    const { tee, config } = await two();
+    const cfg = { ...config, routing: { ...config.routing, chat: ["nearai"] } };
+    let attestOk = false;
+    const r = Router.fromConfig(cfg, { ...quiet, env: {} });
+    await r.discover();
+    // Fake: attestation fails for glm, works otherwise.
+    (r as any).state.get("nearai").adapter.attest = async (m: string) => {
+      if (m === "z-ai/glm-5.3" && !attestOk) throw new Error("503");
+      return { kind: "nearai", reportHash: "e".repeat(64), fetchedAt: new Date().toISOString(), verified: false };
+    };
+    for (let i = 0; i < 4; i++) await expect(r.call(chat("private", "z-ai/glm-5.3"))).rejects.toBeInstanceOf(NoEndpointError);
+    const ok = await r.call(chat("private")); // other models on the same endpoint still work
+    expect(ok.endpointId).toBe("nearai");
+    expect(r.health().nearai!.open).toBe(false);
+    expect(tee.hits.filter((h) => h.path === "/v1/chat/completions").every((h) => h.body.model !== "z-ai/glm-5.3")).toBe(true);
+  });
+
   it("skips endpoints that don't serve the requested model", async () => {
     const { config } = await two();
     const r = Router.fromConfig(config, { ...quiet, env: {} });

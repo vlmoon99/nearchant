@@ -34,6 +34,8 @@ const ATTEST_TTL_MS = 10 * 60_000;
 export class Router {
   private readonly state = new Map<string, EndpointState>();
   private readonly attestations = new Map<string, AttestationRef & { at: number }>();
+  /** Models whose attestation failed recently: skipped for private data without tripping the endpoint breaker. */
+  private readonly unattestable = new Map<string, number>();
   /** Prices discovered from endpoint catalogs; `config.prices` overrides them. */
   private readonly discoveredPrices = new Map<string, NonNullable<ProvidersConfig["prices"]>[string]>();
   private readonly opts: Required<Pick<RouterOptions, "retries" | "breaker" | "now" | "sleep" | "log">> & RouterOptions;
@@ -214,15 +216,19 @@ export class Router {
     const key = `${ep.id}:${model}`;
     const cached = this.attestations.get(key);
     if (cached && this.opts.now() - cached.at < ATTEST_TTL_MS) return cached;
+    const badUntil = this.unattestable.get(key) ?? 0;
+    if (badUntil > this.opts.now()) {
+      if (required) throw new ProviderError(`${model} has no attestation (cached), private data not sent`, false);
+      return undefined;
+    }
     try {
       const a = { ...(await s.adapter.attest(model)), at: this.opts.now() };
       this.attestations.set(key, a);
       return a;
     } catch (e) {
-      if (required) {
-        this.fail(s);
-        throw new ProviderError(`attestation failed, private data not sent: ${(e as Error).message}`, false);
-      }
+      // One model without a TEE report says nothing about the endpoint's other models: no breaker trip.
+      this.unattestable.set(key, this.opts.now() + ATTEST_TTL_MS);
+      if (required) throw new ProviderError(`attestation failed for ${model}, private data not sent: ${(e as Error).message}`, false);
       return undefined;
     }
   }

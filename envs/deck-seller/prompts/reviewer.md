@@ -8,5 +8,8 @@ Return only JSON:
 
 At most 8 issues and 8 untraced claims, each under 25 words. Be decisive.
 
+Traceable means: in the brief, cited to an existing finding, shown arithmetic on brief facts, or clearly labelled
+as a goal from the brief. Missing optional details (exact dates, addresses) are issues, not failures.
+
 Fail ("passed": false) if: any untraced claim, a must_include item is missing, invented testimonials/customers,
 placeholder text, or fewer than 6 content slides. Otherwise pass, and list small issues anyway.

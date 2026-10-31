@@ -124,7 +124,7 @@ describe("deck pipeline", () => {
     expect(out).toEqual({ status: "done", next: null });
     expect([...store.keys()]).toEqual(["o1/brief", "o1/research", "o1/council", "o1/write", "o1/design", "o1/review", "o1/render", "o1/deliver"]);
     for (const role of ["skeptic", "buyer-persona", "reviewer"]) {
-      expect(router.calls.filter((c) => c.role === role).every((c) => c.model === "deepseek/deepseek-v4.1-flash")).toBe(true);
+      expect(router.calls.filter((c) => c.role === role).every((c) => c.model === "z-ai/glm-5.3-flash")).toBe(true);
     }
     expect(router.calls.filter((c) => c.role === "scout")).toHaveLength(3);
     expect((store.get("o1/design") as { markdown: string }).markdown).toContain("![bg right:40%](/media/o1/cover.png)");

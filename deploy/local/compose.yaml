@@ -1,5 +1,24 @@
-# Full local stack (architecture.md §9 scenario B). `make up` starts it; the gateway and worker join in later steps.
+# Full local stack (architecture.md §9 scenario B, m0-scope.md). `make up` starts it.
+# Secrets come from the environment (see deploy/local/.env.example) — never from this file.
 name: nearchant
+x-app: &app
+  build: { context: ../.., dockerfile: deploy/Dockerfile }
+  image: nearchant/app:dev
+  restart: unless-stopped
+  environment: &appenv
+    DATABASE_URL: postgres://nearchant:${POSTGRES_PASSWORD:-nearchant-dev}@db:5432/nearchant
+    MEDIA_DIR: /app/.media
+    MEDIA_PUBLIC: /media
+    NEARCHANT_SECRET_KEY: ${NEARCHANT_SECRET_KEY:?set NEARCHANT_SECRET_KEY}
+    NEAR_RELAYER_KEY: ${NEAR_RELAYER_KEY:-}
+    NEARAI_API_KEY: ${NEARAI_API_KEY:-}
+    NC_LOCAL_LLM_KEY: ${NC_LOCAL_LLM_KEY:-}
+    SEARXNG_URL: ${SEARXNG_URL:-}
+    REPLAY_DIR: ${REPLAY_DIR:-}
+    PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8787}
+  volumes: ["media:/app/.media"]
+  depends_on: { db: { condition: service_healthy } }
+
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -9,10 +28,34 @@ services:
       POSTGRES_DB: nearchant
     ports: ["127.0.0.1:55432:5432"]
     volumes: ["db:/var/lib/postgresql/data"]
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nearchant"]
-      interval: 3s
-      retries: 20
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U nearchant"], interval: 3s, retries: 20 }
     restart: unless-stopped
+
+  gateway:
+    <<: *app
+    command: ["node", "apps/gateway/dist/main.js"]
+    ports: ["127.0.0.1:8787:8787"]
+    environment: { <<: *appenv, PORT: "8787" }
+
+  worker:
+    <<: *app
+    command: ["node", "apps/worker/dist/main.js"]
+    environment: { <<: *appenv, RENDERER_URL: http://renderer:8080 }
+
+  renderer:   # Marp CLI in server mode; sees the same media volume (docs/swarm.md render step)
+    image: marpteam/marp-cli@sha256:3cf660df7b9737f875e57f7169dff0b08d1d3ab604ea2d655ab761102942fa42
+    command: ["--server", "--allow-local-files", "."]
+    environment: { MARP_USER: "1000:1000" }
+    volumes: ["media:/home/marp/app"]
+    restart: unless-stopped
+
+  tunnel:     # optional: public reach without opening ports (ADR 0008). `docker compose --profile tunnel up`
+    image: cloudflare/cloudflared:2025.9.1
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment: { TUNNEL_TOKEN: "${CF_TUNNEL_TOKEN:-}" }
+    profiles: [tunnel]
+    restart: unless-stopped
+
 volumes:
   db: {}
+  media: {}
