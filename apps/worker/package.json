@@ -1,0 +1,23 @@
+{
+  "name": "@nearchant/worker",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Swarm worker: runs deck pipeline steps from the Postgres queue, renders, delivers via the outbox.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "deck": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@nearchant/contracts": "workspace:*",
+    "@nearchant/db": "workspace:*",
+    "@nearchant/near": "workspace:*",
+    "@nearchant/providers": "workspace:*",
+    "@nearchant/swarm": "workspace:*",
+    "graphile-worker": "0.18.0",
+    "yaml": "^2.9.1"
+  }
+}

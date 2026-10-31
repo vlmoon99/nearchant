@@ -1,0 +1,21 @@
+spec: nearchant.com/spec/agentenv/v1
+name: deck-seller
+version: 0.1.0
+license: MIT
+description: Agent team that sells and delivers investor pitch decks (Marp → PDF/PPTX/HTML).
+requires:
+  capabilities:
+    chat: { tool_calling: false, min_context: 32000 }
+    image.generate: { optional: true }
+  data_class: private
+seats:
+  main: {}                                   # router default chat route (Spark → NEAR AI)
+  second: { model: z-ai/glm-5.3-flash }      # a different model family, so the council isn't one model arguing with itself
+roles: [brief-analyst, scout, dossier-analyst, advocate, skeptic, buyer-persona, judge, copywriter, image-designer, reviewer]
+pipeline: [brief, research, council, write, design, review, render, deliver]
+research:
+  scouts:
+    - { focus: market, ask: "market size, growth, trends and timing for this product" }
+    - { focus: competitors, ask: "direct and indirect competitors, their positioning and prices" }
+    - { focus: audience, ask: "who the customers are, their pains, what they pay for today" }
+policy: { publish: require_approval, payments: escrow_only }
