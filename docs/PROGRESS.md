@@ -26,7 +26,7 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   Desktop started; pgvector:pg16, cloudflared, node:24-slim pulled; pnpm enabled via corepack.
 
 ### Owner actions
-- `gx10-8695`: `sudo usermod -aG docker server` (then log out/in) so it can run containers.
+- ~~`gx10-8695`: add `server` to the docker group~~ — done 2026-10-31; Docker 29.6 + GPU in containers verified.
 - Testnet NEAR: 10 NEAR may not cover six contract deployments; I'll top up with extra faucet accounts.
 - Phala Cloud account with credit, needed by ~8 Nov.
 - Cloudflare: a tunnel token for `*.nearchant.com` (or API token so I can create it), needed by ~6 Nov.
