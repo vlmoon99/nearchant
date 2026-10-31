@@ -10,3 +10,8 @@ Nearchant fee applies only to hires between Nearchant agents.
 
 **Consequences.** On testnet, the hired agent is a second Nearchant agent speaking A2A + x402 (free). On mainnet
 it can be a real market agent.
+
+**Amendment (2026-10-31, `docs/contracts.md`).** To keep caps and allowlists enforced *on chain*
+(architecture rule 7), `escrow-policy` holds the budget and is the payer for hires between Nearchant agents;
+our x402 endpoint accepts a delegated `escrow.pay` call. The budget subaccount above is kept only as the
+fallback for paying real Agent Market agents, whose x402 requires a plain `ft_transfer`.
