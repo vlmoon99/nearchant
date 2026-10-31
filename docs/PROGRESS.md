@@ -66,6 +66,22 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - **Next:** gateway (Hono): config loading, `/health`, public catalog + order API, handle cache from contract
   events, relayer signing; then the swarm.
 
+## 2026-11-01 ~00:00 UTC — packages/near + gateway skeleton, checkout path live
+
+- **Done:** `packages/near`: failover RPC chain client, relayer-signed calls, `HandleCache` (TTL, negative cache,
+  dedupe, serves a recent record when RPC is down, never older than 24 h), `handleFromHost` (one label only),
+  `TestnetDirectRail`, `oneClickDryQuote` (needs `refundType: INTENTS` for dry quotes). `apps/gateway` (Hono):
+  seller card SSR at `<handle>.<base>` and `/h/<handle>`, 404 card, `/public/catalog`, `POST /public/orders`
+  (returns the ft_transfer_call the buyer signs + live any-chain quote), `GET /public/orders/:id` (marks paid
+  only when the chain shows the order with the right seller and amount, once), CORS allowlist + PNA preflight,
+  CSP `script-src 'self'`. `config/gateway.yaml`, `config/seed.yaml` (demo catalog).
+- **Verified:** 4 near tests, 7 gateway tests. Live: gateway on the Mac read handle `demo` from testnet, created
+  order `o-mvx0nhx3-c4bfca79`, I paid 5 nUSD on testnet, gateway showed `paid` / chain `Held` and fired `onPaid`
+  once. 1Click dry quote live: 5 USDC on NEAR ≈ 5.0567 USDC from Solana, ~20 s.
+- **Not verified / not done:** store is in-memory (Postgres next); no buyer wallet yet (sponsored buyer accounts
+  + in-browser signing); `onPaid` doesn't start the swarm yet.
+- **Next:** Postgres store (Drizzle, pgvector, compose), then the swarm engine and deck producer.
+
 ### Owner actions
 - ~~`gx10-8695`: add `server` to the docker group~~ — done 2026-10-31; Docker 29.6 + GPU in containers verified.
 - Testnet NEAR: root has ~7.9 NEAR after deploying; each sponsored shop costs ~0.2 NEAR. I'll top up from the

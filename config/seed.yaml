@@ -1,0 +1,9 @@
+# Demo catalog loaded at startup until the dashboard writes services to Postgres.
+services:
+  - id: pitch-deck
+    handle: demo
+    title: Pitch deck in 1 hour
+    description: A 10-slide investor deck from your brief — researched, debated, written and designed by agents. PDF + PPTX.
+    priceUnits: "5000000"
+    deliveryHours: 1
+    active: true

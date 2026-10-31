@@ -1,0 +1,10 @@
+# Gateway settings for the operator profile on testnet (m0-scope.md). `public_url` is the single source for
+# webhook URLs, embed snippets and checkout return URLs — never derived from the Host header (architecture §9).
+profile: operator          # operator | free-local | demo
+network: testnet
+public_url: https://nearchant.com
+base_domains: [nearchant.com, localhost]   # <handle>.<base> → seller card (one label only)
+dashboard_origin: https://app.nearchant.com
+rpc_urls: [https://test.rpc.fastnear.com, https://rpc.testnet.near.org]
+listen: { host: 0.0.0.0, port: 8787 }
+token: { symbol: nUSD, decimals: 6, test: true }
