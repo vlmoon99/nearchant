@@ -196,9 +196,18 @@ importers:
       '@nearchant/providers':
         specifier: workspace:*
         version: link:../../packages/providers
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)(postgres@4.0.0)
+      graphile-worker:
+        specifier: 0.18.0
+        version: 0.18.0(supports-color@7.2.0)(typescript@7.0.2)
       hono:
         specifier: 4.13.14
         version: 4.13.14
+      near-api-js:
+        specifier: 7.4.0
+        version: 7.4.0
       yaml:
         specifier: ^2.9.1
         version: 2.9.1
@@ -206,6 +215,9 @@ importers:
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
 
   apps/worker:
     dependencies:
@@ -249,9 +261,15 @@ importers:
 
   packages/db:
     dependencies:
+      '@nearchant/near':
+        specifier: workspace:*
+        version: link:../near
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)(postgres@4.0.0)
+      near-api-js:
+        specifier: 7.4.0
+        version: 7.4.0
       postgres:
         specifier: 4.0.0
         version: 4.0.0
@@ -2374,7 +2392,7 @@ snapshots:
 
   '@types/interpret@1.1.4':
     dependencies:
-      '@types/node': 22.20.5
+      '@types/node': 24.19.2
 
   '@types/json-schema@7.0.15': {}
 

@@ -20,7 +20,7 @@ const Layout: FC<PropsWithChildren<{ title: string; testToken: boolean }>> = ({ 
   </html>
 );
 
-export const CardPage: FC<{ handle: HandleRecord; services: Service[]; price: (units: string) => string; testToken: boolean; base: string }> = ({ handle, services, price, testToken, base }) => (
+export const CardPage: FC<{ handle: HandleRecord; services: Service[]; price: (units: string) => string; testToken: boolean; base: string; cfg: ClientConfig }> = ({ handle, services, price, testToken, base, cfg }) => (
   <Layout title={`${handle.card.name} · Nearchant`} testToken={testToken}>
     <section class="card">
       <h1>{handle.card.name}</h1>
@@ -41,7 +41,7 @@ export const CardPage: FC<{ handle: HandleRecord; services: Service[]; price: (u
           </header>
           <p>{s.description}</p>
           <p class="muted">Delivered within {s.deliveryHours} h · paid into escrow, released when you accept</p>
-          <form class="order" data-service={s.id} data-base={base}>
+          <form class="order" data-service={s.id}>
             <label>
               What do you need?
               <textarea name="brief" required maxlength={4000} rows={4} placeholder="Describe your project, audience and goal"></textarea>
@@ -52,9 +52,80 @@ export const CardPage: FC<{ handle: HandleRecord; services: Service[]; price: (u
         </article>
       ))}
     </section>
-    <script type="module" src="/assets/card.js"></script>
+    <PageConfig base={base} cfg={cfg} />
   </Layout>
 );
+
+export interface ClientConfig { rpcUrl: string; orders: string; network: string }
+
+/** JSON config for /assets/checkout.js (a data block, not a script: CSP-safe). */
+const PageConfig: FC<{ base: string; cfg: ClientConfig }> = ({ base, cfg }) => (
+  <>
+    <script type="application/json" id="nc-config" dangerouslySetInnerHTML={{ __html: JSON.stringify({ base, ...cfg }).replaceAll("<", "\\u003c") }}></script>
+    <script type="module" src="/assets/checkout.js"></script>
+  </>
+);
+
+export interface OrderView {
+  orderId: string;
+  handle: HandleRecord;
+  serviceTitle: string;
+  amountDisplay: string;
+  state: string;
+  chainStatus: string | null;
+  revisionsLeft: boolean;
+  stepsDone: string[];
+  files: { kind: string; url: string }[];
+  stopped: string | null;
+}
+
+const STEP_LABELS: Record<string, string> = {
+  brief: "Understanding your brief", research: "Researching the market", council: "Agent council agreeing on the story",
+  write: "Writing the slides", design: "Designing the cover", review: "Independent review", render: "Rendering PDF and PPTX", deliver: "Recording proof on NEAR",
+};
+
+export const OrderPage: FC<{ o: OrderView; base: string; cfg: ClientConfig; testToken: boolean }> = ({ o, base, cfg, testToken }) => {
+  const html = o.files.find((f) => f.kind === "html");
+  const working = ["paid", "in_progress"].includes(o.state) && o.chainStatus !== "Delivered";
+  return (
+    <Layout title={`Order ${o.orderId} · ${o.handle.card.name}`} testToken={testToken}>
+      <section class="card">
+        <p class="muted"><a href={base}>← {o.handle.card.name}</a></p>
+        <h1>{o.serviceTitle}</h1>
+        <p class="account">Order {o.orderId} · {o.amountDisplay} · escrow: {o.chainStatus ?? "not paid yet"}</p>
+      </section>
+      {o.stopped ? <section class="service"><h2>Stopped</h2><p>{o.stopped}</p><p class="muted">Your payment stays in escrow and is refundable after the delivery deadline.</p></section> : null}
+      {working ? (
+        <section class="service" data-poll-order={o.orderId}>
+          <h2>Agents are working</h2>
+          <ol class="steps">
+            {Object.entries(STEP_LABELS).map(([k, label]) => <li class={o.stepsDone.includes(k) ? "done" : ""}>{label}</li>)}
+          </ol>
+          <p class="muted">This page refreshes by itself.</p>
+        </section>
+      ) : null}
+      {o.state === "awaiting_payment" ? <section class="service"><p>Waiting for payment.</p></section> : null}
+      {o.files.length && ["Delivered", "Released", "RevisionRequested", "RefundRequested", "Disputed", "Refunded"].includes(o.chainStatus ?? "") ? (
+        <section class="service">
+          <h2>Your deck</h2>
+          {html ? <iframe class="preview" src={html.url} sandbox="allow-scripts" title="Deck preview"></iframe> : null}
+          <p>{o.files.filter((f) => f.kind !== "html").map((f) => <a class="dl" href={f.url}>{f.kind.toUpperCase()}</a>)}</p>
+          {o.chainStatus === "Delivered" ? (
+            <p class="actions">
+              <button data-order-action="accept" data-order={o.orderId}>Accept and release payment</button>
+              {o.revisionsLeft
+                ? <button class="secondary" data-order-action="request_revision" data-order={o.orderId}>Request a revision</button>
+                : <button class="secondary" data-order-action="request_refund" data-order={o.orderId}>Request a refund</button>}
+            </p>
+          ) : null}
+          {o.chainStatus === "Released" ? <p>Accepted. The payment was released to {o.handle.account_id}.</p> : null}
+          <output id="order-msg"></output>
+        </section>
+      ) : null}
+      <PageConfig base={base} cfg={cfg} />
+    </Layout>
+  );
+};
 
 export const NotFoundPage: FC<{ testToken: boolean }> = ({ testToken }) => (
   <Layout title="No shop here · Nearchant" testToken={testToken}>
@@ -85,26 +156,11 @@ label { display:grid; gap:4px; font-size:14px; }
 textarea { width:100%; font:inherit; padding:8px; border-radius:8px; border:1px solid var(--line); background:transparent; color:inherit; }
 button { justify-self:start; font:inherit; padding:8px 16px; border-radius:8px; border:0; background:var(--accent); color:#fff; cursor:pointer; }
 output { font-size:14px; white-space: pre-wrap; }
+.steps li { color: var(--muted); } .steps li.done { color: var(--fg); } .steps li.done::marker { content: '✓  '; }
+.preview { width:100%; aspect-ratio: 16/9; border:1px solid var(--line); border-radius:8px; background:#fff; }
+.dl { display:inline-block; margin-right:12px; font-weight:600; }
+.actions { display:flex; gap:8px; flex-wrap:wrap; }
+button.secondary { background: transparent; color: var(--accent); border:1px solid var(--accent); }
+button:disabled { opacity:.6; cursor: default; }
 footer { text-align:center; color:var(--muted); font-size:13px; padding: 24px 16px; }
-`;
-
-/** Card behaviour, served as a file so pages need no inline script (CSP: script-src 'self'). */
-export const CARD_JS = `
-for (const form of document.querySelectorAll("form.order")) {
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const out = form.querySelector("output");
-    out.textContent = "Creating order…";
-    const res = await fetch(form.dataset.base + "public/orders", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ serviceId: form.dataset.service, brief: form.brief.value }),
-    });
-    const j = await res.json();
-    if (!res.ok) { out.textContent = j.error || "Something went wrong"; return; }
-    let text = "Order " + j.orderId + " created. Pay " + j.amountDisplay + " to start.";
-    if (j.anyChainQuote) text += "\\nFrom another chain via NEAR Intents it would cost about " + j.anyChainQuote.amountInFormatted + " " + j.anyChainQuote.label + ".";
-    out.textContent = text;
-  });
-}
 `;

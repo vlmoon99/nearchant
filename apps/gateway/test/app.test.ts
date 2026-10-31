@@ -26,7 +26,7 @@ async function setup(chain: Record<string, OrderStatus | null> = {}) {
   };
   const onPaid = vi.fn(async () => {});
   const deps: Deps = {
-    config, store, rail, onPaid,
+    config, store, rail, onPaid, client: { rpcUrl: "https://rpc", orders: "orders.nearchant.testnet", network: "testnet" },
     handles: { get: async (h) => (h === "alice" ? alice : null) },
     newOrderId: () => "o-test-1",
     anyChainQuote: async () => ({ originAsset: "sol-usdc", amountIn: "5056676", amountInFormatted: "5.056676", amountOut: "5000000", label: "USDC on Solana" }),

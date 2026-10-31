@@ -33,6 +33,20 @@ export class Chain {
     return this.relayerAccount?.accountId;
   }
 
+  /** Sends NEAR from the relayer (creates an implicit account if it doesn't exist). */
+  async transferFromRelayer(receiverId: string, amountNear: string): Promise<void> {
+    if (!this.relayerAccount) throw new Error("no relayer key configured");
+    const [w, f = ""] = amountNear.split(".");
+    const yocto = BigInt(w!) * 10n ** 24n + BigInt((f + "0".repeat(24)).slice(0, 24));
+    await this.relayerAccount.transfer({ receiverId, amount: yocto } as never);
+  }
+
+  /** A function call signed by another account's key (e.g. a seller's agent function-call key). */
+  async callAs<T = unknown>(accountId: string, secretKey: string, contractId: string, methodName: string, args: Record<string, unknown>, gasTgas = 100): Promise<T> {
+    const account = new Account(accountId, this.provider, KeyPairSigner.fromSecretKey(secretKey as KeyPairString));
+    return (await account.callFunction({ contractId, methodName, args, gas: BigInt(gasTgas) * 10n ** 12n, deposit: 0n })) as T;
+  }
+
   /** A function call signed by the relayer. Returns the decoded return value. */
   async call<T = unknown>(contractId: string, methodName: string, args: Record<string, unknown>, opts: { gasTgas?: number; depositYocto?: bigint } = {}): Promise<T> {
     if (!this.relayerAccount) throw new Error("no relayer key configured");
