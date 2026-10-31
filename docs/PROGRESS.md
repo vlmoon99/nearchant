@@ -49,6 +49,23 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - **Next:** monorepo skeleton (pnpm + Turborepo), `spec/schemas` + generated types, router with `nearai`,
   `local` (gx10-8695) and `replay` adapters, then the gateway.
 
+## 2026-11-01 early — monorepo, schemas, router (live)
+
+- **Done:** pnpm + Turborepo workspace (TypeScript 7, Node 24, Vitest 5). `spec/schemas/` (common, result envelope,
+  providers config, usage record) → `packages/contracts` generates TS types and validates with Ajv (ADR 0016).
+  `packages/providers`: capability router (priority routing, privacy tiers, model choice from the live catalog with
+  per-endpoint `model_map`, retry with backoff on 429/5xx only, circuit breaker, NEAR AI attestation pinned before
+  private calls, cost from `prices`), OpenAI-compatible adapter (chat, vision, embed, rerank, images, asr), replay
+  adapter + recorder. `config/providers.yaml`: `spark-8695` (local) → `nearai` (tee).
+- **Verified:** 7 router tests against fake OpenAI servers. Live smoke (`packages/providers/scripts/smoke.mjs`):
+  private chat → spark-8695 Qwen3.6-35B in 394 ms; GLM-5.3-flash via nearai with attestation; embeddings via
+  nearai (dim 1024). Keys from the Keychain (`NEARAI_API_KEY`, `NC_LOCAL_LLM_KEY`).
+- **Not verified:** images, asr, rerank against live NEAR AI; attestation is fetched + hashed, **not**
+  cryptographically verified (envelope says `verified: false`). `prices` empty until checked against NEAR AI's
+  price list, so `costUsd` is 0 for now.
+- **Next:** gateway (Hono): config loading, `/health`, public catalog + order API, handle cache from contract
+  events, relayer signing; then the swarm.
+
 ### Owner actions
 - ~~`gx10-8695`: add `server` to the docker group~~ — done 2026-10-31; Docker 29.6 + GPU in containers verified.
 - Testnet NEAR: root has ~7.9 NEAR after deploying; each sponsored shop costs ~0.2 NEAR. I'll top up from the

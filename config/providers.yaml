@@ -1,0 +1,47 @@
+# Model endpoints and routing for the operator profile (architecture.md §10, ADR 0006).
+# Keys are env var names only; dev scripts fill them from the macOS Keychain.
+endpoints:
+  - id: spark-8695                       # Nearchant's own node (gx10-8695), vLLM
+    base_url: http://100.64.0.13:8010/v1
+    api_key_env: NC_LOCAL_LLM_KEY
+    privacy_tier: local
+    capabilities: [chat]
+    model_map:
+      Qwen/Qwen3.6-35B-A3B-FP8: qwen3.6-35b-a3b
+    extra_body:
+      chat_template_kwargs: { enable_thinking: false }
+    timeout_ms: 180000
+
+  - id: nearai                           # NEAR AI Cloud, TEE models
+    base_url: https://cloud-api.near.ai/v1
+    api_key_env: NEARAI_API_KEY
+    privacy_tier: tee
+    attestation: nearai
+    capabilities: [chat, vision, embed, rerank, image.generate, image.edit, asr]
+    timeout_ms: 180000
+
+routing:
+  chat: [spark-8695, nearai]
+  vision: [nearai]
+  embed: [nearai]                        # one embedding family (architecture.md §6 embedding rule)
+  rerank: [nearai]
+  image.generate: [nearai]
+  image.edit: [nearai]
+  asr: [nearai]
+  private_data_allowed_tiers: [tee, local]
+
+# Tried in order against each endpoint's live catalog; a missing model falls to the next candidate.
+models:
+  chat: [Qwen/Qwen3.6-35B-A3B-FP8]
+  vision: [Qwen/Qwen3.6-35B-A3B-FP8]
+  embed: [Qwen/Qwen3-Embedding-0.6B]
+  rerank: [Qwen/Qwen3-Reranker-0.6B]
+  image.generate: [black-forest-labs/FLUX.2-klein-4B]
+  image.edit: [black-forest-labs/FLUX.2-klein-4B]
+  asr: [openai/whisper-large-v3]
+
+# Second model family for council seats (skeptic, buyer persona): asked for by model id per role.
+#   z-ai/glm-5.3-flash on nearai
+
+# USD prices per model. Left empty until checked against NEAR AI's price list (no guessed prices in config).
+prices: {}

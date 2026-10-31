@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nearchant.com/spec/common.schema.json",
+  "title": "Common",
+  "description": "Shared enums for capability contracts (architecture.md §6).",
+  "$defs": {
+    "Capability": {
+      "type": "string",
+      "enum": ["chat", "vision", "embed", "rerank", "image.generate", "image.edit", "video.generate", "asr", "attest"]
+    },
+    "PrivacyTier": {
+      "description": "tee = attested confidential compute; local = the operator's own machines; public = anything else.",
+      "type": "string",
+      "enum": ["tee", "local", "public"]
+    },
+    "DataClass": {
+      "description": "private = seller or buyer data (only tee/local endpoints); public = web data, prompts with no personal data.",
+      "type": "string",
+      "enum": ["private", "public"]
+    }
+  }
+}

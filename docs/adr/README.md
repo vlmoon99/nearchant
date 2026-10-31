@@ -20,3 +20,4 @@ Changing a default from `CLAUDE.md` or `architecture.md` needs a new ADR here.
 | [0013](0013-replay-provider.md) | Replay provider so judges run the demo with no accounts |
 | [0014](0014-node-24.md) | Node 24 LTS instead of Node 22 |
 | [0015](0015-doc-split.md) | Split the plan into CLAUDE.md, architecture, scope and ADRs |
+| [0016](0016-ajv-from-json-schema.md) | Ajv from the JSON Schemas instead of Zod for boundary validation |

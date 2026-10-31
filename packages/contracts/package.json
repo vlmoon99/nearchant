@@ -1,0 +1,27 @@
+{
+  "name": "@nearchant/contracts",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "TypeScript types and runtime validators generated from spec/schemas (the source of truth).",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "gen": "node scripts/gen.mjs",
+    "build": "node scripts/gen.mjs && tsc -p tsconfig.json",
+    "typecheck": "node scripts/gen.mjs && tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "json-schema-to-typescript": "^16.0.0"
+  }
+}

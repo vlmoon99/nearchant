@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nearchant.com/spec/usage-record.schema.json",
+  "title": "UsageRecord",
+  "description": "One metered call, signed by the gateway. Its hash is a leaf of the Merkle tree settled in the billing contract.",
+  "type": "object",
+  "required": ["recordId", "accountId", "capability", "endpointId", "model", "usage", "costUsd", "chargeUnits", "requestHash", "createdAt"],
+  "additionalProperties": false,
+  "properties": {
+    "recordId": { "type": "string" },
+    "accountId": { "type": "string", "description": "NEAR account billed." },
+    "capability": { "$ref": "common.schema.json#/$defs/Capability" },
+    "endpointId": { "type": "string" },
+    "model": { "type": "string" },
+    "usage": { "$ref": "result-envelope.schema.json#/$defs/Usage" },
+    "costUsd": { "type": "number", "minimum": 0 },
+    "chargeUnits": { "type": "string", "pattern": "^[0-9]+$", "description": "Charge in token base units (U128 string, nUSD 6 decimals)." },
+    "requestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "signature": { "type": "string", "description": "Gateway signature over the canonical record without this field." }
+  }
+}

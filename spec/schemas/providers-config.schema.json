@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nearchant.com/spec/providers-config.schema.json",
+  "title": "ProvidersConfig",
+  "description": "config/providers.yaml: model endpoints and per-capability routing (architecture.md §10).",
+  "type": "object",
+  "required": ["endpoints", "routing"],
+  "additionalProperties": false,
+  "properties": {
+    "endpoints": { "type": "array", "items": { "$ref": "#/$defs/Endpoint" }, "minItems": 1 },
+    "routing": { "$ref": "#/$defs/Routing" },
+    "models": {
+      "description": "Preferred model ids per capability, tried in order against each endpoint's live catalog.",
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    },
+    "prices": {
+      "description": "USD per unit by model id; missing = 0. Units: per 1M input/output tokens, per image.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "inputPerMTok": { "type": "number", "minimum": 0 },
+          "outputPerMTok": { "type": "number", "minimum": 0 },
+          "perImage": { "type": "number", "minimum": 0 },
+          "perAudioMinute": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "Endpoint": {
+      "type": "object",
+      "required": ["id", "base_url", "privacy_tier", "capabilities"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "adapter": { "type": "string", "enum": ["openai-compatible", "replay"], "default": "openai-compatible" },
+        "base_url": { "type": "string" },
+        "api_key_env": { "type": "string", "description": "Name of the env var holding the key; the key itself never goes in config." },
+        "privacy_tier": { "$ref": "common.schema.json#/$defs/PrivacyTier" },
+        "attestation": { "type": "string", "enum": ["nearai", "none"], "default": "none" },
+        "capabilities": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/Capability" }, "minItems": 1 },
+        "discover_models": { "type": "boolean", "default": true },
+        "model_map": {
+          "description": "Rename preferred model ids for this endpoint (e.g. a local served-model-name).",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "timeout_ms": { "type": "integer", "minimum": 100, "default": 120000 },
+        "extra_body": { "type": "object", "description": "Merged into every request body (e.g. chat_template_kwargs)." }
+      }
+    },
+    "Routing": {
+      "type": "object",
+      "required": ["private_data_allowed_tiers"],
+      "properties": {
+        "private_data_allowed_tiers": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/PrivacyTier" } }
+      },
+      "additionalProperties": { "type": "array", "items": { "type": "string" }, "description": "capability → endpoint ids in priority order" }
+    }
+  }
+}

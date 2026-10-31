@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nearchant.com/spec/result-envelope.schema.json",
+  "title": "ResultEnvelope",
+  "description": "What every capability call returns. Billing, the reviewer and the proof log read only this (architecture.md §6).",
+  "type": "object",
+  "required": ["capability", "output", "model", "endpointId", "privacyTier", "usage", "costUsd", "requestHash", "outputHash", "latencyMs", "createdAt"],
+  "additionalProperties": false,
+  "properties": {
+    "capability": { "$ref": "common.schema.json#/$defs/Capability" },
+    "output": { "description": "Capability-specific output (chat message, vectors, image refs, transcript).", "tsType": "unknown" },
+    "model": { "type": "string" },
+    "endpointId": { "type": "string" },
+    "privacyTier": { "$ref": "common.schema.json#/$defs/PrivacyTier" },
+    "usage": { "$ref": "#/$defs/Usage" },
+    "costUsd": { "type": "number", "minimum": 0, "description": "0 for local endpoints." },
+    "attestation": { "$ref": "#/$defs/AttestationRef" },
+    "requestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "outputHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "latencyMs": { "type": "integer", "minimum": 0 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "replayed": { "type": "boolean", "description": "True when served by the replay provider." }
+  },
+  "$defs": {
+    "Usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputTokens": { "type": "integer", "minimum": 0 },
+        "outputTokens": { "type": "integer", "minimum": 0 },
+        "images": { "type": "integer", "minimum": 0 },
+        "videoSeconds": { "type": "number", "minimum": 0 },
+        "audioSeconds": { "type": "number", "minimum": 0 }
+      }
+    },
+    "AttestationRef": {
+      "type": "object",
+      "required": ["kind", "reportHash", "fetchedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["nearai", "dstack"] },
+        "reportHash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "sha256 of the raw attestation report." },
+        "signingAddress": { "type": "string" },
+        "nonce": { "type": "string" },
+        "fetchedAt": { "type": "string", "format": "date-time" },
+        "verified": { "type": "boolean", "description": "False in M0: the report is fetched and pinned, not cryptographically verified." }
+      }
+    }
+  }
+}
