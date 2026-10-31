@@ -1,0 +1,27 @@
+{
+  "name": "@nearchant/db",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "Postgres schema (Drizzle), migrations, stores, outbox, sealed secrets.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.4",
+    "postgres": "4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "drizzle-kit": "^0.31.11"
+  }
+}

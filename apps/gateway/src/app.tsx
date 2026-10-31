@@ -4,7 +4,7 @@ import { handleFromHost, type HandleRecord, type PaymentRail, type DryQuote } fr
 import { formatUnits, type GatewayConfig } from "./config.js";
 import { originOf, publicCors } from "./cors.js";
 import { CARD_JS, CardPage, NotFoundPage, SITE_CSS } from "./pages.js";
-import type { Store } from "./store.js";
+import type { Store } from "@nearchant/db";
 
 export interface Deps {
   config: GatewayConfig;

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { HandleRecord, OrderStatus, PaymentRail } from "@nearchant/near";
 import { createApp, type Deps } from "../src/app.js";
-import { MemoryStore } from "../src/store.js";
+import { MemoryStore } from "@nearchant/db";
 import type { GatewayConfig } from "../src/config.js";
 
 const config: GatewayConfig = {

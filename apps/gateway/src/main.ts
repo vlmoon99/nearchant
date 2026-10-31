@@ -5,7 +5,7 @@ import { parse } from "yaml";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
 import { createApp } from "./app.js";
 import { loadGatewayConfig } from "./config.js";
-import { MemoryStore, type Service } from "./store.js";
+import { MemoryStore, PgStore, connect, runMigrations, type Service, type Store } from "@nearchant/db";
 
 const configDir = resolve(process.env.NEARCHANT_CONFIG_DIR ?? join(import.meta.dirname, "../../../config"));
 const config = loadGatewayConfig(join(configDir, "gateway.yaml"), {
@@ -15,7 +15,15 @@ const config = loadGatewayConfig(join(configDir, "gateway.yaml"), {
 const accounts = loadAccounts(join(configDir, "defaults/accounts.yaml"), config.network);
 const chain = new Chain({ rpcUrls: config.rpc_urls });
 const handles = new HandleCache(chain.view, accounts.root);
-const store = new MemoryStore();
+let store: Store;
+if (process.env.DATABASE_URL) {
+  const conn = connect(process.env.DATABASE_URL);
+  await runMigrations(conn.db);
+  store = new PgStore(conn.db);
+} else {
+  console.warn("[gateway] DATABASE_URL not set: in-memory store (data is lost on restart)");
+  store = new MemoryStore();
+}
 for (const s of (parse(readFileSync(join(configDir, "seed.yaml"), "utf8")) as { services: Service[] }).services) await store.upsertService(s);
 
 // Mainnet asset ids for the display-only any-chain quote, looked up once.

@@ -1,6 +1,6 @@
 import type { FC, PropsWithChildren } from "hono/jsx";
 import type { HandleRecord } from "@nearchant/near";
-import type { Service } from "./store.js";
+import type { Service } from "@nearchant/db";
 
 const Layout: FC<PropsWithChildren<{ title: string; testToken: boolean }>> = ({ title, testToken, children }) => (
   <html lang="en">

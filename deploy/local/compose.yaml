@@ -1,0 +1,18 @@
+# Full local stack (architecture.md §9 scenario B). `make up` starts it; the gateway and worker join in later steps.
+name: nearchant
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: nearchant
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nearchant-dev}
+      POSTGRES_DB: nearchant
+    ports: ["127.0.0.1:55432:5432"]
+    volumes: ["db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nearchant"]
+      interval: 3s
+      retries: 20
+    restart: unless-stopped
+volumes:
+  db: {}
