@@ -1,4 +1,7 @@
-# CLAUDE.md — Nearchant
+# Nearchant — architecture
+
+> **Status (2026-10-31):** the full concept. For the hackathon build, `m0-scope.md` and `adr/` win wherever they
+> differ from this file. Repo rules for agents are in `/CLAUDE.md`.
 
 > **Nearchant** = NEAR + merchant. Concept-stage architecture.
 > Domain: `nearchant.com` · NEAR account: `nearchant.near` (testnet: `nearchant.testnet`).
@@ -6,8 +9,8 @@
 > on your own website, in embeddable widgets and in messenger bots — with crypto payments through
 > NEAR Intents, private TEE inference, and a fully free local mode.
 
-This file is the architecture contract for the repo. Read it before writing code. If a change would
-break a rule here, stop and say so instead of working around it. **We are in the concept phase:**
+This file is the architecture reference. If a change would break a rule here, stop and say so instead of working
+around it. **We are in the concept phase:**
 get the contracts, boundaries and standards right first; features come after.
 
 ---
@@ -99,7 +102,7 @@ Profiles differ only by config, never by code paths.
 **Billing architecture**
 - The gateway writes a usage record per call. These records are batched and settled against the user's on-chain balance periodically, with a Merkle root of the records posted to the `billing` contract, so the user can verify each charge.
 - Usage records are signed by the gateway's TEE key (Phala attestation). The user can prove what the gateway actually ran.
-- Local gateways have billing disabled at compile-time config, not just hidden.
+- `free-local` builds have billing compiled out, not just hidden; the `operator` profile has it on (ADR 0005).
 
 ---
 
@@ -546,7 +549,7 @@ Rule: use NEAR's own standard first. These are the defaults Claude Code must use
 | Tokens | NEP-141 fungible tokens (USDC and others) with NEP-145 storage management |
 | On-chain events | NEP-297 event logs; the indexer and edge cache listen to these |
 | Payments from any chain | NEAR Intents through the 1Click API (`1click.chaindefuser.com`): tokens → dry quote → real quote with deposit address → deposit → status. Confidential Intents where the buyer wants privacy |
-| TEE agents | Shade Agent Framework on Phala/dstack: an agent contract approves the code hash, and only agents running that exact code in a TEE can register |
+| TEE agents | ~~Shade Agent Framework~~ (deprecated, ADR 0002): NEAR AI Cloud attestation + the gateway's Phala/dstack quote |
 | Keys across chains | Chain Signatures (used by Shade Agents for key management) |
 | Inference | NEAR AI Cloud TEE models |
 | Wallet connection in the browser | NEAR Wallet Selector (`@near-wallet-selector/core`, modal UI, React hook) |
@@ -554,7 +557,7 @@ Rule: use NEAR's own standard first. These are the defaults Claude Code must use
 | CLI | `near-cli-rs` |
 | On-chain web hosting (optional) | Web4 (`*.near.page`), with content on IPFS or NEARFS |
 
-**Caution:** NEAR's docs mark the Shade Agent Framework as experimental and testnet-only for now. Use it on testnet for M0 and keep the gateway's own attestation path (§9) working, so we are not blocked on it for mainnet.
+**Note:** the Shade Agent Framework is deprecated (ADR 0002).
 
 ---
 
@@ -649,6 +652,8 @@ Changing a default requires an ADR in `docs/adr/`.
 
 ## 18. Milestones
 
+> **M0 timeline and scope now live in `m0-scope.md`.** The milestone text below is the original concept.
+
 ### Development order: local first
 
 We build and run everything on a **local gateway first**, with **NEAR AI Cloud TEE** as the model provider. Phala hosting comes after the local path works end to end.
@@ -693,5 +698,5 @@ Built in steps 1–2: local gateway + NEAR AI TEE models on testnet. Deploying t
 4. Which messengers come after Telegram.
 5. Whether local endpoints can present a dstack quote and count as the `tee` tier.
 6. Whether seller pages and the dashboard share `nearchant.com` (dashboard at `app.nearchant.com`) or the dashboard moves to a separate domain for stronger cookie isolation.
-7. Who pays the storage deposit for a new handle account: the platform or the seller.
-8. Whether to adopt the Shade Agent Framework for mainnet once it leaves experimental status.
+7. Who pays the storage deposit for a new handle account. Testnet: the platform (ADR 0001); mainnet still open.
+8. ~~Whether to adopt the Shade Agent Framework~~ — closed: dropped (ADR 0002).

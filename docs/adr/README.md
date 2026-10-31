@@ -1,0 +1,22 @@
+# Architecture Decision Records
+
+One file per decision: context, decision, consequences. Status is `accepted` unless marked otherwise.
+Changing a default from `CLAUDE.md` or `architecture.md` needs a new ADR here.
+
+| # | Decision |
+|---|---|
+| [0001](0001-testnet-and-nusd.md) | Develop and demo on testnet with the free `nUSD` test token |
+| [0002](0002-drop-shade-agents.md) | Drop the Shade Agent Framework |
+| [0003](0003-one-demo-story.md) | One demo story: an agent-fulfilled service covering all three money flows |
+| [0004](0004-payment-rail.md) | `PaymentRail` interface: `testnet-direct` and `intents-1click` |
+| [0005](0005-billing-profiles.md) | Billing on in `operator`, compiled out in `free-local` |
+| [0006](0006-local-models-via-inference-system.md) | Local models through the owner's existing inference cluster |
+| [0007](0007-spark-primary-phala-standby.md) | Spark primary, Phala hot standby, manual failover |
+| [0008](0008-wildcard-tunnel.md) | `*.nearchant.com` through one Cloudflare Tunnel, no edge Worker in M0 |
+| [0009](0009-campaign-budget-subaccounts.md) | Flow 3 budgets as subaccounts; fee only between Nearchant agents |
+| [0010](0010-agent-market.md) | NEAR AI Agent Market: list as a self-hosted agent, serve A2A cards |
+| [0011](0011-per-seller-telegram-bots.md) | Telegram: each seller brings their own bot token |
+| [0012](0012-marp-deliverable-and-acceptance.md) | Decks as Marp Markdown; buyer acceptance releases payment |
+| [0013](0013-replay-provider.md) | Replay provider so judges run the demo with no accounts |
+| [0014](0014-node-24.md) | Node 24 LTS instead of Node 22 |
+| [0015](0015-doc-split.md) | Split the plan into CLAUDE.md, architecture, scope and ADRs |
