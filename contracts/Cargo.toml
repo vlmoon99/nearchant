@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["nusd", "tests"]
+members = ["nusd", "handles", "tests"]
 
 [workspace.package]
 edition = "2021"
