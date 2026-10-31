@@ -133,6 +133,36 @@ export function createApp(d: Deps) {
     return c.html(<OrderPage o={o} base={base} cfg={d.client} testToken={d.config.token.test} />);
   });
 
+  // A2A agent card (ADR 0010): lets other agents and the NEAR AI Agent Market discover what this seller's agent does.
+  seller.get("/.well-known/agent-card.json", async (c) => {
+    const h = c.get("handle");
+    if (!h) return c.json({ error: "unknown handle" }, 404);
+    const services = await d.store.listServices(h.handle);
+    const origin = c.req.path.startsWith("/h/") ? `${d.config.public_url}/h/${h.handle}` : `https://${h.handle}.${d.config.base_domains[0]}`;
+    c.header("access-control-allow-origin", "*"); // public metadata, no credentials
+    return c.json({
+      protocolVersion: "0.3.0",
+      name: h.card.name,
+      description: h.card.bio || `${h.card.name} on Nearchant`,
+      url: `${origin}/a2a/v1`,
+      version: "0.1.0",
+      provider: { organization: "Nearchant", url: "https://nearchant.com" },
+      capabilities: { streaming: false, pushNotifications: false },
+      defaultInputModes: ["text/plain"],
+      defaultOutputModes: ["text/markdown", "application/pdf"],
+      skills: services.map((s) => ({
+        id: s.id, name: s.title, description: s.description, tags: ["pitch-deck", "presentation"],
+        examples: ["Seed deck for a coffee subscription startup raising 300k EUR"],
+      })),
+      "x-nearchant": {
+        account_id: h.account_id,
+        network: d.config.network,
+        payment: { token: d.config.token.symbol, test: d.config.token.test, rail: d.rail.id },
+        prices: Object.fromEntries(services.map((s) => [s.id, s.priceUnits])),
+      },
+    });
+  });
+
   seller.get("/public/catalog", async (c) => {
     const h = c.get("handle");
     if (!h) return c.json({ error: "unknown handle" }, 404);

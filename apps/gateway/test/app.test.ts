@@ -58,6 +58,17 @@ describe("seller card", () => {
   });
 });
 
+describe("A2A agent card", () => {
+  it("lists the seller's services as skills", async () => {
+    const { app } = await setup();
+    const card = await (await app.request("http://x/.well-known/agent-card.json", host("alice.nearchant.com"))).json() as any;
+    expect(card.name).toBe("Alice Decks");
+    expect(card.url).toBe("https://alice.nearchant.com/a2a/v1");
+    expect(card.skills[0].id).toBe("deck");
+    expect(card["x-nearchant"].account_id).toBe("alice.nearchant.testnet");
+  });
+});
+
 describe("CORS on /public/*", () => {
   it("reflects only allowlisted origins, never *", async () => {
     const { app } = await setup();
