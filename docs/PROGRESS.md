@@ -17,6 +17,13 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   vs the grilling session: `escrow-policy` holds campaign budgets and is the payer, so spend caps stay on chain;
   budget subaccounts remain only for paying real market agents (ADR 0009 amendment). **Owner: please review.**
 - Next (from 2026-11-01 00:00 UTC): cargo workspace `contracts/`, nusd + handles first, sandbox tests.
+- Toolchain checked in a scratch folder outside the repo (no project code before the window): `cargo near build`
+  works; a `near-workspaces` 0.24 sandbox test passes on this Mac (arm64). Gotchas for the real workspace:
+  (1) near-sdk 5.30's `unit-testing` feature fails to resolve (`near-vm-runner` is prerelease-only) → no unit-test
+  feature, test through the sandbox; (2) sandbox tests live in a separate `contracts/tests` crate that reads the
+  built `.wasm`, because building the contract crate for the host is a compile error.
+- testnet balance topped up to ~20 NEAR (throwaway faucet accounts deleted into `nearchant.testnet`). Docker
+  Desktop started; pgvector:pg16, cloudflared, node:24-slim pulled; pnpm enabled via corepack.
 
 ### Owner actions
 - `gx10-8695`: `sudo usermod -aG docker server` (then log out/in) so it can run containers.
