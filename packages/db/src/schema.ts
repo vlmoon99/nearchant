@@ -80,3 +80,133 @@ export const a2aPayments = pgTable("a2a_payments", {
   result: text("result"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------- M1: the content store (ADR 0018). Keyed by the shop handle (= its NEAR account prefix). ----------
+
+/** A seller's business: what they sell and how AI should talk about it. */
+export const businesses = pgTable("businesses", {
+  handle: text("handle").primaryKey(),
+  name: text("name").notNull(),
+  /** products | services | both */
+  kind: text("kind").notNull().default("products"),
+  description: text("description").notNull().default(""),
+  /** Instagram / Telegram / website links the owner gave us (read as data, never as instructions). */
+  links: jsonb("links").notNull().default(sql`'[]'::jsonb`),
+  language: text("language").notNull().default("en"),
+  timezone: text("timezone").notNull().default("Europe/Kyiv"),
+  plan: text("plan").notNull().default("free"),
+  onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** "What we found": the AI's profile of the business (Boost Content `profile` shape) + facts shown while it works. */
+export const profiles = pgTable("profiles", {
+  handle: text("handle").primaryKey(),
+  /** none | analyzing | ready | failed */
+  status: text("status").notNull().default("none"),
+  data: jsonb("data").notNull().default(sql`'{}'::jsonb`),
+  facts: jsonb("facts").notNull().default(sql`'[]'::jsonb`),
+  /** Learned from the owner's picks and edits (likes, dislikes, voice). */
+  learned: jsonb("learned").notNull().default(sql`'{}'::jsonb`),
+  error: text("error"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Things a store sells: a product (shipped) or a service (done). Prices in token base units. */
+export const items = pgTable("items", {
+  id: text("id").primaryKey(),
+  handle: text("handle").notNull(),
+  kind: text("kind").notNull().default("product"),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  priceUnits: text("price_units").notNull(),
+  options: jsonb("options").notNull().default(sql`'[]'::jsonb`),
+  photoMediaId: text("photo_media_id"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("items_handle").on(t.handle)]);
+
+/** Photos the owner uploaded and images AI made. `key` is a path under MEDIA_DIR. */
+export const media = pgTable("media", {
+  id: text("id").primaryKey(),
+  handle: text("handle").notNull(),
+  /** photo | generated */
+  kind: text("kind").notNull(),
+  key: text("key").notNull(),
+  contentType: text("content_type").notNull(),
+  sha256: text("sha256").notNull(),
+  itemId: text("item_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("media_handle").on(t.handle)]);
+
+/** Ways to sell more that AI found (trend, price, upsell, channel), each with an honest estimate. */
+export const opportunities = pgTable("opportunities", {
+  id: text("id").primaryKey(),
+  handle: text("handle").notNull(),
+  kind: text("kind").notNull(),
+  title: text("title").notNull(),
+  why: text("why").notNull(),
+  /** Estimated extra revenue per month in token base units; an estimate, never a promise. */
+  estimateUnits: text("estimate_units").notNull().default("0"),
+  data: jsonb("data").notNull().default(sql`'{}'::jsonb`),
+  chosen: boolean("chosen").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("opportunities_handle").on(t.handle)]);
+
+/** A post AI made: options in a batch → the owner keeps some → scheduled → published (with a proof on NEAR). */
+export const posts = pgTable("posts", {
+  id: text("id").primaryKey(),
+  handle: text("handle").notNull(),
+  batchId: text("batch_id").notNull(),
+  /** queued | writing | rendering | ready | failed | scheduled | published */
+  status: text("status").notNull().default("queued"),
+  opportunityId: text("opportunity_id"),
+  itemId: text("item_id"),
+  idea: jsonb("idea").notNull().default(sql`'{}'::jsonb`),
+  caption: text("caption"),
+  hashtags: jsonb("hashtags").notNull().default(sql`'[]'::jsonb`),
+  imageMediaId: text("image_media_id"),
+  sourceMediaId: text("source_media_id"),
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  /** {sha256, proofId, tx} once recorded on proof-log. */
+  proof: jsonb("proof"),
+  chosenAt: timestamp("chosen_at", { withTimezone: true }),
+  passedAt: timestamp("passed_at", { withTimezone: true }),
+  quotaMonth: text("quota_month").notNull(),
+  error: text("error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("posts_handle").on(t.handle, t.createdAt), index("posts_batch").on(t.batchId)]);
+
+/** What the owner did with AI output (chose, passed, edited, copied): feeds the learn step. */
+export const signals = pgTable("signals", {
+  id: serial("id").primaryKey(),
+  handle: text("handle").notNull(),
+  postId: text("post_id"),
+  kind: text("kind").notNull(),
+  data: jsonb("data").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("signals_handle").on(t.handle, t.id)]);
+
+/** Analytics events: store views, post views, clicks, orders, sales. */
+export const events = pgTable("events", {
+  id: serial("id").primaryKey(),
+  handle: text("handle").notNull(),
+  kind: text("kind").notNull(),
+  postId: text("post_id"),
+  itemId: text("item_id"),
+  orderId: text("order_id"),
+  /** Where the visitor came from (telegram, instagram, direct, …). */
+  source: text("source"),
+  data: jsonb("data").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("events_handle").on(t.handle, t.createdAt)]);
+
+/** Posts and images used per month, for plan limits (Boost Content's reserve/refund). */
+export const usageMonthly = pgTable("usage_monthly", {
+  handle: text("handle").notNull(),
+  month: text("month").notNull(),
+  posts: integer("posts").notNull().default(0),
+  images: integer("images").notNull().default(0),
+}, (t) => [primaryKey({ columns: [t.handle, t.month] })]);
