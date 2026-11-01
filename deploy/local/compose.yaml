@@ -73,7 +73,6 @@ services:
   demo-renderer:
     image: marpteam/marp-cli@sha256:3cf660df7b9737f875e57f7169dff0b08d1d3ab604ea2d655ab761102942fa42
     command: ["--server", "--allow-local-files", "."]
-    environment: { MARP_USER: "${DEMO_UID:-1000}:${DEMO_GID:-1000}" }
     volumes: ["../../.media:/home/marp/app"]
     profiles: [demo]
 

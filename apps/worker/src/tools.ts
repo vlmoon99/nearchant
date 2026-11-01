@@ -40,7 +40,13 @@ export function marpServerRender(rendererUrl: string, media: ReturnType<typeof l
     const files: Rendered["files"] = [{ kind: "md", name: "deck.md", sha256: sha(Buffer.from(local)), url: mdUrl }];
     for (const kind of ["pdf", "pptx", "html"] as const) {
       const q = kind === "html" ? "" : `?${kind}`;
-      const res = await fetch(`${rendererUrl.replace(/\/+$/, "")}/${orderId}/deck.md${q}`, { signal: AbortSignal.timeout(120_000) });
+      let res: Response | null = null;
+      for (let attempt = 0; attempt < 10 && !res; attempt++) {
+        // The renderer may still be starting (compose `run`, cold container): retry connection errors briefly.
+        res = await fetch(`${rendererUrl.replace(/\/+$/, "")}/${orderId}/deck.md${q}`, { signal: AbortSignal.timeout(120_000) })
+          .catch(async (e: Error) => { if (attempt === 9) throw e; await new Promise((r) => setTimeout(r, 2000)); return null; });
+      }
+      if (!res) throw new Error(`render ${kind}: renderer unreachable`);
       if (!res.ok) throw new Error(`render ${kind}: ${res.status}`);
       const bytes = new Uint8Array(await res.arrayBuffer());
       const name = `deck.${kind}`;
