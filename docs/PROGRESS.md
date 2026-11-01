@@ -476,6 +476,16 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   logged "render with lab model qie2511-l4" and came back ready.
 - Next: video variants on Comfy Cloud (Wan 2.2 TI2V 5B / I2V 14B, LTX-2.x) in the lab, then step 11 storefront.
 
+## 2026-11-01 ~20:50 UTC — image lab: video on Comfy Cloud (Wan 2.2 TI2V 5B)
+
+- `config/image-lab/wan22_ti2v.json` (Wan22ImageToVideoLatent with the product photo as start frame, umt5 fp8,
+  wan2.2 VAE, ModelSamplingSD3 shift 8, uni_pc 20 steps, SaveWEBM vp9 24 fps) + variant `wan22-ti2v5b`
+  (`output: video`). The Comfy client now finds any output file (images, WEBM, video); the lab shows videos.
+- **Verified**: Fair Isle sweater photo → 704×1280, 121 frames (5 s) in 134 s; the model turns and smiles, the
+  knit pattern stays intact across frames. Video can be tested on cloud credits while the Sparks are offline.
+- Next: step 11 storefront; later more video variants (Wan 2.2 I2V 14B + lightx2v 4-step LoRAs, LTX-2.x) and the
+  short assembly (English Kokoro voiceover + captions, docs/video-plan.md).
+
 ### Owner actions
 - **URGENT (1 Nov ~18:00 UTC): all three Sparks offline** (no ping/SSH; nearchant.com 530) — likely power or
   network at the site. `gx10-c3c8` went silent first (~17:30, during a video render). Check power/network; power-

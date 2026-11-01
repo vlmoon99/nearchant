@@ -37,7 +37,7 @@ button:disabled{opacity:.5}.batch{margin:24px 0}.grid{display:grid;grid-template
 
 const JS = `const $=s=>document.querySelector(s);
 async function load(){const r=await fetch('/api/runs').then(x=>x.json());const by={};for(const x of r.runs)(by[x.batchId]??=[]).push(x);
-$('#results').innerHTML=Object.entries(by).map(([b,rs])=>'<div class="batch"><div class="meta">'+new Date(rs[0].createdAt).toLocaleString()+' — '+rs[0].prompt.replace(/</g,'&lt;')+'</div><div class="grid">'+rs.map(x=>'<div class="run">'+(x.outputKey?'<img src="/out/'+x.id+'">':'<img alt="">')+'<b>'+x.label+'</b><span class="meta">'+x.status+(x.elapsedMs?' · '+(x.elapsedMs/1000).toFixed(1)+' s':'')+(x.error?' · '+x.error.replace(/</g,'&lt;'):'')+'</span>'+(x.outputKey?'<div class="row">'+[[-1,'👎'],[1,'👍'],[2,'⭐ best']].map(([v,l])=>'<button data-rate="'+x.id+'" data-v="'+v+'" class="'+(x.rating==v?'on':'')+'">'+l+'</button>').join('')+'<button data-use="'+x.variant+'">Use in production</button></div>':'')+'</div>').join('')+'</div></div>').join('');
+$('#results').innerHTML=Object.entries(by).map(([b,rs])=>'<div class="batch"><div class="meta">'+new Date(rs[0].createdAt).toLocaleString()+' — '+rs[0].prompt.replace(/</g,'&lt;')+'</div><div class="grid">'+rs.map(x=>'<div class="run">'+(x.outputKey?(x.outputKey.endsWith('.webm')?'<video src="/out/'+x.id+'" autoplay loop muted playsinline style="width:100%;border-radius:12px"></video>':'<img src="/out/'+x.id+'">'):'<img alt="">')+'<b>'+x.label+'</b><span class="meta">'+x.status+(x.elapsedMs?' · '+(x.elapsedMs/1000).toFixed(1)+' s':'')+(x.error?' · '+x.error.replace(/</g,'&lt;'):'')+'</span>'+(x.outputKey?'<div class="row">'+[[-1,'👎'],[1,'👍'],[2,'⭐ best']].map(([v,l])=>'<button data-rate="'+x.id+'" data-v="'+v+'" class="'+(x.rating==v?'on':'')+'">'+l+'</button>').join('')+'<button data-use="'+x.variant+'">Use in production</button></div>':'')+'</div>').join('')+'</div></div>').join('');
 document.querySelectorAll('[data-rate]').forEach(b=>b.onclick=async()=>{await fetch('/api/runs/'+b.dataset.rate+'/rate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({rating:Number(b.dataset.v)})});load()});
 document.querySelectorAll('[data-use]').forEach(b=>b.onclick=async()=>{await fetch('/api/default',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({variant:b.dataset.use})});location.reload()});
 if(r.runs.some(x=>x.status==='queued'||x.status==='running'))setTimeout(load,3000)}
@@ -63,7 +63,7 @@ export function labApp(d: LabDeps): Hono {
   app.get("/out/:id", async (c) => {
     const r = (await d.db.select().from(schema.labRuns).where(eq(schema.labRuns.id, c.req.param("id"))))[0];
     const bytes = r?.outputKey ? await readFile(join(d.mediaDir, r.outputKey)).catch(() => null) : null;
-    return bytes ? c.body(bytes, 200, { "content-type": "image/png" }) : c.notFound();
+    return bytes ? c.body(bytes, 200, { "content-type": r!.outputKey!.endsWith(".webm") ? "video/webm" : "image/png" }) : c.notFound();
   });
   app.post("/api/runs/:id/rate", async (c) => {
     const rating = Number(((await c.req.json().catch(() => ({}))) as { rating?: number }).rating);
@@ -100,7 +100,7 @@ export function labApp(d: LabDeps): Hono {
         try {
           const wf = fillWorkflow(d.workflows[v.workflow] as never, { prompt, ref, seed, width: w, height: h, set: v.set });
           const png = await d.comfy!.run(wf);
-          const key = `_lab/${id}.png`;
+          const key = `_lab/${id}.${v.output === "video" ? "webm" : "png"}`;
           await writeFile(join(d.mediaDir, key), png);
           await d.db.update(schema.labRuns).set({ status: "done", outputKey: key, elapsedMs: Date.now() - t0 }).where(eq(schema.labRuns.id, id));
         } catch (e) {

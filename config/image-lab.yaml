@@ -44,3 +44,8 @@ variants:
     workflow: flux2_edit.json
     needs_photo: true
     set: { "1.unet_name": flux-2-klein-9b.safetensors, "2.clip_name": qwen_3_8b_fp8mixed.safetensors }
+  - id: wan22-ti2v5b
+    label: "VIDEO · Wan 2.2 TI2V 5B · 5 s from the photo, 20 steps (Apache-2.0)"
+    workflow: wan22_ti2v.json
+    needs_photo: true
+    output: video

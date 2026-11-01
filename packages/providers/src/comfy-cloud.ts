@@ -1,7 +1,7 @@
 // Comfy Cloud client (ported from inference_system/services/image/app.py): upload → prompt → poll → signed file.
 // Used by the admin image lab to compare models on the owner's Comfy Cloud credits.
 
-export interface LabVariant { id: string; label: string; workflow: string; needs_photo: boolean; set?: Record<string, string | number> }
+export interface LabVariant { id: string; label: string; workflow: string; needs_photo: boolean; set?: Record<string, string | number>; output?: "image" | "video" }
 
 export class ComfyError extends Error {
   constructor(message: string, public readonly status?: number) { super(message); }
@@ -50,8 +50,10 @@ export class ComfyCloud {
       if (s.status) onStatus?.(s.status);
       if (!s.status || !["success", "error", "non_retryable_error", "lost", "cancelled"].includes(s.status)) continue;
       if (s.status !== "success") throw new ComfyError(`job ended as ${s.status}`);
-      const job = (await (await this.fetchFn(`${this.base}/jobs/${pid}`, { headers: this.h() })).json()) as { outputs?: Record<string, { images?: { filename: string; subfolder?: string; type?: string }[] }> };
-      const im = Object.values(job.outputs ?? {}).flatMap((o) => o.images ?? [])[0];
+      type File = { filename: string; subfolder?: string; type?: string };
+      const job = (await (await this.fetchFn(`${this.base}/jobs/${pid}`, { headers: this.h() })).json()) as { outputs?: Record<string, Record<string, unknown>> };
+      // Images, animated WEBP/WEBM and videos are all listed as files under some output key.
+      const im = Object.values(job.outputs ?? {}).flatMap((o) => Object.values(o).filter(Array.isArray).flat() as File[]).find((f) => f && typeof f.filename === "string");
       if (!im) throw new ComfyError("job has no picture");
       const q = new URLSearchParams({ filename: im.filename, subfolder: im.subfolder ?? "", type: im.type ?? "output" });
       const v = await this.fetchFn(`${this.base}/view?${q}`, { headers: this.h(), redirect: "manual" });
