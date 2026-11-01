@@ -231,6 +231,22 @@ describe("format failures", () => {
   });
 });
 
+describe("redaction after the last round", () => {
+  it("removes exactly the quoted lines and ships", async () => {
+    const stubborn = fakeRouter({ reviewer: () => ({ blocking: [{ slide: 7, quote: "Two founders, roaster + growth", problem: "x", fix: "y" }], suggestions: [], untraced_claims: [], score: 6 }) });
+    const { d, store } = deps(stubborn);
+    expect((await runPipeline(d, "r1", "seed deck please, coffee")).status).toBe("done");
+    const rv = store.get("r1/review") as { markdown: string; redacted: string[] };
+    expect(rv.redacted).toEqual(["- Two founders, roaster + growth"]);
+    expect(rv.markdown).not.toContain("Two founders");
+  });
+
+  it("stops if a quote can't be found", async () => {
+    const vague = fakeRouter({ reviewer: () => ({ blocking: [{ slide: 2, quote: "text that is not on any slide", problem: "x", fix: "y" }], suggestions: [], untraced_claims: [], score: 6 }) });
+    expect((await runPipeline(deps(vague).d, "r2", "seed deck please, coffee")).status).toBe("stopped");
+  });
+});
+
 describe("helpers", () => {
   it("counts slides and citations", () => {
     expect(slideCount(DECK)).toBe(7);
