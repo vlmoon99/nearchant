@@ -57,6 +57,8 @@ export interface Deps {
     save: (paymentId: string, result: string) => Promise<void>;
     execute: (handle: HandleRecord, service: Service, text: string, paymentId: string) => Promise<string>;
   };
+  /** Store the buyer's "what to change" note for a revision (read by the write step). */
+  saveRevisionNote?: (orderId: string, note: string) => Promise<void>;
   /** Job progress + files of an order (from the artifacts table). */
   progress?: (orderId: string) => Promise<{ stepsDone: string[]; files: { kind: string; url: string }[]; stopped: string | null }>;
 }
@@ -160,6 +162,21 @@ export function createApp(d: Deps) {
     if (!h) return c.html(<NotFoundPage testToken={d.config.token.test} />, 404);
     // Private numbers and order ids load only after the seller signs (security review H3).
     return c.html(<ManagePage handle={h} cfg={d.client} testToken={d.config.token.test} />);
+  });
+
+  const noteLimit = new RateLimit(20, 3_600_000);
+  seller.post("/public/orders/:id/revision-note", async (c) => {
+    const h = c.get("handle");
+    const row = await d.store.getOrder(c.req.param("id"));
+    if (!h || !row || row.handle !== h.handle || !d.saveRevisionNote) return c.json({ error: "unknown order" }, 404);
+    if (!noteLimit.take(ipOf(c))) return c.json({ error: "too many requests" }, 429);
+    const chain = await d.rail.status(row.orderId).catch(() => null);
+    if (chain?.status !== "Delivered") return c.json({ error: "revisions can be requested only for a delivered order" }, 409);
+    const b = (await c.req.json().catch(() => null)) as { note?: unknown } | null;
+    const note = typeof b?.note === "string" ? b.note.trim().slice(0, 1000) : "";
+    if (note.length < 3) return c.json({ error: "say briefly what to change" }, 400);
+    await d.saveRevisionNote(row.orderId, note);
+    return c.json({ saved: true });
   });
 
   seller.get("/o/:id", async (c) => {

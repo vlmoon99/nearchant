@@ -89,6 +89,12 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("button[data-order-
     b.disabled = true;
     try {
       const account = await buyerAccount();
+      if (b.dataset.orderAction === "request_revision") {
+        const note = document.querySelector<HTMLTextAreaElement>("#revision-note")?.value.trim() ?? "";
+        if (note.length < 3) { out.textContent = "Say briefly what should change."; b.disabled = false; return; }
+        const r = await fetch(`${cfg.base}public/orders/${b.dataset.order}/revision-note`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ note }) });
+        if (!r.ok) { out.textContent = (await r.json()).error ?? "Could not save the note"; b.disabled = false; return; }
+      }
       out.textContent = "Signing…";
       await account.callFunction({ contractId: cfg.orders, methodName: b.dataset.orderAction!, args: { order_id: b.dataset.order }, gas: 100n * 10n ** 12n });
       out.textContent = "Done. Refreshing…";

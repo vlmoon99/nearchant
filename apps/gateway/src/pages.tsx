@@ -116,7 +116,8 @@ export const OrderPage: FC<{ o: OrderView; base: string; cfg: ClientConfig; test
             <p class="actions">
               <button data-order-action="accept" data-order={o.orderId}>Accept and release payment</button>
               {o.revisionsLeft
-                ? <button class="secondary" data-order-action="request_revision" data-order={o.orderId}>Request a revision</button>
+                ? <><textarea id="revision-note" rows={2} maxlength={1000} placeholder="What should change? (for a revision)"></textarea>
+                    <button class="secondary" data-order-action="request_revision" data-order={o.orderId}>Request a revision</button></>
                 : <button class="secondary" data-order-action="request_refund" data-order={o.orderId}>Request a refund</button>}
             </p>
           ) : null}

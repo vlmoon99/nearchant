@@ -200,6 +200,19 @@ describe("flow 3: hiring", () => {
   });
 });
 
+describe("revision note", () => {
+  it("the copywriter sees the buyer's requested changes", async () => {
+    const router = fakeRouter();
+    const seen: string[] = [];
+    const inner = router.call.bind(router);
+    router.call = async (req) => { seen.push(JSON.stringify(req.input)); return inner(req); };
+    const { d, store } = deps(router);
+    store.set("n1/revision_note", { note: "add a retention slide" });
+    await runPipeline(d, "n1", "seed deck please, coffee");
+    expect(seen.some((x) => x.includes("You write the deck as Marp") && x.includes("add a retention slide"))).toBe(true);
+  });
+});
+
 describe("degraded modes", () => {
   it("falls back to the main seat when the second-family model is unreachable", async () => {
     const router = fakeRouter();

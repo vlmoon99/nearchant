@@ -213,11 +213,15 @@ const app = createApp({
       execute: executeA2a,
     },
   } : {}),
+  saveRevisionNote: artifacts ? async (orderId: string, note: string) => {
+    await artifacts!.clear(orderId, "revision_note");
+    await artifacts!.put(orderId, "revision_note", { note, at: new Date().toISOString() });
+  } : undefined,
   progress: artifacts
     ? async (orderId) => {
         const all = (await artifacts!.all(orderId)) as Record<string, any>;
         const files = ((all.render?.files ?? []) as { kind: string; url: string }[]).filter((f) => f.kind !== "md");
-        return { stepsDone: Object.keys(all), files, stopped: all.stopped ? `${all.stopped.kind}: ${all.stopped.reason}`.slice(0, 400) : null };
+        return { stepsDone: Object.keys(all).filter((k) => k !== "revision_note"), files, stopped: all.stopped ? `${all.stopped.kind}: ${all.stopped.reason}`.slice(0, 400) : null };
       }
     : undefined,
   onPaid: async (id) => {

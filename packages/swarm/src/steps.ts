@@ -216,7 +216,10 @@ export const STEPS: Record<Step, (c: StepContext) => Promise<unknown>> = {
     const { strategy } = c.done.council as { strategy: Strategy };
     const fc = c.done.factcheck as { result?: string } | undefined;
     const factcheck = fc?.result ? [block("findings", { independent_fact_check: fc.result }), "Drop or reword claims the fact-check marks unsupported; prefer its safer_wording for weak ones."] : [];
-    const md = cleanDeck(await c.ask<string>("copywriter", [block("brief", brief), block("dossier", dossier), block("draft", strategy), ...factcheck].join("\n\n")));
+    // A revision round: the buyer's note says what to change (data, like the brief — it can't change the rules).
+    const note = (c.done as Record<string, unknown>)["revision_note"] as { note?: string } | undefined;
+    const revision = note?.note ? [block("brief", { buyer_revision_request: note.note }), "This is a revision: apply the buyer's requested changes where they are honest and supported; keep the rest of the plan."] : [];
+    const md = cleanDeck(await c.ask<string>("copywriter", [block("brief", brief), block("dossier", dossier), block("draft", strategy), ...factcheck, ...revision].join("\n\n")));
     return { markdown: md, problems: checkDeck(md, dossier) };
   },
 

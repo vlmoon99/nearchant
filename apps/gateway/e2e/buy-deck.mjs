@@ -27,6 +27,7 @@ log(`delivered: ${await page.locator("p.account").textContent()}`);
 const links = await page.locator("a.dl").evaluateAll((as) => as.map((a) => a.href));
 log(`downloads: ${links.join(", ")}`);
 if (revise) {
+  await page.fill("#revision-note", "Add a slide on the subscription retention plan and make the ask slide more concrete.");
   await page.click("button[data-order-action=request_revision]");
   await page.waitForSelector("text=Agents are working", { timeout: 30 * 60_000 }); // escrow timer picks it up (≤10 min)
   log("revision requested; agents are reworking");
