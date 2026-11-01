@@ -170,7 +170,8 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     const opportunityIds = (Array.isArray(b.opportunityIds) ? b.opportunityIds : []).map(String);
     const ideas = Array.from({ length: n }, (_, i) => ({ opportunityId: opportunityIds[i % Math.max(opportunityIds.length, 1)] ?? null, itemId: b.itemId ? String(b.itemId) : null, idea: { about: String(b.about ?? "").slice(0, 300) } }));
     try {
-      const { batchId, ids } = await d.content.createPosts(handle, ideas);
+      const plan = (await d.content.getBusiness(handle))?.plan ?? "free"; // a Pro store gets Pro limits
+      const { batchId, ids } = await d.content.createPosts(handle, ideas, plan);
       await d.enqueue("generate_posts", { handle, batchId }, `posts:${batchId}`);
       return c.json({ batchId, ids }, 202);
     } catch (e) {
@@ -205,7 +206,7 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     if (!["ready", "scheduled", "published"].includes(p.status) || !(p.imageMediaId ?? p.sourceMediaId)) return c.json({ error: "the post needs a picture first" }, 409);
     const v = ((p.idea ?? {}) as { video?: { status?: string } }).video;
     if (v && ["writing", "rendering"].includes(v.status ?? "")) return c.json({ status: v.status }, 202);
-    try { await d.content.reserve(handle, 0, 3); }
+    try { await d.content.reserve(handle, 0, 3, (await d.content.getBusiness(handle))?.plan ?? "free"); }
     catch (e) { if (e instanceof QuotaExceeded) return c.json({ error: e.message, code: "quota_exceeded" }, 402); throw e; }
     await d.content.updatePost(p.id, { idea: { ...(p.idea as object), video: { status: "writing" } } });
     await d.enqueue("make_video", { postId: p.id }, `video:${p.id}:${now()}`);

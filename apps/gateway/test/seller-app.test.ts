@@ -12,7 +12,7 @@ const nova = { handle: "nova", account_id: "nova.nearchant.testnet" } as HandleR
 
 /** In-memory stand-in for ContentStore: only what the API touches. */
 function fakeContent() {
-  const db = { business: new Map<string, any>(), profile: new Map<string, any>(), media: [] as any[], posts: [] as any[], signals: [] as any[], quota: 12 };
+  const db = { lastPlan: undefined as string | undefined, business: new Map<string, any>(), profile: new Map<string, any>(), media: [] as any[], posts: [] as any[], signals: [] as any[], quota: 12 };
   const c: Partial<SellerContent> = {
     upsertBusiness: async (b) => { db.business.set(b.handle, b); if (!db.profile.has(b.handle)) db.profile.set(b.handle, { status: "none", facts: [] }); },
     getBusiness: async (h) => db.business.get(h) ?? null,
@@ -21,7 +21,7 @@ function fakeContent() {
     addMedia: async (m) => { const id = `m${db.media.length}`; db.media.push({ id, ...m }); return id; },
     listMedia: async (h, k) => db.media.filter((m) => m.handle === h && (!k || m.kind === k)),
     usage: async () => ({ posts: 12 - db.quota, images: 0 }),
-    createPosts: async (h, ideas) => { if (ideas.length > db.quota) throw new QuotaExceeded("posts", 12); db.quota -= ideas.length; const ids = ideas.map((_, i) => `p${db.posts.length + i}`); ids.forEach((id) => db.posts.push({ id, handle: h, status: "ready" })); return { batchId: "b1", ids }; },
+    createPosts: async (h, ideas, plan) => { db.lastPlan = plan; if (ideas.length > db.quota) throw new QuotaExceeded("posts", 12); db.quota -= ideas.length; const ids = ideas.map((_, i) => `p${db.posts.length + i}`); ids.forEach((id) => db.posts.push({ id, handle: h, status: "ready" })); return { batchId: "b1", ids }; },
     getPost: async (id) => db.posts.find((p) => p.id === id) ?? null,
     updatePost: async (id, p) => { Object.assign(db.posts.find((x) => x.id === id), p); },
     addSignal: async (h, postId, kind) => { db.signals.push({ h, postId, kind }); },
@@ -193,5 +193,12 @@ describe("seller API", () => {
     db.posts.push({ id: "c0", handle: "nova", status: "ready", caption: "old", idea: {} });
     expect((await app.request("http://x/api/app/posts/c0/caption", post({ caption: "50% off today!" }, cookie))).status).toBe(200);
     expect(jobs.at(-1)).toEqual({ task: "check_post", payload: { postId: "c0" } });
+  });
+
+  it("uses the store's plan for the monthly limits", async () => {
+    const { app, cookie, db } = setup();
+    db.business.set("nova", { handle: "nova", name: "Nova", plan: "pro" });
+    await app.request("http://x/api/app/posts", post({ n: 1 }, cookie));
+    expect(db.lastPlan).toBe("pro");
   });
 });
