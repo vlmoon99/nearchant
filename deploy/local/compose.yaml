@@ -34,13 +34,13 @@ services:
   gateway:
     <<: *app
     command: ["node", "apps/gateway/dist/main.js"]
-    ports: ["127.0.0.1:8787:8787"]
+    ports: ["${GATEWAY_BIND:-127.0.0.1}:8787:8787"]
     environment: { <<: *appenv, PORT: "8787" }
 
   worker:
     <<: *app
     command: ["node", "apps/worker/dist/main.js"]
-    environment: { <<: *appenv, RENDERER_URL: http://renderer:8080 }
+    environment: { <<: *appenv, RENDERER_URL: http://renderer:8080, FACTCHECK_A2A_URL: "http://gateway:8787/h/verity/a2a/v1" }
 
   renderer:   # Marp CLI in server mode; sees the same media volume (docs/swarm.md render step)
     image: marpteam/marp-cli@sha256:3cf660df7b9737f875e57f7169dff0b08d1d3ab604ea2d655ab761102942fa42

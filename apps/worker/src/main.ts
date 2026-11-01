@@ -58,7 +58,7 @@ const deckStep: Task = async (payload, helpers) => {
         pay: (payTo, amount, memo) => chain.callAs(accountId, key, accounts.escrow, "pay", { campaign_id: `${order.handle}-main`, payee_id: payTo, amount, memo }, 100),
         paymentStatus: async (id) => (await chain.view<{ status: string } | null>(accounts.escrow, "get_payment", { payment_id: id }))?.status ?? null,
         log: (m) => helpers.logger.info(m),
-      }, gw.hiring.factcheck.a2a_url, `${orderId}-factcheck`, task);
+      }, process.env.FACTCHECK_A2A_URL ?? gw.hiring.factcheck.a2a_url, `${orderId}-factcheck`, task);
     } : undefined,
     log: (m) => helpers.logger.info(m),
   };
