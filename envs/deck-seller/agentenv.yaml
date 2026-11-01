@@ -12,7 +12,7 @@ seats:
   main: {}                                   # router default chat route (Spark → NEAR AI)
   second: { model: z-ai/glm-5.3-flash }      # another model family, so the council isn't one model arguing with itself.
                                              # Must have TEE attestation on NEAR AI (DeepSeek and Kimi don't: private data can't go there).
-roles: [brief-analyst, scout, dossier-analyst, advocate, skeptic, buyer-persona, judge, copywriter, image-designer, reviewer]
+roles: [brief-analyst, scout, dossier-analyst, advocate, skeptic, buyer-persona, judge, copywriter, image-designer, reviewer, buyer-chat]
 pipeline: [brief, research, council, write, design, review, render, deliver]
 research:
   scouts:

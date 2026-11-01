@@ -143,3 +143,28 @@ if (shopForm) {
     }
   });
 }
+
+// Manage page: connect a Telegram bot, authorised by a signature from the shop's own account key.
+const tgForm = document.querySelector<HTMLFormElement>("#tg-connect");
+if (tgForm) {
+  const handle = tgForm.dataset.handle!;
+  const keyInput = tgForm.elements.namedItem("key") as HTMLInputElement;
+  try { keyInput.value = localStorage.getItem(`nc:${cfg.network}:shop:${handle}`) ?? ""; } catch { /* paste it */ }
+  tgForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const out = tgForm.querySelector("output")!;
+    try {
+      const key = KeyPair.fromString(keyInput.value.trim() as KeyPairString);
+      const message = `nearchant:telegram:${handle}:${Date.now()}`;
+      const signature = btoa(String.fromCharCode(...key.sign(new TextEncoder().encode(message)).signature));
+      const token = (tgForm.elements.namedItem("token") as HTMLInputElement).value.trim();
+      out.textContent = "Connecting…";
+      const r = await fetch(`/api/shops/${handle}/telegram`, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token, message, signature, publicKey: key.getPublicKey().toString() }) });
+      const j = await r.json();
+      out.textContent = r.ok ? `Connected: @${j.bot}. Open it in Telegram and send /start.` : `Could not connect: ${j.error}`;
+    } catch (err) {
+      out.textContent = `Could not connect: ${(err as Error).message}`;
+    }
+  });
+}

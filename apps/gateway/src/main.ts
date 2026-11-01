@@ -4,7 +4,9 @@ import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { makeWorkerUtils, type WorkerUtils } from "graphile-worker";
 import { parse } from "yaml";
-import { Artifacts, Envelopes, MemoryStore, PgStore, Sealer, claimA2aPayment, connect, createShop, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
+import { Artifacts, Envelopes, MemoryStore, PgStore, Sealer, claimA2aPayment, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
+import { TelegramApi, handleUpdate, type TgUpdate } from "./telegram.js";
+import { formatUnits } from "./config.js";
 import { Router } from "@nearchant/providers";
 import { loadAgentEnv, makeAsker, type AgentEnv } from "@nearchant/swarm";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
@@ -76,6 +78,53 @@ async function executeA2a(handle: { account_id: string }, service: Service, text
   return typeof out === "string" ? out : JSON.stringify(out, null, 1);
 }
 
+// Telegram (ADR 0011): sealed per-seller tokens; webhook when public_url is https, long polling otherwise.
+const sealer = process.env.NEARCHANT_SECRET_KEY ? new Sealer(process.env.NEARCHANT_SECRET_KEY) : null;
+const useWebhooks = config.public_url.startsWith("https://") && !config.public_url.includes("localhost");
+const polling = new Set<string>();
+async function botShop(handle: string) {
+  const h = await handles.get(handle);
+  if (!h) throw new Error(`no handle ${handle}`);
+  const services = await store.listServices(handle);
+  const cardUrl = useWebhooks ? `https://${handle}.${config.base_domains[0]}/` : `${config.public_url}/h/${handle}/`;
+  return {
+    h,
+    shop: { handle, name: h.card.name, cardUrl, services: services.filter((s) => !s.agentEnv).map((s) => ({ id: s.id, title: s.title, deliveryHours: s.deliveryHours, priceDisplay: `${formatUnits(s.priceUnits, config.token.decimals)} ${config.token.symbol}` })) },
+  };
+}
+async function onTelegramUpdate(handle: string, update: TgUpdate) {
+  const token = await getSecret({ db: conn!.db, sealer: sealer! }, handle, "telegram-token");
+  if (!token) return;
+  const { h, shop } = await botShop(handle);
+  await handleUpdate(new TelegramApi(token), shop, update, async (text) => {
+    if (!router) { router = Router.fromConfig(parse(readFileSync(join(configDir, "providers.yaml"), "utf8"))); await router.discover(); }
+    if (!envs.has("deck-seller")) envs.set("deck-seller", loadAgentEnv(join(configDir, "../envs/deck-seller")));
+    const envelopes = new Envelopes(conn!.db);
+    const ask = makeAsker(envs.get("deck-seller")!, router, async (e) => { await envelopes.add(`tg:${handle}:${update.update_id}`, "chat", h.account_id, e); });
+    return ask<string>("buyer-chat", `<draft>\n${JSON.stringify({ card: h.card, catalog: shop.services })}\n</draft>\n<brief>\n${text.replaceAll("</brief>", "<\\/brief>")}\n</brief>`);
+  });
+}
+function startPolling(handle: string) {
+  if (polling.has(handle)) return;
+  polling.add(handle);
+  let offset = 0;
+  const loop = async () => {
+    while (polling.has(handle)) {
+      try {
+        const token = await getSecret({ db: conn!.db, sealer: sealer! }, handle, "telegram-token");
+        if (!token) break;
+        const updates = await new TelegramApi(token).call<TgUpdate[]>("getUpdates", { offset, timeout: 25, allowed_updates: ["message"] });
+        for (const u of updates) { offset = u.update_id + 1; await onTelegramUpdate(handle, u).catch((e) => console.warn(`[telegram] ${handle}: ${e.message}`)); }
+      } catch (e) {
+        console.warn(`[telegram] poll ${handle}: ${(e as Error).message}`);
+        await new Promise((r) => setTimeout(r, 5000));
+      }
+    }
+  };
+  void loop();
+}
+if (conn && sealer && !useWebhooks) for (const h of await handlesWithSecret({ db: conn.db }, "telegram-token")) startPolling(h);
+
 const checkoutFile = join(import.meta.dirname, "web/checkout.js");
 const app = createApp({
   config,
@@ -98,6 +147,25 @@ const app = createApp({
       });
       handles.invalidate(s.handle);
       return r;
+    },
+  } : {}),
+  ...(conn && sealer ? {
+    telegram: {
+      isOwnerKey: async (accountId: string, publicKey: string) => {
+        const k = await chain.provider.viewAccessKey({ accountId, publicKey, finality: "optimistic" } as never).catch(() => null) as { permission?: unknown } | null;
+        return k?.permission === "FullAccess";
+      },
+      connect: async (handle: string, token: string, webhookUrl: string, secret: string) => {
+        const api = new TelegramApi(token);
+        const me = await api.call<{ username: string }>("getMe", {});
+        await putSecret({ db: conn!.db, sealer: sealer! }, handle, "telegram-token", token);
+        await putSecret({ db: conn!.db, sealer: sealer! }, handle, "telegram-secret", secret);
+        if (useWebhooks) await api.call("setWebhook", { url: webhookUrl, secret_token: secret, allowed_updates: ["message"] });
+        else { await api.call("deleteWebhook", {}); startPolling(handle); }
+        return { username: me.username };
+      },
+      secretFor: (handle: string) => getSecret({ db: conn!.db, sealer: sealer! }, handle, "telegram-secret"),
+      onUpdate: onTelegramUpdate,
     },
   } : {}),
   ...(conn ? {

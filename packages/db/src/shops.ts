@@ -54,3 +54,20 @@ export async function agentKey(d: { db: Db; sealer: Sealer }, handle: string, na
   if (!r) throw new Error(`no ${name} for ${handle}`);
   return d.sealer.open(r.sealed, `${handle}/${name}`);
 }
+
+/** Any sealed per-shop secret (bot token, webhook secret). */
+export async function putSecret(d: { db: Db; sealer: Sealer }, handle: string, name: string, value: string): Promise<void> {
+  const sealed = d.sealer.seal(value, `${handle}/${name}`);
+  await d.db.insert(schema.sellerSecrets).values({ handle, name, sealed })
+    .onConflictDoUpdate({ target: [schema.sellerSecrets.handle, schema.sellerSecrets.name], set: { sealed, updatedAt: new Date() } });
+}
+
+export async function getSecret(d: { db: Db; sealer: Sealer }, handle: string, name: string): Promise<string | null> {
+  const [r] = await d.db.select().from(schema.sellerSecrets).where(and(eq(schema.sellerSecrets.handle, handle), eq(schema.sellerSecrets.name, name)));
+  return r ? d.sealer.open(r.sealed, `${handle}/${name}`) : null;
+}
+
+export async function handlesWithSecret(d: { db: Db }, name: string): Promise<string[]> {
+  const rows = await d.db.select({ handle: schema.sellerSecrets.handle }).from(schema.sellerSecrets).where(eq(schema.sellerSecrets.name, name));
+  return rows.map((r) => r.handle);
+}

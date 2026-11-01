@@ -188,3 +188,22 @@ export const NewShopPage: FC<{ cfg: ClientConfig; testToken: boolean; enabled: b
     <PageConfig base="/" cfg={cfg} />
   </Layout>
 );
+
+export const ManagePage: FC<{ handle: HandleRecord; cfg: ClientConfig; testToken: boolean }> = ({ handle, cfg, testToken }) => (
+  <Layout title={`Manage ${handle.card.name} · Nearchant`} testToken={testToken}>
+    <section class="card">
+      <p class="muted"><a href={`/h/${handle.handle}/`}>← {handle.card.name}</a></p>
+      <h1>Manage your shop</h1>
+      <p class="account">{handle.account_id}</p>
+    </section>
+    <form id="tg-connect" class="service order" data-handle={handle.handle}>
+      <h2>Telegram bot</h2>
+      <p class="muted">Create a bot with @BotFather, paste its token here. Buyers can then chat with your agent and order from Telegram.</p>
+      <label>Bot token <input name="token" required autocomplete="off" placeholder="123456789:AA…" /></label>
+      <label>Your account key <input name="key" autocomplete="off" placeholder="ed25519:… (filled in automatically if this browser created the shop)" /></label>
+      <button type="submit">Connect bot</button>
+      <output class="result"></output>
+    </form>
+    <PageConfig base={`/h/${handle.handle}/`} cfg={cfg} />
+  </Layout>
+);

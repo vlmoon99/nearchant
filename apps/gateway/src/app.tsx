@@ -5,8 +5,9 @@ import { secureHeaders } from "hono/secure-headers";
 import { handleFromHost, type HandleRecord, type PaymentRail, type DryQuote } from "@nearchant/near";
 import { formatUnits, type GatewayConfig } from "./config.js";
 import { originOf, publicCors } from "./cors.js";
-import { CardPage, NewShopPage, NotFoundPage, OrderPage, SITE_CSS, type ClientConfig, type OrderView } from "./pages.js";
+import { CardPage, ManagePage, NewShopPage, NotFoundPage, OrderPage, SITE_CSS, type ClientConfig, type OrderView } from "./pages.js";
 import { RateLimit } from "./buyers.js";
+import { newWebhookSecret, secretMatches, validBotToken, verifySellerSignature, type TgUpdate } from "./telegram.js";
 import type { Service, Store } from "@nearchant/db";
 
 export interface Deps {
@@ -29,6 +30,13 @@ export interface Deps {
   /** "Create your shop in 60 s" (testnet, sponsored): claims the handle and adds the default deck service. */
   createShop?: (s: { handle: string; ownerPublicKey: string; name: string; bio: string; priceUnits: string }) => Promise<{ accountId: string }>;
   isAvailable?: (handle: string) => Promise<boolean>;
+  /** Per-seller Telegram bots (ADR 0011). */
+  telegram?: {
+    isOwnerKey: (accountId: string, publicKey: string) => Promise<boolean>;
+    connect: (handle: string, token: string, webhookUrl: string, secret: string) => Promise<{ username: string }>;
+    secretFor: (handle: string) => Promise<string | null>;
+    onUpdate: (handle: string, update: TgUpdate) => Promise<void>;
+  };
   /** Flow 3 seller side: A2A tasks paid through escrow (docs/swarm.md). */
   a2a?: {
     network: string;
@@ -128,6 +136,12 @@ export function createApp(d: Deps) {
     if ("error" in r) return c.json({ error: r.error }, 502);
     if ((r as { created?: boolean }).created && !buyerLimit.take(ip)) return c.json({ error: "too many new test wallets from this address; try later" }, 429);
     return c.json(r);
+  });
+
+  seller.get("/manage", async (c) => {
+    const h = c.get("handle");
+    if (!h) return c.html(<NotFoundPage testToken={d.config.token.test} />, 404);
+    return c.html(<ManagePage handle={h} cfg={d.client} testToken={d.config.token.test} />);
   });
 
   seller.get("/o/:id", async (c) => {
@@ -291,6 +305,33 @@ export function createApp(d: Deps) {
     } catch (e) {
       return c.json({ error: (e as Error).message.slice(0, 200) }, 409);
     }
+  });
+
+  // Telegram: the seller connects their own bot (signed with their account key), Telegram calls the webhook.
+  app.post("/api/shops/:handle/telegram", async (c) => {
+    if (!d.telegram) return c.json({ error: "telegram is off on this gateway" }, 404);
+    const handle = c.req.param("handle");
+    const h = await d.handles.get(handle);
+    const b = (await c.req.json().catch(() => null)) as { token?: string; message?: string; signature?: string; publicKey?: string } | null;
+    if (!h || !b?.token || !b.message || !b.signature || !b.publicKey) return c.json({ error: "handle, token, message, signature and publicKey are required" }, 400);
+    if (!validBotToken(b.token)) return c.json({ error: "that doesn't look like a BotFather token" }, 400);
+    if (!verifySellerSignature({ message: b.message, signature: b.signature, publicKey: b.publicKey, handle, action: "telegram" })) return c.json({ error: "bad or expired signature" }, 401);
+    if (!(await d.telegram.isOwnerKey(h.account_id, b.publicKey))) return c.json({ error: "that key is not a full-access key of the shop account" }, 403);
+    try {
+      const r = await d.telegram.connect(handle, b.token, `${d.config.public_url}/bots/telegram/${handle}`, newWebhookSecret());
+      return c.json({ connected: true, bot: r.username });
+    } catch (e) {
+      return c.json({ error: (e as Error).message.slice(0, 200) }, 502);
+    }
+  });
+  app.post("/bots/telegram/:handle", async (c) => {
+    if (!d.telegram) return c.notFound();
+    const handle = c.req.param("handle");
+    const secret = await d.telegram.secretFor(handle);
+    if (!secret || !secretMatches(secret, c.req.header("x-telegram-bot-api-secret-token"))) return c.body(null, 401);
+    const update = (await c.req.json().catch(() => null)) as TgUpdate | null;
+    if (update) void d.telegram.onUpdate(handle, update).catch((e) => console.warn(`[telegram] ${handle}: ${(e as Error).message}`));
+    return c.body(null, 200); // answer fast; Telegram retries slow webhooks
   });
 
   // Host-based seller routes, then the `/h/<handle>` form.

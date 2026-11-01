@@ -147,7 +147,24 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - **Not verified:** the `factcheck` step inside a full browser order (next E2E run); approval path for payments
   above the auto limit (contract-tested only).
 
+## 2026-11-01 ~01:30 UTC — create-your-shop, Telegram bots, sturdier agents
+
+- **Done:** `/new` "Create your shop in 60 s" (browser-made owner key, sponsored `claim_for` + agent keys + deck
+  service, billing top-up signed in the browser, key download). Telegram (ADR 0011): `/h/<handle>/manage` connects
+  a seller's own BotFather token, authorised by a signature from the shop's full-access key (checked on chain);
+  token + webhook secret sealed; webhook when `public_url` is https, long polling otherwise; `/start` shows the
+  catalog with order buttons, other messages go to a new `buyer-chat` role (catalog prices only), metered to the
+  seller. Asker: length retry no longer burns a parse attempt; repeated bad JSON from the second seat falls back
+  to the main seat.
+- **Verified:** browser e2e created `e2emvx3qrtr.nearchant.testnet` (1 full key + 3 function-call keys, billing 10
+  nUSD, card renders). Tests: gateway 13 (bot /start, chat, safe failure, signature by key/action/handle/time,
+  webhook secret), swarm 11. Webhook without secret → 401.
+- **Not verified:** a real Telegram bot (needs a BotFather token — owner action); `make demo` (recording again
+  after a reviewer JSON failure crashed the previous one).
+
 ### Owner actions
+- Telegram: create a bot with @BotFather and paste the token at `/h/alice/manage` (owner key is in the Keychain
+  as `NC_SELLER_alice_OWNER`), or send it to me and I'll connect it.
 - ~~`gx10-8695`: add `server` to the docker group~~ — done 2026-10-31; Docker 29.6 + GPU in containers verified.
 - Testnet NEAR: root has ~7.9 NEAR after deploying; each sponsored shop costs ~0.2 NEAR. I'll top up from the
   faucet as needed.
