@@ -185,6 +185,8 @@ export const STEPS: Record<Step, (c: StepContext) => Promise<unknown>> = {
       const fix = { must_fix: blocking, untraced_claims: untraced, checks: problems, nice_to_have: (review.suggestions ?? []).slice(0, 3) };
       // Edit the existing draft rather than starting over, so fixed slides don't regress.
       let next = cleanDeck(await c.ask<string>("copywriter", [block("brief", brief), block("dossier", dossier), block("draft", md), block("findings", fix), "Edit the deck in <draft>. For every item in must_fix, untraced_claims and checks: apply the fix literally — if in doubt, delete that sentence or prefix it with \"Assumption:\". Apply nice_to_have only if easy. Keep everything else unchanged and return the whole corrected deck."].join("\n\n")));
+      // Exactly one cover, on the title slide, whatever the edit did with it.
+      next = next.replace(/!\[bg right:40%\]\([^)]+\)\n\n?/g, "");
       if (cover) next = next.replace(/(^---\n[\s\S]*?\n---\n\s*\n?)(#)/, `$1${cover}$2`);
       md = next;
     }

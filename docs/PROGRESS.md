@@ -112,6 +112,25 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - **Next:** finish the recorded demo run → `make demo`; full E2E (gateway + worker + browser) on alice; settle a
   billing batch on testnet; then Telegram bots, market listing, flow 3, Phala.
 
+## 2026-11-01 ~00:40 UTC — first full order end to end in a real browser (flows 1 + 2 on testnet)
+
+- **Verified live** (gateway + worker on the Mac, Postgres in Docker, models on gx10-8695 + NEAR AI, testnet):
+  `apps/gateway/e2e/buy-deck.mjs` drove installed Chrome: card `alice.localhost` → brief → sponsored buyer wallet
+  (implicit account, 0.2 NEAR + 100 nUSD) → paid 5 nUSD (`order_created`, Held) → gateway confirmed on chain →
+  swarm job → 7.5 min of agents (brief, research with live web, council Qwen+GLM, write, FLUX cover, review gate,
+  Marp render) → outbox: `proofs.record` (proof 2, author alice, TEE attestation ref) + `orders.mark_delivered`
+  signed by alice's sealed agent keys → order page showed preview + PDF/PPTX → browser clicked Accept →
+  `Released`; alice 85 nUSD (= 100 − 20 billing top-up + 5). Order `o-mvx37ptd-811fb680`.
+  Billing: batch `b-6-14` settled on chain, alice charged 17,738 units (0.0177 nUSD = TEE calls + 10%; Spark free),
+  statement with Merkle root + signed records in `.media/batches/`.
+- **Fixed on the way:** CSP blocked the browser's RPC calls (connect-src); buyers underfunded for prepaid gas;
+  review gate redesigned (blocking vs suggestions) after GLM kept finding new style issues; open questions may only
+  appear as "Open question/Assumption"; rework keeps exactly one cover.
+- **Not verified:** `make demo` from recordings (recording in progress); Docker stack running end to end; refund /
+  revision paths in the browser (covered by contract tests only).
+- **Next:** `make demo`, then flow 3 (escrow hire over A2A/x402 to a second Nearchant agent), Telegram bots,
+  Agent Market listing, tunnel for `*.nearchant.com`, Phala.
+
 ### Owner actions
 - ~~`gx10-8695`: add `server` to the docker group~~ — done 2026-10-31; Docker 29.6 + GPU in containers verified.
 - Testnet NEAR: root has ~7.9 NEAR after deploying; each sponsored shop costs ~0.2 NEAR. I'll top up from the

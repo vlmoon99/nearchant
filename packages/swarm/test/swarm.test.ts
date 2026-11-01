@@ -154,11 +154,12 @@ describe("deck pipeline", () => {
   });
 
   it("reworks after a failed review, and stops after three failed rounds", async () => {
-    const pass2 = fakeRouter({ reviewer: (n) => ({ blocking: n > 1 ? [] : [{ slide: 2, problem: "untraced number", fix: "cite" }], suggestions: [], untraced_claims: [], score: n > 1 ? 8 : 4 }) });
+    const pass2 = fakeRouter({ copywriter: (n) => (n > 1 ? DECK.replace("## Problem", "![bg right:40%](/media/o3/cover.png)\n\n## Problem") : DECK), reviewer: (n) => ({ blocking: n > 1 ? [] : [{ slide: 2, problem: "untraced number", fix: "cite" }], suggestions: [], untraced_claims: [], score: n > 1 ? 8 : 4 }) });
     const a = deps(pass2);
     expect((await runPipeline(a.d, "o3", "seed deck please, coffee")).status).toBe("done");
     expect(pass2.calls.filter((c) => c.role === "copywriter")).toHaveLength(2);
-    expect((a.store.get("o3/review") as { markdown: string }).markdown).toContain("![bg right:40%]"); // cover kept on rework
+    const reworked = (a.store.get("o3/review") as { markdown: string }).markdown;
+    expect(reworked.match(/!\[bg right:40%\]/g)).toHaveLength(1); // cover kept on rework, exactly once
 
     const never = fakeRouter({ reviewer: () => ({ blocking: [], suggestions: [], untraced_claims: ["x"], score: 3 }) });
     const b = deps(never);
