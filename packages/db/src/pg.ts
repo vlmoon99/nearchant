@@ -55,6 +55,10 @@ export class PgStore implements Store {
     const rows = await this.db.select().from(schema.orders).where(eq(schema.orders.handle, handle)).orderBy(desc(schema.orders.createdAt)).limit(limit);
     return rows.map(toOrder);
   }
+  async ordersInStates(states: OrderState[], limit = 100): Promise<OrderRow[]> {
+    const rows = await this.db.select().from(schema.orders).where(inArray(schema.orders.state, states)).orderBy(schema.orders.createdAt).limit(limit);
+    return rows.map(toOrder);
+  }
   async transitionOrder(orderId: string, from: OrderState, to: OrderState): Promise<boolean> {
     const r = await this.db.update(schema.orders).set({ state: to, updatedAt: new Date() })
       .where(and(eq(schema.orders.orderId, orderId), eq(schema.orders.state, from))).returning({ id: schema.orders.orderId });

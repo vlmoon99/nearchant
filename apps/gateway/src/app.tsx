@@ -259,9 +259,12 @@ export function createApp(d: Deps) {
     });
   });
 
+  const orderLimit = new RateLimit(30, 3_600_000);
   seller.post("/public/orders", async (c) => {
     const h = c.get("handle");
     if (!h) return c.json({ error: "unknown handle" }, 404);
+    const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
+    if (!orderLimit.take(ip)) return c.json({ error: "too many orders from this address; try later" }, 429);
     const body = await c.req.json().catch(() => null) as { serviceId?: unknown; brief?: unknown; buyerAccountId?: unknown } | null;
     if (!body || typeof body.serviceId !== "string" || typeof body.brief !== "string") {
       return c.json({ error: "serviceId and brief are required" }, 400);

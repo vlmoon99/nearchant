@@ -104,13 +104,40 @@ const outboxDrain: Task = async (_p, helpers) => {
   if (n) helpers.logger.info(`outbox: sent ${n}`);
 };
 
+// Escrow timers (docs/contracts.md): release delivered orders after their timeout, refund undelivered ones after the
+// delivery deadline. Both contract methods are callable by anyone; the relayer pays the gas.
+const escrowTimers: Task = async (_p, helpers) => {
+  const rows = await store.ordersInStates(["delivered", "paid", "in_progress", "cancelled"], 200);
+  const now = BigInt(Date.now()) * 1_000_000n;
+  for (const row of rows) {
+    if (row.orderId.startsWith("mkt-")) continue; // market hires settle in the market's escrow
+    const o = await chain.view<{ status: string; delivered_at?: string; release_after_ns: string; deliver_by: string } | null>(accounts.orders, "get_order", { order_id: row.orderId }).catch(() => null);
+    if (!o) continue;
+    try {
+      if (o.status === "Delivered" && o.delivered_at && now >= BigInt(o.delivered_at) + BigInt(o.release_after_ns)) {
+        await chain.call(accounts.orders, "release_expired", { order_id: row.orderId }, { gasTgas: 100 });
+        await store.transitionOrder(row.orderId, "delivered", "released");
+        helpers.logger.info(`escrow: released ${row.orderId} after timeout`);
+      } else if ((o.status === "Held" || o.status === "RevisionRequested") && now >= BigInt(o.deliver_by)) {
+        await chain.call(accounts.orders, "refund_undelivered", { order_id: row.orderId }, { gasTgas: 100 });
+        await store.transitionOrder(row.orderId, row.state, "refunded");
+        helpers.logger.info(`escrow: refunded undelivered ${row.orderId}`);
+      } else if (o.status === "Released" && row.state === "delivered") {
+        await store.transitionOrder(row.orderId, "delivered", "released");
+      }
+    } catch (e) {
+      helpers.logger.warn(`escrow timer ${row.orderId}: ${(e as Error).message}`);
+    }
+  }
+};
+
 const runner = await run({
   connectionString: need("DATABASE_URL"),
   concurrency: Number(process.env.WORKER_CONCURRENCY ?? 4),
   noHandleSignals: false,
   pollInterval: 1000,
-  taskList: { deck_step: deckStep, outbox_drain: outboxDrain, billing_settle: billingSettle },
-  crontab: ["* * * * * outbox_drain ?jobKey=outbox_drain", "*/5 * * * * billing_settle ?jobKey=billing_settle"].join("\n"),
+  taskList: { deck_step: deckStep, outbox_drain: outboxDrain, billing_settle: billingSettle, escrow_timers: escrowTimers },
+  crontab: ["* * * * * outbox_drain ?jobKey=outbox_drain", "*/5 * * * * billing_settle ?jobKey=billing_settle", "*/10 * * * * escrow_timers ?jobKey=escrow_timers"].join("\n"),
 });
-console.info("[worker] up: deck_step, outbox_drain, billing_settle");
+console.info("[worker] up: deck_step, outbox_drain, billing_settle, escrow_timers");
 await runner.promise;
