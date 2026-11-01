@@ -12,3 +12,16 @@ describe("postProofEntry", () => {
     expect(a.producer.length).toBeLessThanOrEqual(200);
   });
 });
+
+describe("postProofEntry with a TEE writer", () => {
+  it("cites the NEAR AI report and the model, and keeps the brief hash independent of it", () => {
+    const writer = { model: "Qwen/Qwen3.6-35B-A3B-FP8", tier: "tee", reportHash: "ef".repeat(32), signingAddress: "0xabc" };
+    const a = postProofEntry({ id: "p-1", caption: "c", imageSha256: null, idea: { angle: "trend", writer } });
+    const plain = postProofEntry({ id: "p-1", caption: "c", imageSha256: null, idea: { angle: "trend" } });
+    expect(a.attestation_ref).toBe(`nearai:Qwen/Qwen3.6-35B-A3B-FP8:${"ef".repeat(32)}`);
+    expect(a.producer).toContain("Qwen/Qwen3.6-35B-A3B-FP8");
+    expect(a.brief_hash).toBe(plain.brief_hash);
+    expect(plain.attestation_ref).toBeNull();
+    expect(postProofEntry({ id: "p", caption: "c", imageSha256: null, idea: { writer: { model: "qwen3.6-35b-a3b", tier: "local" } } }).attestation_ref).toBeNull();
+  });
+});

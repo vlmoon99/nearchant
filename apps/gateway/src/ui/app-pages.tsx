@@ -110,6 +110,15 @@ export const PostsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; pos
   );
 };
 
+const writerOf = (p: Post) => (p.idea as { writer?: { model: string; tier: string; reportHash?: string } } | null)?.writer;
+/** Who wrote the post, said plainly: a NEAR AI TEE (with a report), the store's own GPU, or the cloud. */
+export function madeBy(p: Post): string {
+  const w = writerOf(p);
+  if (!w) return "Nearchant AI";
+  const model = w.model.split("/").pop()!.replace(/-A3B.*$/i, "").replace(/-/g, " ");
+  return w.reportHash ? `${model} · private NEAR AI TEE (attested)` : w.tier === "local" ? `${model} · on your own GPU` : `${model} · ${w.tier}`;
+}
+
 export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: Post; img: Img; explorer: string }> = ({ cfg, test, store, p, img, explorer }) => {
   const proof = p.proof as { proofId?: string; outputHash?: string; contract?: string } | null;
   const video = (p.idea as { video?: { status?: string; key?: string; mediaId?: string; error?: string; script?: { hook?: string } } } | null)?.video;
@@ -139,7 +148,8 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
           <div class="card proof">
             <div class="spread"><div class="row" style="align-items:center;gap:8px"><Icon n="shield" c="#007A4F" s={20} /><span class="headline proof-t">Proof on NEAR</span></div>{proof?.proofId ? <Badge label="Verified · unchanged" /> : null}</div>
             {proof?.proofId ? <>
-              {[["Proof", `#${proof.proofId}`], ["Fingerprint (SHA-256)", `${proof.outputHash?.slice(0, 10)}…${proof.outputHash?.slice(-8)}`], ["Made by", "Nearchant AI · on your own GPU"], ["Owner", store.account], ["Contract", proof.contract ?? ""]].map(([k, v]) => <div class="spread"><span class="foot muted">{k}</span><span class="foot b">{v}</span></div>)}
+              {[["Proof", `#${proof.proofId}`], ["Fingerprint (SHA-256)", `${proof.outputHash?.slice(0, 10)}…${proof.outputHash?.slice(-8)}`], ["Made by", madeBy(p)], ["Owner", store.account], ["Contract", proof.contract ?? ""]].map(([k, v]) => <div class="spread"><span class="foot muted">{k}</span><span class="foot b">{v}</span></div>)}
+              {writerOf(p)?.reportHash ? <a class="foot" href={`/attestations/${writerOf(p)!.reportHash}.json`} target="_blank" rel="noopener">TEE attestation report (SHA-256 {writerOf(p)!.reportHash!.slice(0, 10)}…)</a> : null}
               <a class="btn near" href={explorer} target="_blank" rel="noopener"><Icon n="globe" />View on NEAR explorer</a>
             </> : <span class="foot">When this post goes live we record its fingerprint, the time and the AI that made it on NEAR — buyers can verify it’s really from {store.name}.</span>}
           </div>

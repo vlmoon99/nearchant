@@ -16,6 +16,8 @@ export interface RouterOptions {
   breaker?: { failures: number; cooldownMs: number };
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
+  /** Each new TEE attestation report, raw, so it can be kept and published next to the proofs that cite it. */
+  onAttestationReport?: (ref: AttestationRef, model: string, raw: string) => void | Promise<void>;
 }
 
 interface EndpointState {
@@ -222,8 +224,12 @@ export class Router {
       return undefined;
     }
     try {
-      const a = { ...(await s.adapter.attest(model)), at: this.opts.now() };
+      const { raw, ...ref } = await s.adapter.attest(model);
+      const a = { ...ref, at: this.opts.now() };
       this.attestations.set(key, a);
+      if (raw !== undefined && this.opts.onAttestationReport) {
+        try { await this.opts.onAttestationReport(ref, model, raw); } catch (e) { this.opts.log("warn", `attestation report sink: ${(e as Error).message}`); }
+      }
       return a;
     } catch (e) {
       // One model without a TEE report says nothing about the endpoint's other models: no breaker trip.

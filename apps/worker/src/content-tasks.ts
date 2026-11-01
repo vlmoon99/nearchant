@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { Task } from "graphile-worker";
 import sharp from "sharp";
 import type { ContentStore, Envelopes } from "@nearchant/db";
+import type { ResultEnvelope } from "@nearchant/contracts";
 import { assSubtitles, compose } from "./video-compose.js";
 import type { Tts } from "./tts.js";
 import { block, writeVideoScript, analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type StyleProfile } from "@nearchant/swarm";
@@ -28,13 +29,19 @@ export interface ContentTaskDeps {
   outbox: { enqueue(key: string, kind: string, payload: unknown): Promise<unknown> };
 }
 
-/** The proof-log entry for a published post: what was published, made by which AI, owned by whom (ADR 0018). */
+export interface PostWriter { model: string; tier: string; reportHash?: string; signingAddress?: string | null }
+
+/** The proof-log entry for a published post: what was published, made by which AI, owned by whom (ADR 0018).
+ *  When the text model ran in a NEAR AI TEE, attestation_ref = "nearai:<model>:<report sha256>"; the report itself is
+ *  served at /attestations/<sha256>.json. */
 export function postProofEntry(p: { id: string; caption: string; imageSha256: string | null; idea: unknown }) {
   const h = (s: string) => createHash("sha256").update(s).digest("hex");
+  const { writer, ...idea } = (p.idea ?? {}) as { writer?: PostWriter } & Record<string, unknown>;
   return {
-    task_id: `post:${p.id}`, order_id: null, brief_hash: h(JSON.stringify(p.idea ?? {})),
-    producer: "nearchant:content-store@0.1.0 (qwen3.6 + qwen-image-edit-2511)",
-    output_hash: h(`${p.caption}\n${p.imageSha256 ?? ""}`), attestation_ref: null,
+    task_id: `post:${p.id}`, order_id: null, brief_hash: h(JSON.stringify(idea)),
+    producer: `nearchant:content-store@0.1.0 (${writer?.model ?? "qwen3.6"} + qwen-image-edit-2511)`.slice(0, 200),
+    output_hash: h(`${p.caption}\n${p.imageSha256 ?? ""}`),
+    attestation_ref: writer?.reportHash ? `nearai:${writer.model}:${writer.reportHash}`.slice(0, 400) : null,
     review: { passed: true, reviewer_hash: h(p.caption) },
   };
 }
@@ -46,7 +53,7 @@ export async function photoDataUrl(path: string): Promise<string> {
 }
 
 export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
-  const askFor = (handle: string, step: string) => makeAsker(d.env, d.router, async (e) => { await d.envelopes.add(`content:${handle}:${step}`, step, d.accountOf(handle), e); });
+  const askFor = (handle: string, step: string, seen?: (e: ResultEnvelope) => void) => makeAsker(d.env, d.router, async (e) => { seen?.(e); await d.envelopes.add(`content:${handle}:${step}`, step, d.accountOf(handle), e); });
 
   const analyzeBusinessTask: Task = async (payload, helpers) => {
     const { handle } = payload as { handle: string };
@@ -105,8 +112,10 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     const recent = (await d.content.signalsSince(handle)).slice(-40);
     for (const p of batch) await d.content.updatePost(p.id, { status: "writing" });
     let drafts;
+    // Which model wrote these posts, and its TEE attestation report when it ran in one (goes into the proof).
+    let writer: PostWriter | null = null;
     try {
-      drafts = await writePostOptions(askFor(handle, "ideas"), {
+      drafts = await writePostOptions(askFor(handle, "ideas", (e) => { writer = { model: e.model, tier: e.privacyTier, ...(e.attestation ? { reportHash: e.attestation.reportHash, signingAddress: e.attestation.signingAddress ?? null } : {}) }; }), {
         profile, n: batch.length, photoCount: photos.length, memory: prof?.learned as OwnerMemory,
         recentPicks: recent.filter((x) => x.kind === "chose").map((x) => JSON.stringify((x.data as { idea?: unknown }).idea ?? {})).slice(-6),
         passedAngles: recent.filter((x) => x.kind === "passed").map((x) => String(((x.data as { idea?: { angle?: string } }).idea ?? {}).angle ?? "")).filter(Boolean).slice(-6),
@@ -121,7 +130,7 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
       const dr = drafts[i];
       if (!dr) { await d.content.failPost(p.id, "the model wrote fewer options than asked"); continue; }
       const src = dr.photo ? photos[dr.photo - 1] : undefined;
-      await d.content.updatePost(p.id, { status: "rendering", caption: dr.caption, hashtags: dr.hashtags, idea: { ...dr }, sourceMediaId: src?.id ?? null });
+      await d.content.updatePost(p.id, { status: "rendering", caption: dr.caption, hashtags: dr.hashtags, idea: { ...dr, ...(writer ? { writer } : {}) }, sourceMediaId: src?.id ?? null });
       let imageMediaId: string | null = null;
       try {
         const prompt = dr.image_prompt || dr.angle;

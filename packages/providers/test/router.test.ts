@@ -61,6 +61,21 @@ describe("router", () => {
     validate("result-envelope.schema.json", env);
   });
 
+  it("hands each new attestation report to the sink once, raw, and keeps it out of the envelope", async () => {
+    const { local, config } = await two();
+    local.failNext(100);
+    const reports: { hash: string; model: string; raw: string }[] = [];
+    const r = Router.fromConfig(config, { ...quiet, env: { NEARAI_API_KEY: "k" }, onAttestationReport: (ref, model, raw) => { reports.push({ hash: ref.reportHash, model, raw }); } });
+    await r.discover();
+    const a = await r.call(chat());
+    await r.call(chat()); // cached for 10 minutes: no second report
+    expect(reports).toHaveLength(1);
+    expect(reports[0]!.raw).toContain("signing_address");
+    expect(reports[0]!.hash).toBe(a.attestation!.reportHash);
+    expect(JSON.stringify(a)).not.toContain("gateway_attestation");
+    validate("result-envelope.schema.json", a);
+  });
+
   it("falls back to the TEE endpoint when local fails, with attestation and cost", async () => {
     const { local, tee, config } = await two();
     local.failNext(10);

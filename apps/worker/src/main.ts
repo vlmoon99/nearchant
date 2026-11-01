@@ -10,6 +10,7 @@ import { PIPELINE, hireAgent, loadAgentEnv, runStep, type JobDeps, type Step } f
 import { agentKey } from "@nearchant/db";
 import { parse } from "yaml";
 import { readFileSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
 import { deliver, type DeliverPayload } from "./deliver.js";
 import { buildBatch, leafHash, usageRecord } from "@nearchant/billing";
 import { KeyPair, type KeyPairString } from "near-api-js";
@@ -33,7 +34,14 @@ const envelopes = new Envelopes(conn.db);
 const outbox = new Outbox(conn.db);
 const sealer = new Sealer(need("NEARCHANT_SECRET_KEY"));
 const chain = new Chain({ rpcUrls: gw.rpc_urls, relayer: { accountId: accounts.relayer, secretKey: need("NEAR_RELAYER_KEY") } });
-const router = await makeRouter(join(root, "config", process.env.PROVIDERS_FILE ?? "providers.yaml"));
+// NEAR AI TEE reports are kept (once each) and served at /attestations/<hash>.json, so a proof that cites one can be checked.
+const router = await makeRouter(join(root, "config", process.env.PROVIDERS_FILE ?? "providers.yaml"), {
+  onAttestationReport: async (ref, _model, raw) => {
+    const dir = join(process.env.MEDIA_DIR ?? join(root, ".media"), "attestations");
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, `${ref.reportHash}.json`), raw, { flag: "wx" }).catch((e) => { if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e; });
+  },
+});
 const media = localMedia(process.env.MEDIA_DIR ?? join(root, ".media"), process.env.MEDIA_PUBLIC ?? "/media");
 const env = loadAgentEnv(join(root, "envs/deck-seller"));
 

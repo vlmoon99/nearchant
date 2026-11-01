@@ -580,6 +580,24 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   publish — next scheduled 6 Nov).
 - Next: step 14 (NEAR AI TEE + attestation in proofs), video model comparison in the lab.
 
+## 2026-11-01 17:10 UTC — step 14 (part 1): NEAR AI TEE attestation in the proofs
+
+- The router hands each new NEAR AI attestation report (raw, once per model per 10 min) to a sink; the worker keeps
+  it at `.media/attestations/<sha256>.json` and the gateway serves it publicly at `/attestations/<sha256>.json`
+  (immutable; the bytes hash to the name). Envelopes still carry only the hash (schema unchanged).
+- Post generation records the writer (`idea.writer`: model, tier, report hash, signing address). The proof on NEAR
+  now has `attestation_ref = "nearai:<model>:<report sha256>"` and names the model in `producer`; the post page's
+  proof card says who wrote it honestly ("Qwen3.6 35B · private NEAR AI TEE (attested)", or "on your own GPU" for
+  the Spark) and links the report. Brief hash excludes the writer, so it stays comparable.
+- **Verified live**: a new post for `novatestl21q` written on NEAR AI TEE → published → **proof #18** on
+  `proofs.nearchant.testnet` with `attestation_ref nearai:Qwen/Qwen3.6-35B-A3B-FP8:24459fc5…f425`; the public
+  report (262 KB: gateway_attestation, model_attestations, ohttp) downloads and hashes to that value; proof card
+  screenshot checked, no page errors. Tests: providers 11 (sink once, raw kept out of the envelope), worker 10
+  (attestation_ref only for TEE writers), gateway 30 (report route rejects anything but a sha256 name).
+- Not done: verifying the TDX/GPU quotes inside the report (pinned only, `verified: false`); Levanto Sage
+  router for production; Phala deploy (owner account).
+- Next: video model comparison in the lab (product fidelity), then Levanto Sage routing.
+
 ### Owner actions
 - Optional: a Brave Search API key (free tier) for reliable trend opportunities — self-hosted search is blocked
   from the home network right now.

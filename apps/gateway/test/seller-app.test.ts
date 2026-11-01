@@ -174,4 +174,17 @@ describe("seller API", () => {
     expect(await part.text()).toBe("2345");
     expect((await app.request("http://x/files/nova/gen/p1.mp4", { headers: { cookie, range: "bytes=20-" } })).status).toBe(416);
   });
+
+  it("serves attestation reports by their sha256 only", async () => {
+    const { app, mediaDir } = setup();
+    const { mkdirSync, writeFileSync } = await import("node:fs");
+    const h = "ab".repeat(32);
+    mkdirSync(join(mediaDir, "attestations"), { recursive: true });
+    writeFileSync(join(mediaDir, "attestations", `${h}.json`), '{"signing_address":"0xabc"}');
+    const r = await app.request(`http://x/attestations/${h}.json`);
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toBe("application/json");
+    expect((await app.request("http://x/attestations/..%2Fsecret.json")).status).toBe(404);
+    expect((await app.request(`http://x/attestations/${"cd".repeat(32)}.json`)).status).toBe(404);
+  });
 });

@@ -40,8 +40,8 @@ export interface CapabilityAdapter {
   listModels(): Promise<string[]>;
   /** Ids plus prices when the endpoint publishes them (NEAR AI does, in `pricing`). */
   catalog?(): Promise<ModelInfo[]>;
-  /** TEE attestation for a model; only for endpoints with `attestation` set. */
-  attest?(model: string): Promise<AttestationRef>;
+  /** TEE attestation for a model; only for endpoints with `attestation` set. `raw` is the report as served. */
+  attest?(model: string): Promise<AttestationRef & { raw?: string }>;
 }
 
 /** Thrown by adapters; `retryable` errors are retried, then the router moves to the next endpoint. */

@@ -53,6 +53,9 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
     a paid test (owner topped up +$20 on 1 Nov); Phala deploy if the owner provides the account. For the full-cloud
     production profile, pick the model per task with NEAR AI's **Levanto Sage 1.4** router ("Decisions", private TEE,
     $0.07 in / $2 out per M, 32K context) — production only; local/dev keeps one LLM.
+    **Progress 1 Nov:** text on NEAR AI TEE (Mac stack) ✓; attestation in proofs ✓ (proof #18 cites
+    `nearai:<model>:<report sha256>`, report public at `/attestations/<sha256>.json`). Open: Levanto Sage router,
+    quote verification (reports are pinned, not yet cryptographically verified), Phala deploy (owner account).
 
 ## Status
 

@@ -78,6 +78,16 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
   app.post("/api/session/logout", (c) => { deleteCookie(c, COOKIE, { path: "/" }); return c.json({ ok: true }); });
 
   // Files: `<handle>/public/…` (published images) for everyone, anything else only for that store's owner.
+  // NEAR AI TEE attestation reports cited by proofs on NEAR (attestation_ref "nearai:<model>:<sha256>"): public,
+  // and the bytes hash to the name, so anyone can check the proof's report.
+  app.get("/attestations/:file", async (c) => {
+    const m = /^([0-9a-f]{64})\.json$/.exec(c.req.param("file"));
+    if (!m) return c.notFound();
+    const bytes = await readFile(join(d.mediaDir, "attestations", `${m[1]}.json`)).catch(() => null);
+    if (!bytes) return c.notFound();
+    return c.body(bytes, 200, { "content-type": "application/json", "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" });
+  });
+
   app.get("/files/*", async (c) => {
     const key = normalize(decodeURIComponent(c.req.path.slice("/files/".length)));
     const m = key.match(/^([a-z0-9_-]+)\/(photos|gen|public)\/[\w.-]+\.(jpg|png|webp|mp4)$/);

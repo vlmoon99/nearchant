@@ -122,7 +122,7 @@ export class OpenAICompatibleAdapter implements CapabilityAdapter {
   }
 
   /** NEAR AI: GET /attestation/report?model=&nonce=. M0 pins the report hash; it does not verify the quote. */
-  async attest(model: string): Promise<AttestationRef> {
+  async attest(model: string): Promise<AttestationRef & { raw: string }> {
     if (this.endpoint.attestation !== "nearai") throw new ProviderError(`${this.endpoint.id}: no attestation`, false);
     const nonce = sha256(crypto.getRandomValues(new Uint8Array(32)));
     const path = `/attestation/report?model=${encodeURIComponent(model)}&nonce=${nonce}`;
@@ -142,6 +142,6 @@ export class OpenAICompatibleAdapter implements CapabilityAdapter {
     } catch {
       /* keep the hash of whatever came back */
     }
-    return { kind: "nearai", reportHash: sha256(text), signingAddress, nonce, fetchedAt: new Date().toISOString(), verified: false };
+    return { kind: "nearai", reportHash: sha256(text), ...(signingAddress ? { signingAddress } : {}), nonce, fetchedAt: new Date().toISOString(), verified: false, raw: text };
   }
 }
