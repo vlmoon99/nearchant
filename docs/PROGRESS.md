@@ -339,6 +339,18 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - pnpm 12 refused sharp's install script in frozen installs → listed in `allowBuilds`.
 - Next: step 1 render test once weights land; step 5 trend path with live search; step 6 posts pipeline.
 
+## 2026-11-01 ~14:25 UTC — M1 step 6: posts pipeline verified (images pending the engine)
+
+- `generate_posts`: one idea-writer call per batch (Boost Content ideas i4 + the chosen opportunity + the owner's
+  taste memory + recent picks/passes), then per option caption → render with Qwen-Image-Edit from the product
+  photo → ready. `learn_taste` updates the memory after batches. Tests: 29 swarm.
+- **Verified on the Spark** (batch `b-test1`, 2 options for the denim + knit bundle opportunity): captions and
+  hashtags on-brand, image prompts detailed; image engine not up yet, so both fell back to the product photo
+  ("image engine unavailable — showing your photo"), as designed.
+- Image weights: the home link dropped to ~0.5–1.5 MB/s (Spark and Mac both measured); switched to a parallel
+  curl range downloader with checksums (`~/nearchant-node/comfy/models/getall.sh`). Render test (step 1) follows.
+- Next: UI foundation + onboarding pages (steps 8–9), wired to these endpoints.
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +

@@ -30,7 +30,7 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
    the "Getting to know you" screen; replay fixture + tests.
 5. [ ] **Opportunities pipeline**: trend (SearXNG), price (similar items), upsell bundle, channel — each with an
    estimate and the "estimates, not promises" rule; tests.
-6. [ ] **Posts pipeline**: ideas (port of `ideas` prompt, seeded by chosen opportunities) → caption → image
+6. [x] **Posts pipeline**: ideas (port of `ideas` prompt, seeded by chosen opportunities) → caption → image
    (Qwen-Image-Edit from the product photo) → ready; choose/pass/edit signals; learn memory.
 7. [ ] **Publish + proof**: publishing a post writes a `proof-log` entry (hash of caption + image) and shows it on
    the store; Telegram channel post via the seller's bot (existing ADR 0011 code).
