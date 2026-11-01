@@ -40,7 +40,12 @@ export function createApp(d: Deps) {
   const newOrderId = d.newOrderId ?? (() => `o-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`);
 
   const pageHeaders = secureHeaders({
-    contentSecurityPolicy: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'"], imgSrc: ["'self'", "data:", "https:"], frameAncestors: ["'none'"] },
+    // connect-src: the buyer's browser signs and sends transactions to the configured NEAR RPCs only.
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'"], imgSrc: ["'self'", "data:", "https:"], frameAncestors: ["'none'"],
+      connectSrc: ["'self'", ...new Set([d.client.rpcUrl, ...d.config.rpc_urls].map((u) => new URL(u).origin))],
+      frameSrc: ["'self'"],
+    },
     crossOriginResourcePolicy: false,
   });
   // Media files set their own headers (sandboxed HTML); everything else gets the page policy.

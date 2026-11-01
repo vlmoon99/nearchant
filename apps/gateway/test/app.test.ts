@@ -47,6 +47,7 @@ describe("seller card", () => {
       expect(html).toContain("5 nUSD");
       expect(html).toContain("TEST network");
       expect(res.headers.get("content-security-policy")).toContain("script-src 'self'");
+      expect(res.headers.get("content-security-policy")).toContain("connect-src 'self' https://rpc");
     }
   });
 

@@ -4,7 +4,7 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "description": "Control-plane API: public + admin surfaces, seller cards, CORS, webhooks (architecture.md \u00a79).",
+  "description": "Control-plane API: public + admin surfaces, seller cards, CORS, webhooks (architecture.md §9).",
   "scripts": {
     "build": "tsc -p tsconfig.json && pnpm build:web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "playwright-core": "^1.64.1"
   }
 }
