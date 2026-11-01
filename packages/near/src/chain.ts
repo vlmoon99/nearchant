@@ -14,14 +14,15 @@ export type Viewer = <T>(contractId: string, method: string, args?: Record<strin
 export class Chain {
   readonly provider: FailoverRpcProvider;
   private relayerAccount?: Account;
+  private relayerSigner?: KeyPairSigner;
 
   constructor(readonly opts: ChainOptions) {
     if (opts.rpcUrls.length === 0) throw new Error("Chain needs at least one RPC URL");
     const timeout = opts.timeoutMs ?? 15_000;
     this.provider = new FailoverRpcProvider(opts.rpcUrls.map((url) => new JsonRpcProvider({ url, timeout } as never)));
     if (opts.relayer) {
-      const signer = KeyPairSigner.fromSecretKey(opts.relayer.secretKey as KeyPairString);
-      this.relayerAccount = new Account(opts.relayer.accountId, this.provider, signer);
+      this.relayerSigner = KeyPairSigner.fromSecretKey(opts.relayer.secretKey as KeyPairString);
+      this.relayerAccount = new Account(opts.relayer.accountId, this.provider, this.relayerSigner);
     }
   }
 
@@ -51,12 +52,29 @@ export class Chain {
     throw new Error(`could not check ${accountId}: all RPCs failed`);
   }
 
+  /**
+   * Several processes (gateway, worker) sign with the relayer key, so a cached nonce can be stale. On a nonce
+   * error, re-create the account (fresh nonce from chain) and retry.
+   */
+  private async withRelayer<T>(fn: (a: Account) => Promise<T>): Promise<T> {
+    if (!this.relayerAccount || !this.relayerSigner) throw new Error("no relayer key configured");
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await fn(this.relayerAccount);
+      } catch (e) {
+        const msg = String((e as Error)?.message ?? e) + JSON.stringify(e ?? {});
+        if (attempt >= 4 || !/nonce/i.test(msg)) throw e;
+        this.relayerAccount = new Account(this.relayerAccount.accountId, this.provider, this.relayerSigner);
+        await new Promise((r) => setTimeout(r, 300 + Math.random() * 700));
+      }
+    }
+  }
+
   /** Sends NEAR from the relayer (creates an implicit account if it doesn't exist). */
   async transferFromRelayer(receiverId: string, amountNear: string): Promise<void> {
-    if (!this.relayerAccount) throw new Error("no relayer key configured");
     const [w, f = ""] = amountNear.split(".");
     const yocto = BigInt(w!) * 10n ** 24n + BigInt((f + "0".repeat(24)).slice(0, 24));
-    await this.relayerAccount.transfer({ receiverId, amount: yocto } as never);
+    await this.withRelayer((a) => a.transfer({ receiverId, amount: yocto } as never));
   }
 
   /** A function call signed by another account's key (e.g. a seller's agent function-call key). */
@@ -67,13 +85,12 @@ export class Chain {
 
   /** A function call signed by the relayer. Returns the decoded return value. */
   async call<T = unknown>(contractId: string, methodName: string, args: Record<string, unknown>, opts: { gasTgas?: number; depositYocto?: bigint } = {}): Promise<T> {
-    if (!this.relayerAccount) throw new Error("no relayer key configured");
-    return (await this.relayerAccount.callFunction({
+    return (await this.withRelayer((a) => a.callFunction({
       contractId,
       methodName,
       args,
       gas: BigInt(opts.gasTgas ?? 100) * 10n ** 12n,
       deposit: opts.depositYocto ?? 0n,
-    })) as T;
+    }))) as T;
   }
 }
