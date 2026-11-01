@@ -830,6 +830,18 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   down = unknown) — providers 17; live `https://nearchant.com/attestations/24459fc5…f425.check.json` (proof #18).
 - Not done: NVIDIA NRAS (needs a key), Phala deploy (owner account).
 
+## 2026-11-02 02:30 UTC — night: submission docs, walkthrough video, 11× smaller pictures
+
+- README (story, architecture, libraries) and `docs/demo-script.md` (90 s) describe the current product: headline
+  pictures, 8-second shorts, the Levanto Sage caption check, the attestation check, Connect a NEAR wallet, two
+  Sparks for the LLMs + Comfy Cloud for pictures and video, Nova Wear NYC.
+- `apps/gateway/e2e/walkthrough.mjs` records nearchant.com in Chrome: desktop (landing → seller app → a post with
+  its short and proof → analytics → wallet → settings), phone onboarding of a new store (AI waits ×6), phone
+  storefront; ffmpeg joins it into one 1440×900 mp4 (~78 s). Fixed a join error (non-square pixels).
+- Pictures: `/files/…?w=320|640|1024` returns a resized WebP made once and cached (`.thumbs/`), same privacy as the
+  original; grids, store, landing and onboarding use it. **Verified**: 1.29 MB PNG → 119 KB WebP; tests 38.
+  (The first recording showed an empty picture box: the 1.3 MB PNG had not loaded yet.)
+
 ### Owner actions
 - Try "Connect a NEAR wallet": Settings → NEAR wallet in your store (testnet MyNearWallet account), then sign in
   with it from another browser. Tell me if MyNearWallet shows an error.
