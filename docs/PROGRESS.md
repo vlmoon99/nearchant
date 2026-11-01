@@ -362,8 +362,8 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   faucet as needed.
 - ~~Sparks offline~~ — back ~07:00 UTC 1 Nov.
 - Phala Cloud account with credit, needed by ~8 Nov.
-- Cloudflare: tunnel connected; add public hostnames `nearchant.com` + `*.nearchant.com` → HTTP `gateway:8787`
-  in the tunnel's Routes tab.
+- ~~Cloudflare routes~~ — done 1 Nov: `https://nearchant.com` and `https://<store>.nearchant.com` are public
+  (verified: /new 200, verity.nearchant.com 200, alice via Cloudflare edge 200).
 - NEAR AI credit ~$2: top up before step 14 of `docs/m1-plan.md` (end of the build).
 - `gx10-c3c8` / inference_system: its own engines are off; its config still lists the reinstalled `dgx-spark-2`
   (now `gx10-8695`) as node1. Nearchant doesn't depend on it; fix in that repo when convenient.
