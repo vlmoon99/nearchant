@@ -31,7 +31,7 @@ export const HomePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; post
   <Page cfg={cfg} test={test} title="Home" active="Home" store={store}>
     <PageHead kicker={`Hello, ${store.name}`} title="Home">
       <a class="acct-pill" href="/app/wallet"><i></i><span class="foot b">{store.account}</span>{store.balance ? <span class="foot muted">{store.balance}</span> : null}</a>
-      <a class="btn" href="/app/create"><Icon n="plus" />Create post</a></PageHead>
+      <a class="btn hide-m" href="/app/create"><Icon n="plus" />Create post</a></PageHead>
     {(top as never) ?? null}
     <a class="dropzone banner" href="/app/create">
       <span class="dot" style="width:56px;height:56px;background:var(--bg)"><Icon n="image" s={26} c="#007AFF" /></span>

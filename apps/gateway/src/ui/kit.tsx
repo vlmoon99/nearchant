@@ -72,7 +72,7 @@ export const Shell: FC<PropsWithChildren<{ active: string; store: { name: string
     <header class="topbar"><a class="logo" style="padding:0" href="/app"><Mark />Nearchant</a><span class="foot muted">{store.account}</span></header>
     <main class="main">{children}</main>
     <nav class="bottomnav">
-      {NAV.filter(([, l]) => l !== "Settings").map(([ic, label, href]) => label === "Create"
+      {(["Home", "Posts", "Create", "Analytics", "Wallet"] as const).map((l) => NAV.find(([, x]) => x === l)!).map(([ic, label, href]) => label === "Create"
         ? <a href={href} aria-label="Create"><span class="fab"><Icon n="plus" s={24} /></span></a>
         : <a href={href} class={label === active ? "on" : ""}><Icon n={ic} s={22} />{label}</a>)}
     </nav>

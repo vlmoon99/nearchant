@@ -66,7 +66,7 @@ export const WalletPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; ba
     </div>
     <div class="cols">
       <div class="card"><span class="headline">Transactions</span>
-        {rows.length ? rows.map((r) => <div class="spread card white" style="padding:10px 12px;border:0;flex-direction:row"><span class="stack" style="gap:2px"><span class="foot b">{r.what}</span><span class="cap proof-t">{r.when} · {r.state} · on NEAR</span></span><span class={`sub b ${r.sign === "+" ? "okt" : ""}`}>{r.sign}{r.amount}</span></div>) : <span class="foot muted">No payments yet.</span>}
+        {rows.length ? rows.map((r) => <div class="spread card white" style="padding:10px 12px;border:0;flex-direction:row"><span class="stack" style="gap:2px"><span class="foot b">{r.what}</span><span class="cap proof-t">{r.when} · {r.state} · on NEAR</span></span><span class={`sub b ${r.sign === "+" ? "okt" : ""}`} style="white-space:nowrap">{r.sign}{r.amount}</span></div>) : <span class="foot muted">No payments yet.</span>}
       </div>
       <div class="card"><span class="headline">How you get paid</span>
         {[["lock", "Buyer pays in USDC on NEAR", "Money goes into escrow, not to a middleman."], ["check", "You ship, the buyer confirms", "Or it confirms itself after the timeout."], ["wallet", "Released to you automatically", `Straight to ${store.account}.`]].map(([ic, t, d]) => <div class="row" style="gap:12px"><span class="dot" style="background:var(--bg);border-radius:10px;width:32px;height:32px"><Icon n={ic!} s={16} c="#007AFF" /></span><span class="stack" style="gap:2px"><span class="foot b">{t}</span><span class="foot muted">{d}</span></span></div>)}

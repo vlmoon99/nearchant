@@ -177,3 +177,6 @@ svg { flex-shrink: 0; }
 .csteps-s.done i { background: var(--ok); color: #fff; }
 .csteps-line { width: 28px; height: 2px; background: var(--track); border-radius: 1px; }
 @media (max-width: 899px) { .csteps-line { display: none; } }
+
+/* Phone: the + in the bottom bar is the create button. */
+@media (max-width: 899px) { .hide-m { display: none !important; } }
