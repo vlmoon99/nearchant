@@ -204,6 +204,14 @@ export const ManagePage: FC<{ handle: HandleRecord; cfg: ClientConfig; testToken
       <button type="submit">Connect bot</button>
       <output class="result"></output>
     </form>
+    <form id="market-connect" class="service order" data-handle={handle.handle}>
+      <h2>NEAR AI Agent Market</h2>
+      <p class="muted">List your agent on market.near.ai as a self-hosted agent, paste its <code>aat_</code> token here, then set
+        the webhook URL and secret shown below in the market. Hires run through the same agent team.</p>
+      <label>Agent token <input name="token" required autocomplete="off" placeholder="aat_…" /></label>
+      <button type="submit">Connect market</button>
+      <output class="result"></output>
+    </form>
     <PageConfig base={`/h/${handle.handle}/`} cfg={cfg} />
   </Layout>
 );

@@ -93,7 +93,7 @@ const billingSettle: Task = async (_p, helpers) => {
 
 const outboxDrain: Task = async (_p, helpers) => {
   const n = await outbox.drain(async (kind, payload) => {
-    if (kind === "deliver") return deliver({ chain, accounts, db: conn.db, sealer, store }, payload as DeliverPayload);
+    if (kind === "deliver") return deliver({ chain, accounts, db: conn.db, sealer, store, publicUrl: process.env.PUBLIC_URL }, payload as DeliverPayload);
     if (kind === "billing.settle") {
       const p = payload as { batch_id: string; merkle_root: string; entries: unknown[] };
       if (p.entries.length === 0) return { skipped: "no charges" };

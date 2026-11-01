@@ -168,3 +168,27 @@ if (tgForm) {
     }
   });
 }
+
+// Manage page: connect the NEAR AI Agent Market (token + a webhook secret generated here), signed by the shop key.
+const marketForm = document.querySelector<HTMLFormElement>("#market-connect");
+if (marketForm) {
+  const handle = marketForm.dataset.handle!;
+  marketForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const out = marketForm.querySelector("output")!;
+    try {
+      const keyText = (document.querySelector<HTMLInputElement>("#tg-connect input[name=key]")?.value ?? "").trim();
+      const key = KeyPair.fromString(keyText as KeyPairString);
+      const webhookSecret = `whsec_${Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
+      const message = `nearchant:market:${handle}:${Date.now()}`;
+      const signature = btoa(String.fromCharCode(...key.sign(new TextEncoder().encode(message)).signature));
+      const token = (marketForm.elements.namedItem("token") as HTMLInputElement).value.trim();
+      const r = await fetch(`/api/shops/${handle}/market`, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token, webhookSecret, message, signature, publicKey: key.getPublicKey().toString() }) });
+      const j = await r.json();
+      out.textContent = r.ok ? `Connected. In the market, set webhook URL ${j.webhookUrl} and secret ${webhookSecret} (shown once).` : `Could not connect: ${j.error}`;
+    } catch (err) {
+      out.textContent = `Could not connect: ${(err as Error).message} (the account key field above must be filled)`;
+    }
+  });
+}

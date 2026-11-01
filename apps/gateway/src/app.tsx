@@ -7,6 +7,7 @@ import { formatUnits, type GatewayConfig } from "./config.js";
 import { originOf, publicCors } from "./cors.js";
 import { CardPage, ManagePage, NewShopPage, NotFoundPage, OrderPage, SITE_CSS, type ClientConfig, type OrderView } from "./pages.js";
 import { RateLimit } from "./buyers.js";
+import { verifyMarketSignature, type HireCreated } from "./market.js";
 import { newWebhookSecret, secretMatches, validBotToken, verifySellerSignature, type TgUpdate } from "./telegram.js";
 import type { Service, Store } from "@nearchant/db";
 
@@ -36,6 +37,12 @@ export interface Deps {
     connect: (handle: string, token: string, webhookUrl: string, secret: string) => Promise<{ username: string }>;
     secretFor: (handle: string) => Promise<string | null>;
     onUpdate: (handle: string, update: TgUpdate) => Promise<void>;
+  };
+  /** NEAR AI Agent Market (ADR 0010): sealed per-seller market token + webhook secret. */
+  market?: {
+    connect: (handle: string, token: string, webhookSecret: string) => Promise<void>;
+    secretFor: (handle: string) => Promise<string | null>;
+    onHire: (handle: string, hire: HireCreated) => Promise<void>;
   };
   /** Flow 3 seller side: A2A tasks paid through escrow (docs/swarm.md). */
   a2a?: {
@@ -332,6 +339,35 @@ export function createApp(d: Deps) {
     const update = (await c.req.json().catch(() => null)) as TgUpdate | null;
     if (update) void d.telegram.onUpdate(handle, update).catch((e) => console.warn(`[telegram] ${handle}: ${(e as Error).message}`));
     return c.body(null, 200); // answer fast; Telegram retries slow webhooks
+  });
+
+  // NEAR AI Agent Market: connect (signed by the shop key) and the hire webhook.
+  app.post("/api/shops/:handle/market", async (c) => {
+    if (!d.market || !d.telegram) return c.json({ error: "market integration is off on this gateway" }, 404);
+    const handle = c.req.param("handle");
+    const h = await d.handles.get(handle);
+    const b = (await c.req.json().catch(() => null)) as { token?: string; webhookSecret?: string; message?: string; signature?: string; publicKey?: string } | null;
+    if (!h || !b?.token?.startsWith("aat_") || !b.webhookSecret || b.webhookSecret.length < 32 || !b.message || !b.signature || !b.publicKey) {
+      return c.json({ error: "need an aat_ token, a webhook secret of 32+ chars, and a signature" }, 400);
+    }
+    if (!verifySellerSignature({ message: b.message, signature: b.signature, publicKey: b.publicKey, handle, action: "market" })) return c.json({ error: "bad or expired signature" }, 401);
+    if (!(await d.telegram.isOwnerKey(h.account_id, b.publicKey))) return c.json({ error: "that key is not a full-access key of the shop account" }, 403);
+    await d.market.connect(handle, b.token, b.webhookSecret);
+    return c.json({ connected: true, webhookUrl: `${d.config.public_url}/market/webhook/${handle}` });
+  });
+  app.post("/market/webhook/:handle", async (c) => {
+    if (!d.market) return c.notFound();
+    const handle = c.req.param("handle");
+    const secret = await d.market.secretFor(handle);
+    const raw = await c.req.text();
+    if (!secret || !verifyMarketSignature({ secret, timestamp: c.req.header("x-market-timestamp"), signature: c.req.header("x-market-signature"), rawBody: raw })) return c.body(null, 401);
+    const event = c.req.header("x-market-event");
+    if (event === "hire.created") {
+      const hire = JSON.parse(raw) as HireCreated;
+      if (!hire.assignment_id) return c.body(null, 400);
+      await d.market.onHire(handle, hire); // idempotent by assignment id (same delivery retried → same order)
+    }
+    return c.body(null, 200); // a 2xx to hire.created counts as "started"
   });
 
   // Host-based seller routes, then the `/h/<handle>` form.

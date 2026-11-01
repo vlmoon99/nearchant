@@ -6,6 +6,7 @@ import { makeWorkerUtils, type WorkerUtils } from "graphile-worker";
 import { parse } from "yaml";
 import { Artifacts, Envelopes, MemoryStore, PgStore, Sealer, claimA2aPayment, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
 import { TelegramApi, handleUpdate, type TgUpdate } from "./telegram.js";
+import { marketOrderId, type HireCreated } from "./market.js";
 import { formatUnits } from "./config.js";
 import { Router } from "@nearchant/providers";
 import { loadAgentEnv, makeAsker, type AgentEnv } from "@nearchant/swarm";
@@ -166,6 +167,27 @@ const app = createApp({
       },
       secretFor: (handle: string) => getSecret({ db: conn!.db, sealer: sealer! }, handle, "telegram-secret"),
       onUpdate: onTelegramUpdate,
+    },
+  } : {}),
+  ...(conn && sealer ? {
+    market: {
+      connect: async (handle: string, token: string, webhookSecret: string) => {
+        await putSecret({ db: conn!.db, sealer: sealer! }, handle, "market-token", token);
+        await putSecret({ db: conn!.db, sealer: sealer! }, handle, "market-webhook-secret", webhookSecret);
+      },
+      secretFor: (handle: string) => getSecret({ db: conn!.db, sealer: sealer! }, handle, "market-webhook-secret"),
+      // A market hire is paid in the market's escrow: it enters the same swarm as a paid order (ADR 0010).
+      onHire: async (handle: string, hire: HireCreated) => {
+        const orderId = marketOrderId(hire.assignment_id);
+        if (await store.getOrder(orderId)) return;
+        const service = (await store.listServices(handle)).find((x) => !x.agentEnv);
+        if (!service) throw new Error(`${handle} has no orderable service`);
+        const now = new Date().toISOString();
+        const brief = [hire.title, hire.description].filter(Boolean).join("\n\n").slice(0, 4000);
+        await store.createOrder({ orderId, handle, serviceId: service.id, amount: "0", brief, buyerAccountId: null, state: "paid", createdAt: now, updatedAt: now });
+        await queue?.addJob("deck_step", { orderId, step: "brief" }, { jobKey: `${orderId}:brief`, maxAttempts: 5 });
+        console.info(`[gateway] market hire ${hire.assignment_id} for ${handle} → ${orderId}`);
+      },
     },
   } : {}),
   ...(conn ? {
