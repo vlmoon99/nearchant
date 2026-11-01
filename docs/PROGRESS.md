@@ -655,6 +655,23 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   pulling NGC vLLM 26.10 (the Sparks' vllm-node is 0.23.1; Qwen3.8 needs ≥0.25.1) on c3c8.
 - Next: start Qwen3.8-27B on c3c8, route idea-writer / insight-writer / video-director to it, compare outputs.
 
+## 2026-11-01 19:00 UTC — Qwen3.8-27B on gx10-c3c8 writes the posts
+
+- `deploy/llm-node/compose.yaml` on gx10-c3c8: NGC `nvcr.io/nvidia/vllm:26.10-py3` (vLLM 0.31) serving
+  `unsloth/Qwen3.8-27B-NVFP4` (22.6 GB, sha256 checked against the HF LFS id; tokenizer `truncation` null) with MTP
+  (3 draft tokens), 55% of unified memory, `100.64.0.1:8010`, same key as the 8695 node (git-ignored engine.env).
+  Ready in 195 s; 45 GB still free on the box.
+- Content store: `seats.second = Qwen/Qwen3.8-27B`; idea-writer, insight-writer and video-director use it; profiler
+  (vision), opportunity-analyst, learner, localizer stay on Qwen3.6-35B-A3B (fast). If c3c8 is down, the second
+  seat degrades to the main one (existing agent.ts logic). `make demo` replay unchanged (verified).
+- **Verified**: direct calls 22.9 tok/s (thinking off) / 24.2 (thinking on), valid JSON, no invented offers; live on
+  nearchant.com a 3-post batch for `novatestgnpn` in 102 s with pictures — envelope model `qwen3.8-27b`; Sage
+  checks 0.006–0.010 (none flagged).
+- Seen: something on the Gigabyte (100.64.0.12, Boost Content's cluster) polls `100.64.0.1:8010/health` — it gets
+  health only; every model call needs our key.
+- Not done: a side-by-side quality review of Qwen3.8 vs Qwen3.6 posts with the owner; the first download stalled
+  (HF client), finished with curl resume.
+
 ### Owner actions
 - Optional: a Brave Search API key (free tier) for reliable trend opportunities — self-hosted search is blocked
   from the home network right now.
