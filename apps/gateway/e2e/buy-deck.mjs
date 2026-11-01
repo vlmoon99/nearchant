@@ -4,6 +4,7 @@
 import { chromium } from "playwright-core";
 
 const base = process.argv[2] ?? "http://alice.localhost:8787/";
+const revise = process.argv.includes("--revise"); // ask for one revision before accepting
 const brief = "Seed pitch deck for BeanBox: a specialty coffee subscription in Kyiv, 18 EUR a month, 400 paying subscribers after 6 months, two founders (a roaster and a growth marketer), raising 300k EUR to open a second roastery.";
 const browser = await chromium.launch({ channel: "chrome", headless: true });
 const page = await browser.newPage();
@@ -25,6 +26,13 @@ await page.waitForSelector("button[data-order-action=accept]", { timeout: 25 * 6
 log(`delivered: ${await page.locator("p.account").textContent()}`);
 const links = await page.locator("a.dl").evaluateAll((as) => as.map((a) => a.href));
 log(`downloads: ${links.join(", ")}`);
+if (revise) {
+  await page.click("button[data-order-action=request_revision]");
+  await page.waitForSelector("text=Agents are working", { timeout: 30 * 60_000 }); // escrow timer picks it up (≤10 min)
+  log("revision requested; agents are reworking");
+  await page.waitForSelector("button[data-order-action=accept]", { timeout: 30 * 60_000 });
+  log(`redelivered: ${await page.locator("p.account").textContent()}`);
+}
 await page.click("button[data-order-action=accept]");
 await page.waitForSelector("text=Accepted", { timeout: 120_000 });
 log(`accepted: ${await page.locator("p.account").textContent()}`);

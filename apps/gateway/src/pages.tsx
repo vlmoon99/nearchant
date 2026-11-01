@@ -86,7 +86,8 @@ const STEP_LABELS: Record<string, string> = {
 
 export const OrderPage: FC<{ o: OrderView; base: string; cfg: ClientConfig; testToken: boolean }> = ({ o, base, cfg, testToken }) => {
   const html = o.files.find((f) => f.kind === "html");
-  const working = ["paid", "in_progress"].includes(o.state) && o.chainStatus !== "Delivered";
+  const revising = o.chainStatus === "RevisionRequested";
+  const working = (["paid", "in_progress"].includes(o.state) && o.chainStatus !== "Delivered") || revising;
   return (
     <Layout title={`Order ${o.orderId} · ${o.handle.card.name}`} testToken={testToken}>
       <section class="card">
@@ -98,6 +99,7 @@ export const OrderPage: FC<{ o: OrderView; base: string; cfg: ClientConfig; test
       {working ? (
         <section class="service" data-poll-order={o.orderId}>
           <h2>Agents are working</h2>
+          {revising ? <p>Revision requested — the agents are reworking your deck. It is redelivered with a new proof.</p> : null}
           <ol class="steps">
             {Object.entries(STEP_LABELS).map(([k, label]) => <li class={o.stepsDone.includes(k) ? "done" : ""}>{label}</li>)}
           </ol>
@@ -105,7 +107,7 @@ export const OrderPage: FC<{ o: OrderView; base: string; cfg: ClientConfig; test
         </section>
       ) : null}
       {o.state === "awaiting_payment" ? <section class="service"><p>Waiting for payment.</p></section> : null}
-      {o.files.length && ["Delivered", "Released", "RevisionRequested", "RefundRequested", "Disputed", "Refunded"].includes(o.chainStatus ?? "") ? (
+      {o.files.length && ["Delivered", "Released", "RefundRequested", "Disputed", "Refunded"].includes(o.chainStatus ?? "") ? (
         <section class="service">
           <h2>Your deck</h2>
           {html ? <iframe class="preview" src={html.url} sandbox="allow-scripts" title="Deck preview"></iframe> : null}
