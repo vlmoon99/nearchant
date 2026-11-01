@@ -28,7 +28,7 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
    link field; JSON endpoints used by the pages.
 4. [x] **Analyze pipeline** (worker): vision profile prompt (port of Boost Content `profile`), facts streamed to
    the "Getting to know you" screen; replay fixture + tests.
-5. [ ] **Opportunities pipeline**: trend (SearXNG), price (similar items), upsell bundle, channel — each with an
+5. [x] **Opportunities pipeline** (trends need live web search — see PROGRESS 1 Nov 23:00): trend (SearXNG), price (similar items), upsell bundle, channel — each with an
    estimate and the "estimates, not promises" rule; tests.
 6. [x] **Posts pipeline**: ideas (port of `ideas` prompt, seeded by chosen opportunities) → caption → image
    (Qwen-Image-Edit from the product photo) → ready; choose/pass/edit signals; learn memory.

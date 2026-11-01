@@ -517,7 +517,18 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Next: step 13 (polish: order page in the new style, store order counter, README + demo script, `make demo` for
   the new story), video shorts (13b), step 14.
 
+## 2026-11-01 ~23:00 UTC — step 5 closed: opportunities without web evidence drop the trend
+
+- Opportunities run live (price, upsell bundle, channel verified on NEAR AI and the local Qwen). The trend path needs
+  web results: self-hosted SearXNG gets 0 results from this network — every engine is rate-limited, CAPTCHA'd or
+  "access denied" (brave, duckduckgo, google, startpage, mojeek, qwant, yahoo). As designed, a trend without a real
+  search result is dropped instead of guessed (tested).
+- Fix for reliable trends: a search API (e.g. Brave Search API free tier) — owner's call; or run search from a
+  different network (the Sparks' SearXNG worked earlier on 1 Nov).
+
 ### Owner actions
+- Optional: a Brave Search API key (free tier) for reliable trend opportunities — self-hosted search is blocked
+  from the home network right now.
 - **URGENT (1 Nov ~18:00 UTC): all three Sparks offline** (no ping/SSH; nearchant.com 530) — likely power or
   network at the site. `gx10-c3c8` went silent first (~17:30, during a video render). Check power/network; power-
   cycle `gx10-c3c8` if it alone stays down. All Nearchant containers restart by themselves.
