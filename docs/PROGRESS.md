@@ -405,7 +405,24 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Owner offered a third Spark (to move the LLM or images off the busy nodes) → waiting for its tailnet IP.
 - Next: step 11 storefront (store page, item page, checkout with escrow, order paid).
 
+## 2026-11-01 ~17:45 UTC — video engine built; gx10-c3c8 hung during a video render (needs a power cycle)
+
+- A parallel agent built `deploy/video-engine` (branch `worktree-agent-a8ec1501d5f8b2038`, not merged yet):
+  ComfyUI + LTX-2.5 video adapter (bearer auth, one render at a time) + English-only Kokoro TTS with word
+  timestamps (faster-whisper base.en). Verified: TTS 9.7 s of speech in 1.8 s; one LTX render 704×1280, 5 s,
+  172 s cold (`scratchpad/video1.mp4`).
+- **Incident**: the second (warm) LTX render made `gx10-c3c8` unresponsive (no ping/SSH on tailnet or LAN) —
+  unified memory exhausted (41 GB used + ~64 GB page cache of memory-mapped weights, no container cap). Boost
+  Content's `inf-*`/`bc-*` containers on that box are down with it. All `ncvideo` containers restart on boot but
+  load no model until a request comes.
+- Fix before any further render: a memory cap on the video ComfyUI container (`COMFY_MEM_LIMIT`, 72 GB, committed
+  on the branch, not yet tested — must confirm the GB10 counts GPU allocations against it), plus a render guard
+  that refuses to start when free memory is low. Video stays paused until that is verified.
+- Lesson: never run an uncapped LTX render on a machine that hosts other services.
+
 ### Owner actions
+- **URGENT: power-cycle `gx10-c3c8`** (hung at ~17:30 UTC during a Nearchant video render; Boost Content's
+  services on it are down until it reboots). Its containers come back by themselves.
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
   secret it shows (needs the public tunnel URL first).
