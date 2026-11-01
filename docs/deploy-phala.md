@@ -28,6 +28,6 @@ phala deploy -n nearchant-gw -t tdx.medium -c deploy/phala/compose.yaml \
 ## Differences from the Spark deployment
 
 - No local model endpoints: every call is `tee` tier on NEAR AI; costs are billed to sellers from the catalog prices.
-- No SearXNG on the tailnet: research scouts fall back to model knowledge (marked as such) unless a search endpoint
-  is configured with `SEARXNG_URL`.
+- Web search runs in the CVM: the bundled `search` service (SearXNG, JSON API, no limiter) replaces the tailnet
+  SearXNG the Spark used.
 - The `NEARCHANT_SECRET_KEY` must be the same as on the Spark, or sealed agent keys can't be opened after the move.

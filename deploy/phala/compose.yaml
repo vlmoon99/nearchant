@@ -20,6 +20,7 @@ services:
       NEAR_RELAYER_KEY: ${NEAR_RELAYER_KEY}
       NEARAI_API_KEY: ${NEARAI_API_KEY}
       PUBLIC_URL: ${PUBLIC_URL:-https://nearchant.com}
+      SEARXNG_URL: http://search:8080
       TRUST_PROXY: cloudflare
       MEDIA_DIR: /app/.media
       MEDIA_PUBLIC: /media
@@ -35,6 +36,17 @@ services:
     environment: { <<: *env, RENDERER_URL: http://renderer:8080, FACTCHECK_A2A_URL: "http://gateway:8787/h/verity/a2a/v1" }
     volumes: ["media:/app/.media"]
     depends_on: { db: { condition: service_healthy } }
+    restart: unless-stopped
+
+  search:     # SearXNG for the research scouts: JSON on, limiter off, settings written at start (no mounted files)
+    image: searxng/searxng@sha256:3602e6ddbeba037f5d800d1ed9d296a8b93c9f5b3cf9d05fa179d0e766dd59a1
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        printf 'use_default_settings: true\nserver:\n  limiter: false\n  image_proxy: false\n  secret_key: "%s"\nsearch:\n  formats: [html, json]\n'
+        "$$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')" > /etc/searxng/settings.yml;
+        exec /usr/local/searxng/entrypoint.sh
     restart: unless-stopped
 
   renderer:

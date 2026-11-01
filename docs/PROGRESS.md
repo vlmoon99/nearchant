@@ -228,6 +228,17 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   ("add a retention plan slide, make the ask more concrete") → redelivered 1171 s → accepted → `Released`. The rewrite
   addressed retention only as an "Assumption:" line (no retention data exists — honest), kept "The Ask".
 
+## 2026-11-01 ~04:50 UTC — both Sparks offline; search bundled with the stack
+
+- Heartbeat: `gx10-8695` (100.64.0.13) and `gx10-c3c8` (100.64.0.1) both dropped off the tailnet at the same time
+  (`tailscale status`: offline, rx 0; ping and SSH time out). Most likely a power or network outage at the site. The
+  live gateway (`http://100.64.0.13:8787`) is down with them. Testnet contracts are unaffected; CI is green.
+- Lesson for the judged deployment: the public URL must not depend on the Sparks. That is already the plan (Phala +
+  NEAR AI Cloud, `config/providers.cloud.yaml`); running a cloud-only pipeline from the Mac now to check that path.
+- Gap found: the Phala compose had no web search (scouts would fall back to model knowledge). Added a `search`
+  service (SearXNG pinned by digest, settings written at start so no mounted files are needed — works in a CVM) to
+  both compose files; `SEARXNG_URL` defaults to it. Verified: the compose service returns 20 JSON results.
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
@@ -237,6 +248,8 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - ~~`gx10-8695`: add `server` to the docker group~~ — done 2026-10-31; Docker 29.6 + GPU in containers verified.
 - Testnet NEAR: root has ~7.9 NEAR after deploying; each sponsored shop costs ~0.2 NEAR. I'll top up from the
   faucet as needed.
+- **Sparks offline since ~04:45 UTC 1 Nov**: check power and network on both; when `gx10-8695` is back, the compose
+  stack restarts by itself (`restart: unless-stopped`) — I'll verify.
 - Phala Cloud account with credit, needed by ~8 Nov.
 - Cloudflare: a tunnel token for `*.nearchant.com` (or API token so I can create it), needed by ~6 Nov.
 - `gx10-c3c8` / inference_system: its own engines are off; its config still lists the reinstalled `dgx-spark-2`

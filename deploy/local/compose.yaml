@@ -13,7 +13,7 @@ x-app: &app
     NEAR_RELAYER_KEY: ${NEAR_RELAYER_KEY:-}
     NEARAI_API_KEY: ${NEARAI_API_KEY:-}
     NC_LOCAL_LLM_KEY: ${NC_LOCAL_LLM_KEY:-}
-    SEARXNG_URL: ${SEARXNG_URL:-}
+    SEARXNG_URL: ${SEARXNG_URL:-http://search:8080}
     REPLAY_DIR: ${REPLAY_DIR:-}
     PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8787}
     TRUST_PROXY: ${TRUST_PROXY:-}
@@ -42,6 +42,17 @@ services:
     <<: *app
     command: ["node", "apps/worker/dist/main.js"]
     environment: { <<: *appenv, RENDERER_URL: http://renderer:8080, FACTCHECK_A2A_URL: "http://gateway:8787/h/verity/a2a/v1" }
+
+  search:     # SearXNG for the research scouts: JSON on, limiter off, settings written at start (no mounted files)
+    image: searxng/searxng@sha256:3602e6ddbeba037f5d800d1ed9d296a8b93c9f5b3cf9d05fa179d0e766dd59a1
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        printf 'use_default_settings: true\nserver:\n  limiter: false\n  image_proxy: false\n  secret_key: "%s"\nsearch:\n  formats: [html, json]\n'
+        "$$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')" > /etc/searxng/settings.yml;
+        exec /usr/local/searxng/entrypoint.sh
+    restart: unless-stopped
 
   renderer:   # Marp CLI in server mode; sees the same media volume (docs/swarm.md render step)
     image: marpteam/marp-cli@sha256:3cf660df7b9737f875e57f7169dff0b08d1d3ab604ea2d655ab761102942fa42
