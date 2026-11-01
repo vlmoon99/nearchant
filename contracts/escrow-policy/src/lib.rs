@@ -14,7 +14,9 @@ use near_sdk::{
 
 const DAY_NS: u64 = 24 * 60 * 60 * 1_000_000_000;
 const GAS_TRANSFER: Gas = Gas::from_tgas(10);
-const GAS_CALLBACK: Gas = Gas::from_tgas(15);
+const GAS_CALLBACK: Gas = Gas::from_tgas(30);
+/// Smallest campaign funding (1 nUSD): keeps storage spam expensive (security review M1).
+const MIN_FUND: u128 = 1_000_000;
 const MAX_ALLOWLIST: usize = 50;
 
 #[near(serializers = [json, borsh])]
@@ -253,6 +255,13 @@ impl Contract {
                 c.spent_today = U128(c.spent_today.0 + p.amount.0);
             }
             p.status = PaymentStatus::Paid;
+            if p.fee.0 > 0 {
+                ext_ft::ext(self.token_id.clone())
+                    .with_attached_deposit(NearToken::from_yoctonear(1))
+                    .with_static_gas(GAS_TRANSFER)
+                    .ft_transfer(self.treasury_id.clone(), p.fee, Some(format!("agent fee {}", payment_id.0)))
+                    .detach();
+            }
             event("payment_made", json!({"payment_id": payment_id, "campaign_id": p.campaign_id,
                 "payee_id": p.payee_id, "amount": p.amount, "fee": p.fee}));
             true
@@ -278,21 +287,14 @@ impl Contract {
     fn send(&mut self, id: u64) -> Promise {
         let p = self.payments.get_mut(&id).expect("payment");
         p.status = PaymentStatus::Sending;
-        let (payee, net, fee) = (p.payee_id.clone(), p.amount.0 - p.fee.0, p.fee.0);
+        let (payee, net) = (p.payee_id.clone(), p.amount.0 - p.fee.0);
         let memo = Some(format!("nearchant hire {}", p.payment_id.0));
-        let mut pr = ext_ft::ext(self.token_id.clone())
+        // Net to the payee first; the fee goes to the treasury only after that succeeded (security review H4).
+        ext_ft::ext(self.token_id.clone())
             .with_attached_deposit(NearToken::from_yoctonear(1))
             .with_static_gas(GAS_TRANSFER)
-            .ft_transfer(payee, U128(net), memo);
-        if fee > 0 {
-            pr = pr.and(
-                ext_ft::ext(self.token_id.clone())
-                    .with_attached_deposit(NearToken::from_yoctonear(1))
-                    .with_static_gas(GAS_TRANSFER)
-                    .ft_transfer(self.treasury_id.clone(), U128(fee), Some(format!("agent fee {id}"))),
-            );
-        }
-        pr.then(Self::ext(env::current_account_id()).with_static_gas(GAS_CALLBACK).on_sent(U64(id)))
+            .ft_transfer(payee, U128(net), memo)
+            .then(Self::ext(env::current_account_id()).with_static_gas(GAS_CALLBACK).on_sent(U64(id)))
     }
 }
 
@@ -305,7 +307,7 @@ impl FungibleTokenReceiver for Contract {
         let Ok(m) = serde_json::from_str::<FundMsg>(&msg) else {
             return PromiseOrValue::Value(amount);
         };
-        if m.action != "fund" || m.campaign_id.is_empty() || m.campaign_id.len() > 128 {
+        if m.action != "fund" || m.campaign_id.is_empty() || m.campaign_id.len() > 128 || amount.0 < MIN_FUND {
             return PromiseOrValue::Value(amount);
         }
         if let Some(c) = self.campaigns.get_mut(&m.campaign_id) {

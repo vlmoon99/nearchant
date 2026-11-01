@@ -9,6 +9,7 @@ struct Shop {
     orders: Contract,
     proofs: Contract,
     alice: Account,
+    ghost: Option<Account>,
     buyer: Account,
 }
 
@@ -40,10 +41,10 @@ async fn shop() -> anyhow::Result<Shop> {
     let alice = claim(&env, &factory, &seller_owner, "alice").await?;
     env.relayer.call(env.nusd.id(), "register").args_json(json!({"account_id": alice.id()})).transact().await?.into_result()?;
     // An unregistered seller, to exercise a failing payout.
-    let _ghost = claim(&env, &factory, &seller_owner, "ghost").await?;
+    let ghost = claim(&env, &factory, &seller_owner, "ghost").await?;
     let buyer = sub(&env.root, "buyer", 10).await?;
     fund(&env, &buyer).await?;
-    Ok(Shop { env, orders, proofs, alice, buyer })
+    Ok(Shop { env, orders, proofs, alice, ghost: Some(ghost), buyer })
 }
 
 async fn pay(s: &Shop, order_id: &str, seller: &str, amount: u128) -> anyhow::Result<String> {
@@ -170,25 +171,41 @@ async fn undelivered_order_refunds_after_deadline() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn failed_payout_reverts_status() -> anyhow::Result<()> {
-    // A buyer that unregisters from nUSD after paying: the refund transfer fails and the order
-    // must go back to its previous state instead of being lost in `Refunding`.
+    // `ghost` is a handle whose payout account isn't registered on nUSD: the release transfer fails and the order
+    // must go back to Delivered with the money still held, instead of being lost in `Releasing`.
     let s = shop().await?;
-    let mut p: Value = s.orders.view("get_params").await?.json()?;
-    p["delivery_deadline_ns"] = json!("30000000000");
-    s.env.root.call(s.orders.id(), "set_params").args_json(json!({"params": p})).transact().await?.into_result()?;
-    pay(&s, "o-1", "alice", 5 * ONE_NUSD).await?;
-    // Empty the buyer's balance, then unregister.
-    s.buyer.call(s.env.nusd.id(), "ft_transfer")
-        .args_json(json!({"receiver_id": s.alice.id(), "amount": (95 * ONE_NUSD).to_string()}))
-        .deposit(NearToken::from_yoctonear(1)).transact().await?.into_result()?;
-    s.buyer.call(s.env.nusd.id(), "storage_unregister").args_json(json!({"force": false}))
-        .deposit(NearToken::from_yoctonear(1)).transact().await?.into_result()?;
-    s.env.worker.fast_forward(200).await?;
-    let r = s.buyer.call(s.orders.id(), "refund_undelivered").args_json(json!({"order_id": "o-1"}))
-        .max_gas().transact().await?;
+    pay(&s, "o-g", "ghost", 5 * ONE_NUSD).await?;
+    let ghost = s.ghost.as_ref().unwrap();
+    let pr = prove(&s, ghost, "o-g", true).await?;
+    assert!(deliver(&s, ghost, "o-g", &pr).await?);
+    let r = s.buyer.call(s.orders.id(), "accept").args_json(json!({"order_id": "o-g"})).max_gas().transact().await?;
     assert!(r.is_success());
     assert_eq!(r.json::<bool>()?, false, "payout reported as failed");
-    assert_eq!(order(&s, "o-1").await?["status"], "Held", "status reverted");
+    assert_eq!(order(&s, "o-g").await?["status"], "Delivered", "status reverted");
     assert_eq!(balance(&s.env.nusd, s.orders.id()).await?, 5 * ONE_NUSD, "money still held");
+    Ok(())
+}
+
+#[tokio::test]
+async fn revision_extends_the_delivery_deadline() -> anyhow::Result<()> {
+    // Security review H2: an old deadline must not refund a delivered order right after a revision request.
+    let s = shop().await?;
+    let mut p: Value = s.orders.view("get_params").await?.json()?;
+    p["delivery_deadline_ns"] = json!("60000000000"); // 60 s
+    s.env.root.call(s.orders.id(), "set_params").args_json(json!({"params": p})).transact().await?.into_result()?;
+    pay(&s, "o-1", "alice", 5 * ONE_NUSD).await?;
+    s.env.worker.fast_forward(150).await?; // past the original deadline
+    let pr = prove(&s, &s.alice, "o-1", true).await?;
+    assert!(deliver(&s, &s.alice, "o-1", &pr).await?, "late delivery still allowed while Held");
+    assert!(act(&s.buyer, &s, "request_revision", "o-1").await?);
+    assert!(!act(&s.buyer, &s, "refund_undelivered", "o-1").await?, "new window: no instant refund");
+    Ok(())
+}
+
+#[tokio::test]
+async fn tiny_orders_are_refused() -> anyhow::Result<()> {
+    let s = shop().await?;
+    assert_eq!(pay(&s, "o-tiny", "alice", 1).await?, "0", "below the minimum: nothing used");
+    assert!(order(&s, "o-tiny").await?.is_null());
     Ok(())
 }

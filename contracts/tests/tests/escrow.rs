@@ -128,3 +128,30 @@ async fn failed_transfer_releases_reservation() -> anyhow::Result<()> {
     assert_eq!(c["spent_today"], "0");
     Ok(())
 }
+
+#[tokio::test]
+async fn failed_net_transfer_sends_no_fee() -> anyhow::Result<()> {
+    // Security review H4: a Nearchant payee that can't receive must not leak the 5% fee to the treasury.
+    let s = setup().await?;
+    let unregistered: near_workspaces::AccountId = format!("zzz.nearchant.{}", s.env.root.id()).parse()?;
+    s.owner.call(s.escrow.id(), "set_policy").args_json(json!({"campaign_id": "c1", "policy": {
+        "auto_limit": (2 * ONE_NUSD).to_string(), "daily_limit": (3 * ONE_NUSD).to_string(), "allowlist": [unregistered]}}))
+        .transact().await?.into_result()?;
+    pay(&s, &s.agent, unregistered.as_str(), 2 * ONE_NUSD).await?.unwrap();
+    let p: Value = s.escrow.view("get_payment").args_json(json!({"payment_id": "1"})).await?.json()?;
+    assert_eq!(p["status"], "Failed");
+    assert_eq!(balance(&s.env.nusd, s.treasury.id()).await?, 0, "no fee on a failed payment");
+    assert_eq!(balance(&s.env.nusd, s.escrow.id()).await?, 10 * ONE_NUSD, "the budget is intact");
+    Ok(())
+}
+
+#[tokio::test]
+async fn tiny_campaigns_are_refused() -> anyhow::Result<()> {
+    let s = setup().await?;
+    let used: String = s.owner.call(s.env.nusd.id(), "ft_transfer_call")
+        .args_json(json!({"receiver_id": s.escrow.id(), "amount": "10",
+            "msg": json!({"action": "fund", "campaign_id": "spam", "agent_id": s.agent.id()}).to_string()}))
+        .deposit(NearToken::from_yoctonear(1)).max_gas().transact().await?.into_result()?.json()?;
+    assert_eq!(used, "0");
+    Ok(())
+}

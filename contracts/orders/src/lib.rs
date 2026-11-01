@@ -15,6 +15,13 @@ use near_sdk::{
 const GAS_VIEW: Gas = Gas::from_tgas(10);
 const GAS_CALLBACK: Gas = Gas::from_tgas(15);
 const GAS_TRANSFER: Gas = Gas::from_tgas(10);
+const GAS_CALLBACK_FEE: Gas = Gas::from_tgas(30);
+/// Smallest order (0.1 nUSD at 6 decimals): keeps storage spam expensive (security review M1).
+const MIN_ORDER: u128 = 100_000;
+
+fn fee_bps_of(c: &Contract) -> u128 {
+    c.commerce_fee_bps as u128
+}
 const DAY_NS: u64 = 24 * 60 * 60 * 1_000_000_000;
 
 #[near(serializers = [json, borsh])]
@@ -181,6 +188,7 @@ impl Contract {
 
     pub fn request_revision(&mut self, order_id: String) {
         let max = self.max_revisions;
+        let deadline = self.delivery_deadline_ns;
         let o = self.order_mut(&order_id);
         require!(env::predecessor_account_id() == o.buyer_id, "buyer only");
         require!(o.status == Status::Delivered, "order not delivered");
@@ -188,6 +196,9 @@ impl Contract {
         o.revisions_used += 1;
         o.status = Status::RevisionRequested;
         o.delivered_at = None;
+        // The seller gets a fresh delivery window for the revision; otherwise an old deadline could refund a
+        // delivered order right after the buyer asks for a revision (security review H2).
+        o.deliver_by = U64(env::block_timestamp() + deadline);
         event("order_revision_requested", json!({"order_id": order_id, "revisions_used": o.revisions_used}));
     }
 
@@ -311,6 +322,15 @@ impl Contract {
             o.status = if released { Status::Released } else { Status::Refunded };
             let name = if released { "order_released" } else { "order_refunded" };
             event(name, json!({"order_id": order_id, "amount": o.amount}));
+            let fee = if released { o.amount.0 * self.commerce_fee_bps as u128 / 10_000 } else { 0 };
+            if fee > 0 {
+                let token = o.token_id.clone();
+                ext_ft::ext(token)
+                    .with_attached_deposit(NearToken::from_yoctonear(1))
+                    .with_static_gas(GAS_TRANSFER)
+                    .ft_transfer(self.treasury_id.clone(), U128(fee), Some(format!("fee {order_id}")))
+                    .detach();
+            }
             true
         } else {
             o.status = previous;
@@ -321,28 +341,17 @@ impl Contract {
     // ---- internals ----
 
     fn release(&mut self, order_id: String) -> Promise {
-        let fee_bps = self.commerce_fee_bps as u128;
-        let treasury = self.treasury_id.clone();
         let o = self.order_mut(&order_id);
         let previous = o.status;
         o.status = Status::Releasing;
         let to = o.payout_account_id.clone().expect("payout account");
-        let token = o.token_id.clone();
-        let fee = o.amount.0 * fee_bps / 10_000;
-        let net = o.amount.0 - fee;
-        let mut p = ext_ft::ext(token.clone())
+        let net = o.amount.0 - o.amount.0 * fee_bps_of(self) / 10_000;
+        // Net to the seller first; the fee is sent only after that succeeded (security review H4).
+        ext_ft::ext(self.orders_token(&order_id))
             .with_attached_deposit(NearToken::from_yoctonear(1))
             .with_static_gas(GAS_TRANSFER)
-            .ft_transfer(to, U128(net), Some(format!("nearchant order {order_id}")));
-        if fee > 0 {
-            p = p.and(
-                ext_ft::ext(token)
-                    .with_attached_deposit(NearToken::from_yoctonear(1))
-                    .with_static_gas(GAS_TRANSFER)
-                    .ft_transfer(treasury, U128(fee), Some(format!("fee {order_id}"))),
-            );
-        }
-        p.then(Self::ext(env::current_account_id()).with_static_gas(GAS_CALLBACK).on_payout(order_id, true, previous))
+            .ft_transfer(to, U128(net), Some(format!("nearchant order {order_id}")))
+            .then(Self::ext(env::current_account_id()).with_static_gas(GAS_CALLBACK_FEE).on_payout(order_id, true, previous))
     }
 
     fn refund(&mut self, order_id: String) -> Promise {
@@ -354,6 +363,10 @@ impl Contract {
             .with_static_gas(GAS_TRANSFER)
             .ft_transfer(o.buyer_id.clone(), o.amount, Some(format!("nearchant refund {order_id}")))
             .then(Self::ext(env::current_account_id()).with_static_gas(GAS_CALLBACK).on_payout(order_id, false, previous))
+    }
+
+    fn orders_token(&self, order_id: &str) -> AccountId {
+        self.order(order_id).token_id.clone()
     }
 
     fn order(&self, order_id: &str) -> &Order {
@@ -375,7 +388,7 @@ impl FungibleTokenReceiver for Contract {
         let Ok(m) = serde_json::from_str::<OrderMsg>(&msg) else {
             return PromiseOrValue::Value(amount);
         };
-        if m.order_id.is_empty() || m.order_id.len() > 128 || amount.0 == 0 || self.orders.contains_key(&m.order_id) {
+        if m.order_id.is_empty() || m.order_id.len() > 128 || amount.0 < MIN_ORDER || self.orders.contains_key(&m.order_id) {
             return PromiseOrValue::Value(amount);
         }
         let now = env::block_timestamp();

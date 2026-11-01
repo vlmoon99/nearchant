@@ -166,13 +166,26 @@ impl Contract {
         self.start_claim(handle, account_id, public_key, card, self.sponsor_amount, keys, None)
     }
 
-    /// Maps a handle to an account the caller already owns; no subaccount is created.
+    /// Maps a handle to an account the caller already owns; no subaccount is created. The caller pays the record's
+    /// storage (attach >= 0.01 NEAR; the rest is refunded).
+    #[payable]
     pub fn link(&mut self, handle: String, card: Card) {
+        let before = env::storage_usage();
         let account_id = env::predecessor_account_id();
         self.check_available(&handle);
         check_card(&card);
         let record = self.new_record(&handle, account_id.clone(), account_id, card, Status::Active);
         self.insert(record);
+        // store::LookupMap writes back lazily: flush so storage_usage reflects the new record.
+        self.handles.flush();
+        self.by_owner.flush();
+        let cost = env::storage_byte_cost().saturating_mul((env::storage_usage() - before) as u128);
+        let deposit = env::attached_deposit();
+        require!(deposit >= cost, format!("attach at least {} yoctoNEAR for storage", cost.as_yoctonear()));
+        let refund = deposit.saturating_sub(cost);
+        if !refund.is_zero() {
+            Promise::new(env::predecessor_account_id()).transfer(refund).detach();
+        }
         event("handle_claimed", json!({"handle": handle, "account_id": env::predecessor_account_id(), "linked": true}));
     }
 

@@ -74,3 +74,15 @@ async fn transfer_between_registered_accounts() -> anyhow::Result<()> {
     assert_eq!(balance(&env.nusd, alice.id()).await?, 93 * ONE_NUSD);
     Ok(())
 }
+
+#[tokio::test]
+async fn unregister_is_refused() -> anyhow::Result<()> {
+    // Security review M1: faucet registration is paid by the contract, so no storage refund on unregister.
+    let env = base().await?;
+    let alice = sub(&env.root, "alice", 5).await?;
+    fund(&env, &alice).await?;
+    let r = alice.call(env.nusd.id(), "storage_unregister").args_json(serde_json::json!({"force": true}))
+        .deposit(near_workspaces::types::NearToken::from_yoctonear(1)).transact().await?;
+    assert!(r.is_failure());
+    Ok(())
+}

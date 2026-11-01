@@ -193,9 +193,12 @@ impl StorageManagement for Contract {
         self.token.storage_withdraw(amount)
     }
 
+    /// Registration storage is paid by the contract (faucet), so unregistering would refund NEAR the caller never
+    /// paid (security review M1). Accounts stay registered.
     #[payable]
     fn storage_unregister(&mut self, force: Option<bool>) -> bool {
-        self.token.internal_storage_unregister(force).is_some()
+        let _ = force;
+        near_sdk::env::panic_str("unregister is not supported on the test token")
     }
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds {

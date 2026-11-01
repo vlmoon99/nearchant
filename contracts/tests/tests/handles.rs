@@ -164,8 +164,10 @@ async fn only_owner_updates_and_suspend_hides() -> anyhow::Result<()> {
 #[tokio::test]
 async fn link_existing_account() -> anyhow::Result<()> {
     let (_env, factory, seller) = setup().await?;
+    let bad = seller.call(factory.id(), "link").args_json(json!({"handle": "dave", "card": card("Dave")})).transact().await?;
+    assert!(bad.is_failure(), "link without a storage deposit is refused");
     seller.call(factory.id(), "link").args_json(json!({"handle": "dave", "card": card("Dave")}))
-        .transact().await?.into_result()?;
+        .deposit(NearToken::from_millinear(100)).transact().await?.into_result()?;
     let h: Value = factory.view("get_handle").args_json(json!({"handle": "dave"})).await?.json()?;
     assert_eq!(h["account_id"], seller.id().to_string());
     Ok(())
