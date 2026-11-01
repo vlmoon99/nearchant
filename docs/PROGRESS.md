@@ -269,6 +269,23 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Not verified: the Phala CVM itself (needs the account); hiring on a cloud-only deployment (needs verity
   migrated, which the runbook's pg_dump step does).
 
+## 2026-11-01 ~08:30 UTC — Sparks back; reboot fix; review-gate fix
+
+- Sparks came back ~07:00 UTC. db, worker, renderer and `nc-llm` restarted by themselves; the **gateway did not**:
+  its port was bound to the tailnet IP and Docker started before Tailscale ("cannot assign requested address"),
+  and Docker never retries a failed bind. Fix (`0f34875`): gateway on 127.0.0.1 + optional `tailnet` profile
+  (socat forwarder, restarts until the IP exists; verified it keeps retrying while the address is missing). The
+  Spark's `.env` now uses `COMPOSE_PROFILES=tailnet`, `TAILNET_IP`, and the bundled search (backup `.env.bak-*`).
+  Card reachable again on the tailnet. A real reboot is not tested (needs sudo).
+- Browser order on the Spark (`o-89e773ba-…`) **stopped at review**: round 2 the reviewer asked for a use-of-funds
+  split the brief doesn't have; the copywriter invented one; round 3 blocked the invented numbers, quoting three
+  list lines as one sentence, so the last-resort redaction found no line and failed the job. Buyer is safe: the
+  order is `cancelled` and the escrow timer refunds it after the delivery deadline.
+  Fix: a quote joined from several lines is split into parts and every part must match its own line (test with
+  this exact case; one missing part still fails the gate). Trailing punctuation no longer breaks word matching.
+- Not done: a reviewer prompt rule ("a fix never asks for numbers not in the brief/dossier") — it changes the
+  replay keys, so it needs a fresh `fixtures/replay/deck` recording; deferred.
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
@@ -278,8 +295,7 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - ~~`gx10-8695`: add `server` to the docker group~~ — done 2026-10-31; Docker 29.6 + GPU in containers verified.
 - Testnet NEAR: root has ~7.9 NEAR after deploying; each sponsored shop costs ~0.2 NEAR. I'll top up from the
   faucet as needed.
-- **Sparks offline since ~04:45 UTC 1 Nov**: check power and network on both; when `gx10-8695` is back, the compose
-  stack restarts by itself (`restart: unless-stopped`) — I'll verify.
+- ~~Sparks offline~~ — back ~07:00 UTC 1 Nov.
 - Phala Cloud account with credit, needed by ~8 Nov.
 - Cloudflare: a tunnel token for `*.nearchant.com` (or API token so I can create it), needed by ~6 Nov.
 - `gx10-c3c8` / inference_system: its own engines are off; its config still lists the reinstalled `dgx-spark-2`

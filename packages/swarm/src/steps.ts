@@ -102,7 +102,7 @@ export function redact(
   knownIds?: Set<string>,
 ): { markdown: string; removed: string[]; ignored: string[] } | null {
   const norm = (t: string) => t.toLowerCase().replace(/[*_`"“”'’]/g, "").replace(/\s+/g, " ").trim();
-  const words = (t: string) => norm(t).split(/[^a-z0-9.%€$]+/).filter((w) => w.length > 2);
+  const words = (t: string) => norm(t).split(/[^a-z0-9.%€$]+/).map((w) => w.replace(/\.+$/, "")).filter((w) => w.length > 2);
   const lines = md.split("\n");
   const removed: string[] = [];
   const ignored: string[] = [];
@@ -114,30 +114,37 @@ export function redact(
       if (ids.some((id) => !knownIds.has(id)) && editable(lines[i]!)) removed.push(...lines.splice(i, 1));
     }
   }
+  // The line holding a quote: substring match, or the line sharing most of its words (at least 70%, paraphrase).
+  const findLine = (quote: string): number => {
+    const nq = norm(quote).replace(/[.;!?]+$/, "");
+    const i = lines.findIndex((l) => editable(l) && norm(l).includes(nq.slice(0, 80)));
+    if (i >= 0) return i;
+    const qw = new Set(words(quote));
+    let best = -1, bestScore = 0;
+    lines.forEach((l, j) => {
+      if (!editable(l) || !qw.size) return;
+      const lw = new Set(words(l));
+      const score = [...qw].filter((w) => lw.has(w)).length / qw.size;
+      if (score > bestScore) { bestScore = score; best = j; }
+    });
+    return bestScore >= 0.7 ? best : -1;
+  };
   for (const it of items) {
-    const nq = norm(it.quote);
-    if (nq.length < 8) { if (it.required) return null; ignored.push(it.quote); continue; }
-    let i = lines.findIndex((l) => editable(l) && norm(l).includes(nq.slice(0, 80)));
-    if (i < 0) {
-      // Paraphrased quote: the line sharing most of its words (at least 70%).
-      const qw = new Set(words(it.quote));
-      let best = -1, bestScore = 0;
-      lines.forEach((l, j) => {
-        if (!editable(l) || !qw.size) return;
-        const lw = new Set(words(l));
-        const score = [...qw].filter((w) => lw.has(w)).length / qw.size;
-        if (score > bestScore) { bestScore = score; best = j; }
-      });
-      if (bestScore >= 0.7) i = best;
+    if (norm(it.quote).length < 8) { if (it.required) return null; ignored.push(it.quote); continue; }
+    let hits = [findLine(it.quote)].filter((i) => i >= 0);
+    if (!hits.length) {
+      // A quote joined from several lines (a list copied as one sentence): every part must be found.
+      const parts = it.quote.split(/(?<=[.;!?])\s+|\n+/).filter((q) => norm(q).length >= 8);
+      const found = parts.length > 1 ? parts.map(findLine) : [];
+      if (found.length && found.every((i) => i >= 0)) hits = [...new Set(found)];
     }
-    if (i < 0) {
+    if (!hits.length) {
       // A blocking item must be found; an untraced claim that matches no line was likely imagined by the reviewer.
       if (it.required) return null;
       ignored.push(it.quote);
       continue;
     }
-    removed.push(lines[i]!);
-    lines.splice(i, 1);
+    for (const i of hits.sort((a, b) => b - a)) removed.push(...lines.splice(i, 1));
   }
   return { markdown: lines.join("\n"), removed, ignored };
 }

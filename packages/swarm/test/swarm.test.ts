@@ -296,6 +296,15 @@ describe("redaction after the last round", () => {
     expect(r.ignored).toHaveLength(1);
   });
 
+  it("removes every line of a quote the reviewer joined from a list", () => {
+    const md = "## Use of funds\n- Equipment: 150,000 EUR\n- Facility: 100,000 EUR\n- Operations: 50,000 EUR\n- Raising 300k EUR";
+    const r = redact(md, [{ quote: "Equipment: 150,000 EUR. Facility: 100,000 EUR. Operations: 50,000 EUR.", required: true }])!;
+    expect(r.markdown).toBe("## Use of funds\n- Raising 300k EUR");
+    expect(r.removed).toHaveLength(3);
+    // One part missing: still not found, the gate holds.
+    expect(redact(md, [{ quote: "Equipment: 150,000 EUR. Marketing: 80,000 EUR budget.", required: true }])).toBeNull();
+  });
+
   it("stops if a quote can't be found", async () => {
     const vague = fakeRouter({ reviewer: () => ({ blocking: [{ slide: 2, quote: "text that is not on any slide", problem: "x", fix: "y" }], suggestions: [], untraced_claims: [], score: 6 }) });
     expect((await runPipeline(deps(vague).d, "r2", "seed deck please, coffee")).status).toBe("stopped");
