@@ -1,0 +1,1 @@
+ALTER TABLE "a2a_payments" ADD COLUMN "result" text;

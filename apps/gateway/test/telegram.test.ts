@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { KeyPair } from "near-api-js";
-import { TelegramApi, handleUpdate, secretMatches, validBotToken, verifySellerSignature } from "../src/telegram.js";
+import { TelegramApi, bodyHash, handleUpdate, secretMatches, validBotToken, verifySellerSignature } from "../src/telegram.js";
 
 function fakeTelegram() {
   const sent: any[] = [];
@@ -44,6 +44,13 @@ describe("telegram bot", () => {
     expect(verifySellerSignature({ ...base, action: "payout" })).toBe(false);
     expect(verifySellerSignature({ ...base, now: now + 10 * 60_000 })).toBe(false);
     expect(verifySellerSignature({ ...base, publicKey: KeyPair.fromRandom("ed25519").getPublicKey().toString() })).toBe(false);
+    // Body-bound signatures: the hash must match what the server computes from the request.
+    const h = bodyHash("123:token");
+    const m2 = `nearchant:telegram:alice:${now}:${h}`;
+    const s2 = Buffer.from(k.sign(new TextEncoder().encode(m2)).signature).toString("base64");
+    expect(verifySellerSignature({ ...base, message: m2, signature: s2, bodyHash: h })).toBe(true);
+    expect(verifySellerSignature({ ...base, message: m2, signature: s2, bodyHash: bodyHash("other-token") })).toBe(false);
+    expect(verifySellerSignature({ ...base, bodyHash: h })).toBe(false); // unsigned body
   });
 
   it("token and secret helpers", () => {

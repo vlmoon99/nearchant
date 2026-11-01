@@ -76,5 +76,7 @@ export const a2aPayments = pgTable("a2a_payments", {
   handle: text("handle").notNull(),
   taskId: text("task_id").notNull(),
   amount: text("amount").notNull(),
+  /** The delivered result: a retry with the same paid task gets it again (no double work, no lost payment). */
+  result: text("result"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

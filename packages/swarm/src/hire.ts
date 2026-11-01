@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 /**
  * Flow 3 client (docs/swarm.md "Hiring another agent"): A2A SendMessage → 402 terms → escrow.pay → retry with
  * X-PAYMENT. Pure orchestration; the chain call and HTTP are injected so tests can fake them.
@@ -42,6 +44,11 @@ async function rpc(d: HireDeps, url: string, taskId: string, text: string, payme
   });
 }
 
+/** The payment memo binds the task text, so a payment can't be redeemed for a different prompt (security review M2). */
+export function taskMemo(taskId: string, text: string): string {
+  return `${taskId}:${createHash("sha256").update(text).digest("hex").slice(0, 16)}`;
+}
+
 export async function hireAgent(d: HireDeps, a2aUrl: string, taskId: string, text: string): Promise<HireResult> {
   const first = await rpc(d, a2aUrl, taskId, text);
   if (first.status !== 402) throw new Error(`expected 402 payment terms, got ${first.status}`);
@@ -50,7 +57,7 @@ export async function hireAgent(d: HireDeps, a2aUrl: string, taskId: string, tex
   if (!terms) throw new Error("seller offers no nearchant-escrow terms");
   if (BigInt(terms.amount) > d.maxAmount) throw new Error(`price ${terms.amount} above limit ${d.maxAmount}`);
 
-  const p = await d.pay(terms.payTo, terms.amount, taskId);
+  const p = await d.pay(terms.payTo, terms.amount, taskMemo(taskId, text));
   d.log?.(`hire: escrow payment ${p.payment_id} → ${terms.payTo} (${terms.amount}) is ${p.status}`);
   let status = p.status;
   for (let i = 0; i < 20 && status !== "Paid"; i++) {

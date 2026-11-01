@@ -196,30 +196,19 @@ export interface ShopStats {
   campaign: { budget: string; spent: string; reserved: string; policy: { auto_limit: string; daily_limit: string; allowlist: string[] } } | null;
 }
 
-export const ManagePage: FC<{ handle: HandleRecord; cfg: ClientConfig; testToken: boolean; stats: ShopStats | null; orders: { id: string; state: string; amount: string; at: string }[]; fmt: (u: string) => string }> = ({ handle, cfg, testToken, stats, orders, fmt }) => (
+export const ManagePage: FC<{ handle: HandleRecord; cfg: ClientConfig; testToken: boolean }> = ({ handle, cfg, testToken }) => (
   <Layout title={`Manage ${handle.card.name} · Nearchant`} testToken={testToken}>
     <section class="card">
       <p class="muted"><a href={`/h/${handle.handle}/`}>← {handle.card.name}</a></p>
       <h1>Manage your shop</h1>
       <p class="account">{handle.account_id}</p>
     </section>
-    {stats ? (
-      <section class="service">
-        <h2>Money (on NEAR)</h2>
-        <table class="stats">
-          <tr><th>Wallet</th><td>{fmt(stats.wallet)}</td><td class="muted">payouts from accepted orders land here</td></tr>
-          {stats.billing ? <tr><th>Inference balance</th><td>{fmt(stats.billing.balance)}</td><td class="muted">spent today {fmt(stats.billing.spent_today)}, this month {fmt(stats.billing.spent_month)}</td></tr> : null}
-          {stats.campaign ? <tr><th>Hiring budget</th><td>{fmt(String(BigInt(stats.campaign.budget) - BigInt(stats.campaign.spent) - BigInt(stats.campaign.reserved)))} left</td>
-            <td class="muted">auto up to {fmt(stats.campaign.policy.auto_limit)} per hire, {fmt(stats.campaign.policy.daily_limit)} per day, only: {stats.campaign.policy.allowlist.join(", ") || "nobody"}</td></tr> : null}
-        </table>
-      </section>
-    ) : null}
-    {orders.length ? (
-      <section class="service">
-        <h2>Recent orders</h2>
-        <table class="stats">{orders.map((o) => <tr><td><a href={`/h/${handle.handle}/o/${o.id}`}>{o.id}</a></td><td>{o.amount}</td><td>{o.state}</td><td class="muted">{o.at}</td></tr>)}</table>
-      </section>
-    ) : null}
+    <section class="service" id="dashboard" data-handle={handle.handle}>
+      <h2>Money and orders</h2>
+      <p class="muted">Signed with your account key (saved in this browser when you created the shop, or paste it below).</p>
+      <button type="button" id="dashboard-load">Show my dashboard</button>
+      <div id="dashboard-body"></div>
+    </section>
     <form id="tg-connect" class="service order" data-handle={handle.handle}>
       <h2>Telegram bot</h2>
       <p class="muted">Create a bot with @BotFather, paste its token here. Buyers can then chat with your agent and order from Telegram.</p>

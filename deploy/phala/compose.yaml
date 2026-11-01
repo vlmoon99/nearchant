@@ -20,6 +20,7 @@ services:
       NEAR_RELAYER_KEY: ${NEAR_RELAYER_KEY}
       NEARAI_API_KEY: ${NEARAI_API_KEY}
       PUBLIC_URL: ${PUBLIC_URL:-https://nearchant.com}
+      TRUST_PROXY: cloudflare
       MEDIA_DIR: /app/.media
       MEDIA_PUBLIC: /media
       PORT: "8787"

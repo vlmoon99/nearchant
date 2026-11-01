@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { makeWorkerUtils, type WorkerUtils } from "graphile-worker";
 import { parse } from "yaml";
-import { Artifacts, Envelopes, MemoryStore, PgStore, Sealer, claimA2aPayment, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
+import { Artifacts, Envelopes, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
 import { TelegramApi, handleUpdate, type TgUpdate } from "./telegram.js";
 import { marketOrderId, type HireCreated } from "./market.js";
 import { formatUnits } from "./config.js";
@@ -12,7 +12,7 @@ import { Router } from "@nearchant/providers";
 import { loadAgentEnv, makeAsker, type AgentEnv } from "@nearchant/swarm";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
 import { createApp } from "./app.js";
-import { sponsorBuyer } from "./buyers.js";
+import { RateLimit, sponsorBuyer } from "./buyers.js";
 import { loadGatewayConfig } from "./config.js";
 
 const configDir = resolve(process.env.NEARCHANT_CONFIG_DIR ?? join(import.meta.dirname, "../../../config"));
@@ -93,7 +93,11 @@ async function botShop(handle: string) {
     shop: { handle, name: h.card.name, cardUrl, services: services.filter((s) => !s.agentEnv).map((s) => ({ id: s.id, title: s.title, deliveryHours: s.deliveryHours, priceDisplay: `${formatUnits(s.priceUnits, config.token.decimals)} ${config.token.symbol}` })) },
   };
 }
+const chatLimit = new RateLimit(10, 10 * 60_000);
 async function onTelegramUpdate(handle: string, update: TgUpdate) {
+  // Each chat message costs the seller a model call: cap it per chat (security review M5).
+  const chatId = update.message?.chat.id;
+  if (chatId !== undefined && !chatLimit.take(`${handle}:${chatId}`)) return;
   const token = await getSecret({ db: conn!.db, sealer: sealer! }, handle, "telegram-token");
   if (!token) return;
   const { h, shop } = await botShop(handle);
@@ -136,7 +140,7 @@ const app = createApp({
   mediaDir: process.env.MEDIA_DIR ?? join(configDir, "../.media"),
   checkoutJs: existsSync(checkoutFile) ? readFileSync(checkoutFile, "utf8") : undefined,
   client: { rpcUrl: config.rpc_urls[0]!, orders: accounts.orders, network: config.network },
-  ...(relayerKey && config.network === "testnet" ? { sponsorBuyer: (pk: string) => sponsorBuyer({ chain, accounts }, pk) } : {}),
+  ...(relayerKey && config.network === "testnet" ? { sponsorBuyer: (pk: string, allowNew: () => boolean) => sponsorBuyer({ chain, accounts }, pk, allowNew) } : {}),
   isAvailable: (h: string) => chain.view<boolean>(accounts.root, "is_available", { name: h }),
   stats: async (accountId: string, handle: string) => {
     const [wallet, billing, campaign] = await Promise.all([
@@ -204,6 +208,8 @@ const app = createApp({
       asset: accounts.nusd,
       getPayment: (id: string) => chain.view(accounts.escrow, "get_payment", { payment_id: id }),
       claim: (row: { paymentId: string; handle: string; taskId: string; amount: string }) => claimA2aPayment(conn!.db, row),
+      cached: (id: string) => a2aResult(conn!.db, id),
+      save: (id: string, result: string) => saveA2aResult(conn!.db, id, result),
       execute: executeA2a,
     },
   } : {}),

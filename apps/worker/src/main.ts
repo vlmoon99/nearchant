@@ -45,7 +45,9 @@ const deckStep: Task = async (payload, helpers) => {
     record: (o, s, _role, e) => envelopes.add(o, s, accountId, e),
     render: process.env.RENDERER_URL ? marpServerRender(process.env.RENDERER_URL, media) : async () => { throw new Error("RENDERER_URL not set"); },
     deliver: async (o, proof) => {
-      await outbox.enqueue(`deliver:${o}`, "deliver", { orderId: o, handle: order.handle, proof } satisfies DeliverPayload);
+      // One outbox item per delivery round (a revision redelivers with a new proof).
+      const rev = o.startsWith("mkt-") ? 0 : ((await chain.view<{ revisions_used?: number } | null>(accounts.orders, "get_order", { order_id: o }))?.revisions_used ?? 0);
+      await outbox.enqueue(`deliver:${o}:r${rev}`, "deliver", { orderId: o, handle: order.handle, proof } satisfies DeliverPayload);
       await helpers.addJob("outbox_drain", {}, { jobKey: "outbox_drain", runAt: new Date() });
     },
     search: process.env.SEARXNG_URL ? searxng(process.env.SEARXNG_URL) : undefined,
@@ -122,6 +124,13 @@ const escrowTimers: Task = async (_p, helpers) => {
         await chain.call(accounts.orders, "refund_undelivered", { order_id: row.orderId }, { gasTgas: 100 });
         await store.transitionOrder(row.orderId, row.state, "refunded");
         helpers.logger.info(`escrow: refunded undelivered ${row.orderId}`);
+      } else if (o.status === "RevisionRequested" && row.state === "delivered") {
+        // The buyer asked for a revision: redo the deck from `write` on, with a fresh proof (security review H2).
+        if (await store.transitionOrder(row.orderId, "delivered", "in_progress")) {
+          for (const step of ["write", "design", "review", "render", "deliver", "proof"]) await artifacts.clear(row.orderId, step);
+          await helpers.addJob("deck_step", { orderId: row.orderId, step: "write" }, { jobKey: `${row.orderId}:write`, maxAttempts: 5 });
+          helpers.logger.info(`escrow: revision requested for ${row.orderId}, rewriting`);
+        }
       } else if (o.status === "Released" && row.state === "delivered") {
         await store.transitionOrder(row.orderId, "delivered", "released");
       }

@@ -6,10 +6,11 @@ import { handleFromHost, type HandleRecord, type PaymentRail, type DryQuote } fr
 import { formatUnits, type GatewayConfig } from "./config.js";
 import { originOf, publicCors } from "./cors.js";
 import { CardPage, ManagePage, NewShopPage, NotFoundPage, OrderPage, SITE_CSS, type ClientConfig, type OrderView, type ShopStats } from "./pages.js";
-import { RateLimit } from "./buyers.js";
+import { RateLimit, RateLimited, clientIp } from "./buyers.js";
 import { verifyMarketSignature, type HireCreated } from "./market.js";
-import { newWebhookSecret, secretMatches, validBotToken, verifySellerSignature, type TgUpdate } from "./telegram.js";
+import { bodyHash, newWebhookSecret, secretMatches, validBotToken, verifySellerSignature, type TgUpdate } from "./telegram.js";
 import type { Service, Store } from "@nearchant/db";
+import { taskMemo } from "@nearchant/swarm";
 
 export interface Deps {
   config: GatewayConfig;
@@ -27,7 +28,7 @@ export interface Deps {
   checkoutJs?: string;
   client: ClientConfig;
   /** Testnet: create + fund the implicit account of a browser key (ADR 0001). */
-  sponsorBuyer?: (publicKey: string) => Promise<{ accountId: string; created?: boolean }>;
+  sponsorBuyer?: (publicKey: string, allowNew: () => boolean) => Promise<{ accountId: string; created?: boolean }>;
   /** "Create your shop in 60 s" (testnet, sponsored): claims the handle and adds the default deck service. */
   createShop?: (s: { handle: string; ownerPublicKey: string; name: string; bio: string; priceUnits: string }) => Promise<{ accountId: string }>;
   isAvailable?: (handle: string) => Promise<boolean>;
@@ -52,6 +53,8 @@ export interface Deps {
     asset: string;
     getPayment: (paymentId: string) => Promise<{ status: string; payee_id: string; amount: string; memo: string } | null>;
     claim: (row: { paymentId: string; handle: string; taskId: string; amount: string }) => Promise<boolean>;
+    cached: (paymentId: string) => Promise<string | null>;
+    save: (paymentId: string, result: string) => Promise<void>;
     execute: (handle: HandleRecord, service: Service, text: string, paymentId: string) => Promise<string>;
   };
   /** Job progress + files of an order (from the artifacts table). */
@@ -64,8 +67,10 @@ const MAX_BRIEF = 4000;
 
 export function createApp(d: Deps) {
   const app = new Hono<Env>({ strict: false });
+  const ipOf = (c: Context<Env>) => clientIp((n) => c.req.header(n), (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket?.remoteAddress);
   const price = (u: string) => `${formatUnits(u, d.config.token.decimals)} ${d.config.token.symbol}`;
-  const newOrderId = d.newOrderId ?? (() => `o-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`);
+  // The order id is the capability for its deliverables, so it must be unguessable (security review H3).
+  const newOrderId = d.newOrderId ?? (() => `o-${crypto.randomUUID()}`);
 
   const pageHeaders = secureHeaders({
     // connect-src: the buyer's browser signs and sends transactions to the configured NEAR RPCs only.
@@ -82,7 +87,7 @@ export function createApp(d: Deps) {
   // Deliverables. M0: an unguessable order id is the capability; files exist only after delivery.
   app.get("/media/:order/:file", async (c) => {
     const { order, file } = c.req.param();
-    if (!d.mediaDir || !/^[A-Za-z0-9._-]+$/.test(order) || !/^[A-Za-z0-9_-]+\.(pdf|pptx|html|png|md)$/.test(file)) return c.notFound();
+    if (!d.mediaDir || !/^[A-Za-z0-9_-]+$/.test(order) || !/^[A-Za-z0-9_-]+\.(pdf|pptx|html|png|md)$/.test(file)) return c.notFound();
     try {
       const bytes = await readFile(join(d.mediaDir, order, file));
       const ext = file.split(".").pop()!;
@@ -135,24 +140,26 @@ export function createApp(d: Deps) {
   });
 
   const buyerLimit = new RateLimit(5, 3_600_000);
+  const buyerDaily = new RateLimit(300, 86_400_000);
   seller.post("/public/buyers", async (c) => {
     if (!d.sponsorBuyer) return c.json({ error: "buyer sponsorship is off" }, 404);
     const body = (await c.req.json().catch(() => null)) as { publicKey?: unknown } | null;
     if (typeof body?.publicKey !== "string" || !/^ed25519:[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(body.publicKey)) return c.json({ error: "publicKey must be an ed25519 key" }, 400);
-    const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-    // Re-asking for an account that exists is free; only new sponsorships count against the limit.
-    const r = await d.sponsorBuyer(body.publicKey).catch((e: Error) => ({ error: e.message }));
-    if ("error" in r) return c.json({ error: r.error }, 502);
-    if ((r as { created?: boolean }).created && !buyerLimit.take(ip)) return c.json({ error: "too many new test wallets from this address; try later" }, 429);
-    return c.json(r);
+    const ip = ipOf(c);
+    // Re-asking for an account that exists is free; a new wallet must pass the per-IP and daily limits first.
+    try {
+      return c.json(await d.sponsorBuyer(body.publicKey, () => buyerDaily.take("all") && buyerLimit.take(ip)));
+    } catch (e) {
+      if (e instanceof RateLimited) return c.json({ error: e.message }, 429);
+      return c.json({ error: (e as Error).message.slice(0, 200) }, 502);
+    }
   });
 
   seller.get("/manage", async (c) => {
     const h = c.get("handle");
     if (!h) return c.html(<NotFoundPage testToken={d.config.token.test} />, 404);
-    const stats = d.stats ? await d.stats(h.account_id, h.handle).catch(() => null) : null;
-    const orders = (await d.store.listOrders(h.handle, 10)).map((o) => ({ id: o.orderId, state: o.state, amount: price(o.amount), at: o.createdAt.slice(0, 16).replace("T", " ") }));
-    return c.html(<ManagePage handle={h} cfg={d.client} testToken={d.config.token.test} stats={stats} orders={orders} fmt={price} />);
+    // Private numbers and order ids load only after the seller signs (security review H3).
+    return c.html(<ManagePage handle={h} cfg={d.client} testToken={d.config.token.test} />);
   });
 
   seller.get("/o/:id", async (c) => {
@@ -234,13 +241,19 @@ export function createApp(d: Deps) {
       return rpcErr(body.id, -32602, "bad X-PAYMENT header", 402);
     }
     const p = await d.a2a.getPayment(paymentId).catch(() => null);
-    if (!p || p.status !== "Paid" || p.payee_id !== h.account_id || BigInt(p.amount) < BigInt(service.priceUnits) || p.memo !== taskId) {
+    if (!p || p.status !== "Paid" || p.payee_id !== h.account_id || BigInt(p.amount) < BigInt(service.priceUnits) || p.memo !== taskMemo(taskId, text)) {
       return rpcErr(body.id, -32001, "payment not found, not settled, not to this seller, too small, or for another task", 402);
     }
-    if (!(await d.a2a.claim({ paymentId, handle: h.handle, taskId, amount: p.amount }))) return rpcErr(body.id, -32002, "payment already used", 409);
+    const ok = (out: string) => c.json({ jsonrpc: "2.0", id: body.id ?? null, result: { kind: "task", id: taskId, status: { state: "completed" }, artifacts: [{ artifactId: `${taskId}:result`, parts: [{ kind: "text", text: out }] }] } });
+    if (!(await d.a2a.claim({ paymentId, handle: h.handle, taskId, amount: p.amount }))) {
+      // Same payment, same text (the memo matched): serve the stored result again, or say it's still running.
+      const prev = await d.a2a.cached(paymentId);
+      return prev ? ok(prev) : rpcErr(body.id, -32002, "this paid task is already running", 409);
+    }
     try {
       const out = await d.a2a.execute(h, service, text, paymentId);
-      return c.json({ jsonrpc: "2.0", id: body.id ?? null, result: { kind: "task", id: taskId, status: { state: "completed" }, artifacts: [{ artifactId: `${taskId}:result`, parts: [{ kind: "text", text: out }] }] } });
+      await d.a2a.save(paymentId, out);
+      return ok(out);
     } catch (e) {
       return rpcErr(body.id, -32003, `task failed: ${(e as Error).message.slice(0, 200)}`, 502);
     }
@@ -263,8 +276,7 @@ export function createApp(d: Deps) {
   seller.post("/public/orders", async (c) => {
     const h = c.get("handle");
     if (!h) return c.json({ error: "unknown handle" }, 404);
-    const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-    if (!orderLimit.take(ip)) return c.json({ error: "too many orders from this address; try later" }, 429);
+    if (!orderLimit.take(ipOf(c))) return c.json({ error: "too many orders from this address; try later" }, 429);
     const body = await c.req.json().catch(() => null) as { serviceId?: unknown; brief?: unknown; buyerAccountId?: unknown } | null;
     if (!body || typeof body.serviceId !== "string" || typeof body.brief !== "string") {
       return c.json({ error: "serviceId and brief are required" }, 400);
@@ -301,6 +313,7 @@ export function createApp(d: Deps) {
 
   // "Create your shop" lives on the platform host (not a seller subdomain).
   const shopLimit = new RateLimit(3, 3_600_000);
+  const shopDaily = new RateLimit(50, 86_400_000);
   app.get("/new", (c) => (c.get("handleName") ? c.notFound() : c.html(<NewShopPage cfg={d.client} testToken={d.config.token.test} enabled={!!d.createShop} />)));
   app.get("/api/handles/:name", async (c) => c.json({ available: d.isAvailable ? await d.isAvailable(c.req.param("name")).catch(() => false) : false }));
   app.post("/api/shops", async (c) => {
@@ -313,8 +326,7 @@ export function createApp(d: Deps) {
     if (!/^ed25519:[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(ownerPublicKey)) return c.json({ error: "ownerPublicKey must be an ed25519 key" }, 400);
     if (name.length < 2 || name.length > 80 || bio.length > 600) return c.json({ error: "name 2–80 chars, bio up to 600" }, 400);
     if (!(price >= 0.5 && price <= 100)) return c.json({ error: "price must be 0.5–100 nUSD" }, 400);
-    const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-    if (!shopLimit.take(ip)) return c.json({ error: "too many new shops from this address; try later" }, 429);
+    if (!shopLimit.take(ipOf(c)) || !shopDaily.take("all")) return c.json({ error: "too many new shops from this address; try later" }, 429);
     try {
       const r = await d.createShop({ handle, ownerPublicKey, name, bio, priceUnits: String(Math.round(price * 10 ** d.config.token.decimals)) });
       return c.json({ ...r, cardUrl: `/h/${handle}/` }, 201);
@@ -324,6 +336,26 @@ export function createApp(d: Deps) {
   });
 
   // Telegram: the seller connects their own bot (signed with their account key), Telegram calls the webhook.
+  app.post("/api/shops/:handle/dashboard", async (c) => {
+    const handle = c.req.param("handle");
+    const h = await d.handles.get(handle);
+    const b = (await c.req.json().catch(() => null)) as { message?: string; signature?: string; publicKey?: string } | null;
+    if (!h || !b?.message || !b.signature || !b.publicKey || !d.telegram) return c.json({ error: "handle, message, signature and publicKey are required" }, 400);
+    if (!verifySellerSignature({ message: b.message, signature: b.signature, publicKey: b.publicKey, handle, action: "dashboard" })) return c.json({ error: "bad or expired signature" }, 401);
+    if (!(await d.telegram.isOwnerKey(h.account_id, b.publicKey))) return c.json({ error: "that key is not a full-access key of the shop account" }, 403);
+    const stats = d.stats ? await d.stats(h.account_id, h.handle).catch(() => null) : null;
+    const fmtStats = stats && {
+      wallet: price(stats.wallet),
+      billing: stats.billing && { balance: price(stats.billing.balance), spentToday: price(stats.billing.spent_today), spentMonth: price(stats.billing.spent_month) },
+      campaign: stats.campaign && {
+        left: price(String(BigInt(stats.campaign.budget) - BigInt(stats.campaign.spent) - BigInt(stats.campaign.reserved))),
+        autoLimit: price(stats.campaign.policy.auto_limit), dailyLimit: price(stats.campaign.policy.daily_limit), allowlist: stats.campaign.policy.allowlist,
+      },
+    };
+    const orders = (await d.store.listOrders(h.handle, 10)).map((o) => ({ id: o.orderId, state: o.state, amount: price(o.amount), at: o.createdAt.slice(0, 16).replace("T", " ") }));
+    return c.json({ stats: fmtStats, orders });
+  });
+
   app.post("/api/shops/:handle/telegram", async (c) => {
     if (!d.telegram) return c.json({ error: "telegram is off on this gateway" }, 404);
     const handle = c.req.param("handle");
@@ -331,7 +363,7 @@ export function createApp(d: Deps) {
     const b = (await c.req.json().catch(() => null)) as { token?: string; message?: string; signature?: string; publicKey?: string } | null;
     if (!h || !b?.token || !b.message || !b.signature || !b.publicKey) return c.json({ error: "handle, token, message, signature and publicKey are required" }, 400);
     if (!validBotToken(b.token)) return c.json({ error: "that doesn't look like a BotFather token" }, 400);
-    if (!verifySellerSignature({ message: b.message, signature: b.signature, publicKey: b.publicKey, handle, action: "telegram" })) return c.json({ error: "bad or expired signature" }, 401);
+    if (!verifySellerSignature({ message: b.message, signature: b.signature, publicKey: b.publicKey, handle, action: "telegram", bodyHash: bodyHash(b.token) })) return c.json({ error: "bad or expired signature" }, 401);
     if (!(await d.telegram.isOwnerKey(h.account_id, b.publicKey))) return c.json({ error: "that key is not a full-access key of the shop account" }, 403);
     try {
       const r = await d.telegram.connect(handle, b.token, `${d.config.public_url}/bots/telegram/${handle}`, newWebhookSecret());
@@ -359,7 +391,7 @@ export function createApp(d: Deps) {
     if (!h || !b?.token?.startsWith("aat_") || !b.webhookSecret || b.webhookSecret.length < 32 || !b.message || !b.signature || !b.publicKey) {
       return c.json({ error: "need an aat_ token, a webhook secret of 32+ chars, and a signature" }, 400);
     }
-    if (!verifySellerSignature({ message: b.message, signature: b.signature, publicKey: b.publicKey, handle, action: "market" })) return c.json({ error: "bad or expired signature" }, 401);
+    if (!verifySellerSignature({ message: b.message, signature: b.signature, publicKey: b.publicKey, handle, action: "market", bodyHash: bodyHash(b.token, b.webhookSecret) })) return c.json({ error: "bad or expired signature" }, 401);
     if (!(await d.telegram.isOwnerKey(h.account_id, b.publicKey))) return c.json({ error: "that key is not a full-access key of the shop account" }, 403);
     await d.market.connect(handle, b.token, b.webhookSecret);
     return c.json({ connected: true, webhookUrl: `${d.config.public_url}/market/webhook/${handle}` });

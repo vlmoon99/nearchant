@@ -16,6 +16,7 @@ x-app: &app
     SEARXNG_URL: ${SEARXNG_URL:-}
     REPLAY_DIR: ${REPLAY_DIR:-}
     PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8787}
+    TRUST_PROXY: ${TRUST_PROXY:-}
   volumes: ["media:/app/.media"]
   depends_on: { db: { condition: service_healthy } }
 

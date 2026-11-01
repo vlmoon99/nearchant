@@ -30,6 +30,18 @@ async function buyerAccount(): Promise<Account> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Hex sha256 of fields joined by newlines — what a seller signs alongside the action (security review M4). */
+async function bodyHash(...fields: string[]): Promise<string> {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fields.join("\n")));
+  return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function signAs(key: KeyPair, action: string, handle: string, hash?: string): { message: string; signature: string; publicKey: string } {
+  const message = `nearchant:${action}:${handle}:${Date.now()}${hash ? `:${hash}` : ""}`;
+  const signature = btoa(String.fromCharCode(...key.sign(new TextEncoder().encode(message)).signature));
+  return { message, signature, publicKey: key.getPublicKey().toString() };
+}
+
 interface CreatedOrder {
   orderId: string;
   amountDisplay: string;
@@ -155,12 +167,11 @@ if (tgForm) {
     const out = tgForm.querySelector("output")!;
     try {
       const key = KeyPair.fromString(keyInput.value.trim() as KeyPairString);
-      const message = `nearchant:telegram:${handle}:${Date.now()}`;
-      const signature = btoa(String.fromCharCode(...key.sign(new TextEncoder().encode(message)).signature));
       const token = (tgForm.elements.namedItem("token") as HTMLInputElement).value.trim();
+      const signed = signAs(key, "telegram", handle, await bodyHash(token));
       out.textContent = "Connecting…";
       const r = await fetch(`/api/shops/${handle}/telegram`, { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token, message, signature, publicKey: key.getPublicKey().toString() }) });
+        body: JSON.stringify({ token, ...signed }) });
       const j = await r.json();
       out.textContent = r.ok ? `Connected: @${j.bot}. Open it in Telegram and send /start.` : `Could not connect: ${j.error}`;
     } catch (err) {
@@ -180,15 +191,50 @@ if (marketForm) {
       const keyText = (document.querySelector<HTMLInputElement>("#tg-connect input[name=key]")?.value ?? "").trim();
       const key = KeyPair.fromString(keyText as KeyPairString);
       const webhookSecret = `whsec_${Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
-      const message = `nearchant:market:${handle}:${Date.now()}`;
-      const signature = btoa(String.fromCharCode(...key.sign(new TextEncoder().encode(message)).signature));
       const token = (marketForm.elements.namedItem("token") as HTMLInputElement).value.trim();
+      const signed = signAs(key, "market", handle, await bodyHash(token, webhookSecret));
       const r = await fetch(`/api/shops/${handle}/market`, { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token, webhookSecret, message, signature, publicKey: key.getPublicKey().toString() }) });
+        body: JSON.stringify({ token, webhookSecret, ...signed }) });
       const j = await r.json();
       out.textContent = r.ok ? `Connected. In the market, set webhook URL ${j.webhookUrl} and secret ${webhookSecret} (shown once).` : `Could not connect: ${j.error}`;
     } catch (err) {
       out.textContent = `Could not connect: ${(err as Error).message} (the account key field above must be filled)`;
     }
   });
+}
+
+// Manage page: the dashboard (balances, orders) is fetched with a signature from the shop key (security review H3).
+const dash = document.querySelector<HTMLElement>("#dashboard");
+if (dash) {
+  const handle = dash.dataset.handle!;
+  const body = document.querySelector<HTMLElement>("#dashboard-body")!;
+  const load = async () => {
+    const keyText = (document.querySelector<HTMLInputElement>("#tg-connect input[name=key]")?.value ?? "").trim();
+    if (!keyText) { body.textContent = "Paste your account key in the Telegram form below, then try again."; return; }
+    try {
+      const signed = signAs(KeyPair.fromString(keyText as KeyPairString), "dashboard", handle);
+      const r = await fetch(`/api/shops/${handle}/dashboard`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(signed) });
+      const j = await r.json();
+      if (!r.ok) { body.textContent = j.error; return; }
+      const t = document.createElement("table");
+      t.className = "stats";
+      const row = (...cells: (string | Node)[]) => { const tr = t.insertRow(); for (const c of cells) tr.insertCell().append(c); };
+      if (j.stats) {
+        row("Wallet", j.stats.wallet, "payouts from accepted orders land here");
+        if (j.stats.billing) row("Inference balance", j.stats.billing.balance, `spent today ${j.stats.billing.spentToday}, this month ${j.stats.billing.spentMonth}`);
+        if (j.stats.campaign) row("Hiring budget", `${j.stats.campaign.left} left`, `auto up to ${j.stats.campaign.autoLimit} per hire, ${j.stats.campaign.dailyLimit} per day, only: ${j.stats.campaign.allowlist.join(", ") || "nobody"}`);
+      }
+      for (const o of j.orders) {
+        const a = document.createElement("a");
+        a.href = `/h/${handle}/o/${o.id}`;
+        a.textContent = o.id.slice(0, 14) + "…";
+        row(a, o.amount, `${o.state} · ${o.at}`);
+      }
+      body.replaceChildren(t);
+    } catch (e) {
+      body.textContent = `Could not load: ${(e as Error).message}`;
+    }
+  };
+  document.querySelector("#dashboard-load")!.addEventListener("click", load);
+  try { if (localStorage.getItem(`nc:${cfg.network}:shop:${handle}`)) void load(); } catch { /* manual */ }
 }

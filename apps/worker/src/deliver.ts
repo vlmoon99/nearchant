@@ -39,7 +39,7 @@ export async function deliver(d: { chain: Chain; accounts: PlatformAccounts; db:
     return { proofId, market: "submitted" };
   }
   const chainOrder = await d.chain.view<{ status: string } | null>(d.accounts.orders, "get_order", { order_id: p.orderId });
-  if (chainOrder?.status !== "Delivered") {
+  if (chainOrder && chainOrder.status !== "Delivered") {
     const key = await agentKey(d, p.handle, "orders-key");
     const ok = await d.chain.callAs<boolean>(account, key, d.accounts.orders, "mark_delivered", { order_id: p.orderId, proof_id: proofId }, 100);
     if (ok !== true) throw new Error(`mark_delivered returned ${ok} (proof ${proofId})`);

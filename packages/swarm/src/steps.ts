@@ -113,6 +113,9 @@ export function redact(md: string, quotes: string[]): { markdown: string; remove
 export function cleanDeck(md: string): string {
   const fenced = md.match(/```(?:markdown|md)?\s*\n([\s\S]*?)```/);
   let d = (fenced ? fenced[1]! : md).trim();
+  // Model-written image links would make the renderer fetch arbitrary (internal) URLs: only our cover survives
+  // (security review L4). HTML is off in Marp by default.
+  d = d.replace(/!\[[^\]]*\]\((?![^)]*\/media\/[A-Za-z0-9_-]+\/cover\.png\)|cover\.png\))[^)]*\)/g, "");
   if (!d.startsWith("---")) d = `---\nmarp: true\npaginate: true\ntheme: default\n---\n\n${d}`;
   return d + "\n";
 }

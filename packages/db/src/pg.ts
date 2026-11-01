@@ -166,3 +166,12 @@ export async function claimA2aPayment(db: Db, row: { paymentId: string; handle: 
   const r = await db.insert(schema.a2aPayments).values(row).onConflictDoNothing().returning({ id: schema.a2aPayments.paymentId });
   return r.length === 1;
 }
+
+export async function a2aResult(db: Db, paymentId: string): Promise<string | null> {
+  const [r] = await db.select({ result: schema.a2aPayments.result }).from(schema.a2aPayments).where(eq(schema.a2aPayments.paymentId, paymentId));
+  return r?.result ?? null;
+}
+
+export async function saveA2aResult(db: Db, paymentId: string, result: string): Promise<void> {
+  await db.update(schema.a2aPayments).set({ result }).where(eq(schema.a2aPayments.paymentId, paymentId));
+}

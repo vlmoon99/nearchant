@@ -1,4 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+
+/** Hex sha256 of request fields joined by newlines (what the seller signs). */
+export const bodyHash = (...fields: string[]) => createHash("sha256").update(fields.join("\n")).digest("hex");
 import { PublicKey } from "near-api-js";
 
 /** Minimal Telegram Bot API client (ADR 0011: each seller brings their own bot token). */
@@ -36,9 +39,11 @@ export const validBotToken = (t: string) => /^\d{6,12}:[A-Za-z0-9_-]{30,50}$/.te
  * caller checks that `publicKey` is a full-access key of the seller account on chain. `message` must name the
  * action and the handle and carry a recent timestamp (replay window 5 minutes).
  */
-export function verifySellerSignature(p: { message: string; signature: string; publicKey: string; handle: string; action: string; now?: number }): boolean {
-  const m = p.message.match(/^nearchant:(\w[\w-]*):([a-z0-9_-]+):(\d{13})$/);
+export function verifySellerSignature(p: { message: string; signature: string; publicKey: string; handle: string; action: string; bodyHash?: string; now?: number }): boolean {
+  const m = p.message.match(/^nearchant:(\w[\w-]*):([a-z0-9_-]+):(\d{13})(?::([0-9a-f]{64}))?$/);
   if (!m || m[1] !== p.action || m[2] !== p.handle) return false;
+  // The signature must cover the request body when there is one (security review M4).
+  if ((p.bodyHash ?? undefined) !== (m[4] ?? undefined)) return false;
   if (Math.abs((p.now ?? Date.now()) - Number(m[3])) > 5 * 60_000) return false;
   try {
     return PublicKey.fromString(p.publicKey).verify(new TextEncoder().encode(p.message), Buffer.from(p.signature, "base64"));

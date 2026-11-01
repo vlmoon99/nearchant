@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ResultEnvelope } from "@nearchant/contracts";
 import { NoEndpointError, type CapabilityRequest } from "@nearchant/providers";
-import { block, checkDeck, citedIds, extractJson, loadAgentEnv, runPipeline, slideCount, type JobDeps, type ProofEntry } from "../src/index.js";
+import { block, checkDeck, citedIds, cleanDeck, extractJson, loadAgentEnv, runPipeline, slideCount, type JobDeps, type ProofEntry } from "../src/index.js";
 
 const env = loadAgentEnv(new URL("../../../envs/deck-seller", import.meta.url).pathname);
 
@@ -258,6 +258,13 @@ describe("helpers", () => {
     expect(extractJson('<think>hm</think>Sure!\n```json\n{"a":1}\n```')).toEqual({ a: 1 });
     expect(extractJson('Here: {"a": {"b": 2}} done')).toEqual({ a: { b: 2 } });
     expect(() => extractJson("no json")).toThrow();
+  });
+
+  it("strips image links other than our cover", () => {
+    const md = cleanDeck("# T\n![x](http://db:5432/secret)\n![bg right:40%](/media/o-1/cover.png)\n![y](file:///etc/passwd)");
+    expect(md).not.toContain("db:5432");
+    expect(md).not.toContain("passwd");
+    expect(md).toContain("/media/o-1/cover.png");
   });
 
   it("data blocks can't be closed early by the data", () => {

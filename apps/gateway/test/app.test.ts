@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { HandleRecord, OrderStatus, PaymentRail } from "@nearchant/near";
 import { createApp, type Deps } from "../src/app.js";
 import { MemoryStore } from "@nearchant/db";
+import { taskMemo } from "@nearchant/swarm";
 import type { GatewayConfig } from "../src/config.js";
 
 const config: GatewayConfig = {
@@ -82,10 +83,11 @@ describe("A2A + escrow payment (flow 3)", () => {
     const { app, store } = await setup();
     await store.upsertService({ id: "fc", handle: "alice", title: "Fact-check", description: "d", priceUnits: "500000", deliveryHours: 1, active: true, agentEnv: "fact-checker" });
     const used = new Set<string>();
+    const results = new Map<string, string>();
     const payments: Record<string, any> = {
-      "1": { status: "Paid", payee_id: "alice.nearchant.testnet", amount: "500000", memo: "t-1" },
-      "2": { status: "Pending", payee_id: "alice.nearchant.testnet", amount: "500000", memo: "t-2" },
-      "3": { status: "Paid", payee_id: "bob.nearchant.testnet", amount: "500000", memo: "t-3" },
+      "1": { status: "Paid", payee_id: "alice.nearchant.testnet", amount: "500000", memo: taskMemo("t-1", "check these claims") },
+      "2": { status: "Pending", payee_id: "alice.nearchant.testnet", amount: "500000", memo: taskMemo("t-2", "check these claims") },
+      "3": { status: "Paid", payee_id: "bob.nearchant.testnet", amount: "500000", memo: taskMemo("t-3", "check these claims") },
     };
     (app as any).__deps = null;
     const app2 = (await import("../src/app.js")).createApp({
@@ -96,6 +98,8 @@ describe("A2A + escrow payment (flow 3)", () => {
         network: "testnet", asset: "nusd.nearchant.testnet",
         getPayment: async (id) => payments[id] ?? null,
         claim: async (r) => (used.has(r.paymentId) ? false : (used.add(r.paymentId), true)),
+        cached: async (id) => results.get(id) ?? null,
+        save: async (id, out) => { results.set(id, out); },
         execute: async (_h, s, text) => `checked by ${s.agentEnv}: ${text}`,
       },
     });
@@ -107,7 +111,9 @@ describe("A2A + escrow payment (flow 3)", () => {
     const ok = await rpc(app2, "t-1", pay("1"));
     expect(ok.status).toBe(200);
     expect((await ok.json() as any).result.artifacts[0].parts[0].text).toContain("checked by fact-checker");
-    expect((await rpc(app2, "t-1", pay("1"))).status).toBe(409);      // replay
+    const again = await rpc(app2, "t-1", pay("1"));                     // same paid task again: cached result, no new work
+    expect(again.status).toBe(200);
+    expect((await again.json() as any).result.artifacts[0].parts[0].text).toContain("checked by fact-checker");
     expect((await rpc(app2, "t-2", pay("2"))).status).toBe(402);      // not settled
     expect((await rpc(app2, "t-3", pay("3"))).status).toBe(402);      // paid to someone else
     expect((await rpc(app2, "t-9", pay("1"))).status).toBe(402);      // memo is another task
@@ -174,5 +180,11 @@ describe("orders", () => {
     expect((await store.getOrder("o-test-1"))?.state).toBe("paid");
     // Another handle can't read the order.
     expect((await app.request("http://x/public/orders/o-test-1", host("bob.nearchant.com"))).status).toBe(404);
+  });
+});
+
+describe("A2A memo binds the text", () => {
+  it("a front-runner with a different prompt is refused", async () => {
+    expect(taskMemo("t-1", "check these claims")).not.toBe(taskMemo("t-1", "write my essay"));
   });
 });
