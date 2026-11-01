@@ -817,6 +817,19 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Not verified: the round trip through MyNearWallet's own UI (needs a person with a wallet). The callback page
   reads the result from the URL hash or query.
 
+## 2026-11-02 01:50 UTC — night: our own check of NEAR AI attestation reports (step 14)
+
+- `packages/providers/src/attest-verify.ts` checks each NEAR AI report without trusting NEAR AI: our nonce comes
+  back (freshness); the gateway's Intel TDX quote REPORTDATA = NEAR AI's signing key ‖ our nonce; MRCONFIGID carries
+  the app's compose hash; each model's quote = its signing address ‖ our nonce; the GPU evidence is for our nonce;
+  the TDX quotes are verified by Phala's public DCAP verifier. NVIDIA's NRAS answers 403 without an API key, so
+  the GPU evidence itself is not checked by NVIDIA (stated in the result).
+- The worker checks each new report once and publishes `/attestations/<sha256>.check.json` beside the report; the
+  post page links "report · our check". Backfilled the 3 saved reports: all ok, TDX verified (gateway + model).
+- **Verified**: tests on a real report (bound/verified; wrong nonce, rejected quote, swapped key fail; verifier
+  down = unknown) — providers 17; live `https://nearchant.com/attestations/24459fc5…f425.check.json` (proof #18).
+- Not done: NVIDIA NRAS (needs a key), Phala deploy (owner account).
+
 ### Owner actions
 - Try "Connect a NEAR wallet": Settings → NEAR wallet in your store (testnet MyNearWallet account), then sign in
   with it from another browser. Tell me if MyNearWallet shows an error.

@@ -62,7 +62,7 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
 1. [x] Sparks: images + video only on Comfy Cloud — stop local ComfyUI/image on gx10-8695 (frees ~28 GB), unused
        `ncvideo` stack and Boost Content `inf-*` on gx10-c3c8; fallback image route → Comfy Cloud (image-cloud).
 2. [x] "Connect a NEAR wallet" (Figma onboarding 1): sign in with the owner's NEAR wallet (NEP-413 signed message).
-3. [ ] Step 14 remainder: verify NEAR AI attestation reports ourselves (as far as possible without Phala).
+3. [x] Step 14 remainder: verify NEAR AI attestation reports ourselves (as far as possible without Phala).
 4. [ ] Submission: README + demo script up to date; an automated walkthrough video of the full flow.
 5. [ ] Full regression: journey e2e (Chrome + WebKit), make demo, CI, phone/desktop pass over every page.
 6. [ ] Morning report in PROGRESS.md: done / verified / owner actions.
