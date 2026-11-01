@@ -40,6 +40,14 @@ await page.click("#make-posts");
 await visible("posts", 60_000);
 await page.waitForSelector("#schedule-all:not([disabled])", { timeout: 900_000 });
 log("posts ready");
+console.log("thumb check:", await page.evaluate(async () => {
+  const r = await fetch("/api/app/posts").then((x) => x.json());
+  const u = r.posts.find((p) => p.imageUrl)?.imageUrl;
+  if (!u) return "no imageUrl in API";
+  const f = await fetch(u);
+  return `${u} → ${f.status} ${f.headers.get("content-type")}`;
+}));
+await page.waitForTimeout(3000); // let the thumbnails load
 await shot("6-posts");
 await page.click("#schedule-all");
 await visible("live", 120_000);

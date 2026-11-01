@@ -34,9 +34,9 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
    (Qwen-Image-Edit from the product photo) → ready; choose/pass/edit signals; learn memory.
 7. [ ] **Publish + proof**: publishing a post writes a `proof-log` entry (hash of caption + image) and shows it on
    the store; Telegram channel post via the seller's bot (existing ADR 0011 code).
-8. [ ] **UI foundation**: CSS tokens from the Figma variables + type styles, layout shell (desktop sidebar,
+8. [x] **UI foundation**: CSS tokens from the Figma variables + type styles, layout shell (desktop sidebar,
    mobile web bottom nav), components (badge "Verified on NEAR", stat card, post card, buttons, chips).
-9. [ ] **Onboarding pages** (10 screens, mobile web first) wired to steps 3–6.
+9. [x] **Onboarding pages** (10 screens, mobile web first) wired to steps 3–6.
 10. [ ] **Seller app pages**: Home, Create (3 steps), Posts, Post detail + proof.
 11. [ ] **Storefront**: store page from items/posts, item page, checkout (existing sponsored wallet + `orders`
     escrow), order paid page with timeline and "I got it — release payment".
@@ -44,6 +44,9 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
     numbers), first-week goal + checklist, first-sale celebration, Monday report; wallet from chain views.
 13. [ ] **Public URL + polish**: tunnel routes live (owner adds hostnames), end-to-end browser test of onboarding →
     post → buy → release; `make demo` replay updated to the new story; README + demo script.
+13b. [ ] **Stretch: video posts + English voiceover** (owner request 1 Nov): port from `advertisment_system`
+    (video model + Kokoro-style English TTS, no uk/ru). Needs a GPU decision: gx10-8695 can't hold LLM + image +
+    video at once; options are the second Spark (`gx10-c3c8`, Boost Content's box — owner's call) or time-sharing.
 14. [ ] **NEAR AI TEE at the end**: switch text to NEAR AI TEE models (`providers.yaml`), attestation in proofs,
     a short paid test within the ~$2 credit; Phala deploy if the owner provides the account.
 

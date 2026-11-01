@@ -351,6 +351,21 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   curl range downloader with checksums (`~/nearchant-node/comfy/models/getall.sh`). Render test (step 1) follows.
 - Next: UI foundation + onboarding pages (steps 8–9), wired to these endpoints.
 
+## 2026-11-01 ~15:40 UTC — M1 steps 8–9: UI foundation + onboarding, verified in Chrome on the public URL
+
+- `apps/gateway/web/ui.css` (Figma tokens + type styles, responsive: desktop sidebar / mobile web bottom nav),
+  `src/ui/kit.tsx` (page, shell, icons, badge, stat), `src/ui/onboarding.tsx` (7 steps), `web/app.ts` (store key +
+  NEAR account in the browser, session, photo shrink + upload, live facts, opportunities, first posts, store live).
+- **Verified**: `e2e/onboard.mjs` in Chrome at 393×852 against `https://nearchant.com/start` — store created →
+  analysis on local Qwen → 2 opportunities (trend dropped: no web results) → 3 posts → scheduled → live, ~60 s,
+  no page errors. Fixed on the way: CSP blocked inline styles (now allowed; scripts stay self-only), captions clip
+  at a word. Thumbnails served correctly (checked with a session on the Spark).
+- Public URL live through the tunnel (`nearchant.com` + `*.nearchant.com`).
+- Shop creation limit (3/hour/IP) hit during repeated tests — expected.
+- Owner asked for video posts + English voiceover from `advertisment_system` → added as stretch 13b (GPU decision
+  needed).
+- Next: step 7 (publish + proof on NEAR), step 10 (Home/Create/Posts/Post detail), step 11 (storefront).
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
@@ -364,6 +379,8 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Phala Cloud account with credit, needed by ~8 Nov.
 - ~~Cloudflare routes~~ — done 1 Nov: `https://nearchant.com` and `https://<store>.nearchant.com` are public
   (verified: /new 200, verity.nearchant.com 200, alice via Cloudflare edge 200).
+- GPU for video (stretch 13b): may Nearchant use `gx10-c3c8` (Boost Content's Spark; its engines are off) for
+  video + TTS, or should video time-share `gx10-8695`?
 - NEAR AI credit ~$2: top up before step 14 of `docs/m1-plan.md` (end of the build).
 - `gx10-c3c8` / inference_system: its own engines are off; its config still lists the reinstalled `dgx-spark-2`
   (now `gx10-8695`) as node1. Nearchant doesn't depend on it; fix in that repo when convenient.
