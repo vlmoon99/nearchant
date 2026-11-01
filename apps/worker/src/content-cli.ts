@@ -32,15 +32,19 @@ const log = (m: string) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)
 const lab = parse(readFileSync(join(root, "config/image-lab.yaml"), "utf8")) as { variants: LabVariant[] };
 const variant = lab.variants.find((v) => v.id === (process.env.IMAGE_VARIANT ?? "qie2511-l4"))!;
 const comfy = process.env.RECORD_DIR && process.env.COMFY_API_KEY ? new ComfyCloud(process.env.COMFY_API_KEY) : null;
+// A post without a product photo is painted from text (the edit model needs a photo).
+const t2i = lab.variants.find((v) => v.id === "qi2512-l4")!;
 async function picture(prompt: string, photoIdx: number | null): Promise<Buffer | null> {
-  const key = createHash("sha256").update(`${variant.id}\n${prompt}\n${photoIdx ?? "-"}`).digest("hex").slice(0, 32);
+  const v = photoIdx === null && variant.needs_photo ? t2i : variant;
+  const key = createHash("sha256").update(`${v.id}\n${prompt}\n${photoIdx ?? "-"}`).digest("hex").slice(0, 32);
   const file = join(fixture, "images", `${key}.png`);
-  if (!comfy) return existsSync(file) ? readFileSync(file) : null;
-  const template = JSON.parse(readFileSync(join(root, "config/image-lab", variant.workflow), "utf8"));
+  if (existsSync(file)) return readFileSync(file);   // already recorded: keep it (lets a re-run fill only the gaps)
+  if (!comfy) return null;
+  const template = JSON.parse(readFileSync(join(root, "config/image-lab", v.workflow), "utf8"));
   const ref = photoIdx !== null ? await comfy.upload(photos[photoIdx]!, `demo-${photoIdx}.png`) : undefined;
   let png: Buffer | null = null;
-  for (const seed of [42, 43]) {   // a Comfy Cloud job sometimes ends in a non-retryable error: one more seed, then skip
-    try { png = Buffer.from(await comfy.run(fillWorkflow(template, { prompt, ref, seed, width: 1024, height: 1280, set: variant.set }))); break; }
+  for (const seed of [42, 43, 44, 45]) {   // a Comfy Cloud job sometimes ends in a non-retryable error: a few more seeds, then skip
+    try { png = Buffer.from(await comfy.run(fillWorkflow(template, { prompt, ref, seed, width: 1024, height: 1280, set: v.set }))); break; }
     catch (e) { log(`picture failed (seed ${seed}): ${(e as Error).message}`); }
   }
   if (!png) return null;

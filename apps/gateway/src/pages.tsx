@@ -158,7 +158,6 @@ export const NotFoundPage: FC<{ testToken: boolean }> = ({ testToken }) => (
 
 export const SITE_CSS = `
 :root { --bg:#fbfaf7; --fg:#1d1c1a; --muted:#6b6862; --line:#e6e2da; --accent:#1f6f5c; --warn:#fff3c4; }
-@media (prefers-color-scheme: dark) { :root { --bg:#151514; --fg:#ecebe7; --muted:#a19d95; --line:#2c2b28; --accent:#5cc4a6; --warn:#3a3214; } }
 * { box-sizing: border-box; }
 body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, -apple-system, Segoe UI, sans-serif; }
 main { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }

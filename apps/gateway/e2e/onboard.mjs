@@ -60,7 +60,7 @@ if (process.env.LIST_ITEM) {
     const me = await fetch("/api/app/me").then((r) => r.json());
     const photo = (await fetch("/api/app/photos").then((r) => r.json())).photos[0];
     const r = await fetch("/api/app/items", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: "Denim jacket with rhinestone skull", price: 1, description: "Made in Kyiv.", options: ["S", "M", "L"], photoMediaId: photo?.id }) });
+      body: JSON.stringify({ title: "Dark denim jacket", price: 1, description: "Made in Kyiv.", options: ["S", "M", "L"], photoMediaId: photo?.id }) });
     if (!r.ok) throw new Error(`item: ${r.status}`);
     return me.handle;
   });
