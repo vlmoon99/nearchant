@@ -179,7 +179,9 @@ export const SignInPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test }) 
   <UiPage title="Sign in · Nearchant" cfg={cfg} page="signin" test={test}>
     <section class="onb"><span class="logo" style="padding:0"><span class="mark">N</span>Nearchant</span>
       <h1 class="t2">Signing you in…</h1><p class="sub muted" id="signin-msg">Using the store key saved in this browser.</p>
-      <a class="btn" href="/start">Create a store</a></section>
+      <button class="btn near" data-wallet="signin"><Icon n="wallet" />Sign in with NEAR wallet</button>
+      <a class="btn secondary" href="/start">Create a store</a>
+      <span class="cap muted">The wallet signs a one-time message — no transaction, no fee. Link it first in Settings → NEAR wallet.</span></section>
   </UiPage>
 );
 

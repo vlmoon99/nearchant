@@ -310,6 +310,34 @@ async function signinPage() {
   $("#signin-msg").textContent = "No store key in this browser. Create a store, or open Nearchant in the browser where you made it.";
 }
 
+// ── NEAR wallet (NEP-413 sign message via MyNearWallet) ───────────────────────────────────────────────────────────
+const WALLET = cfg.network === "mainnet" ? "https://app.mynearwallet.com" : "https://testnet.mynearwallet.com";
+const b64 = (u: Uint8Array) => btoa(String.fromCharCode(...u));
+function walletGo(purpose: "link" | "signin") {
+  const nonce = crypto.getRandomValues(new Uint8Array(32));
+  const req = { purpose, message: `nearchant:wallet:${purpose}:${Date.now()}`, nonce: b64(nonce), recipient: location.host, callbackUrl: `${location.origin}/app/wallet-connect`, back: location.pathname };
+  sessionStorage.setItem("nc-wallet", JSON.stringify(req));
+  const u = new URL("/sign-message", WALLET);
+  u.searchParams.set("message", req.message); u.searchParams.set("nonce", req.nonce); u.searchParams.set("recipient", req.recipient); u.searchParams.set("callbackUrl", req.callbackUrl);
+  location.href = u.toString();
+}
+document.querySelectorAll<HTMLElement>("[data-wallet]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); walletGo(b.dataset.wallet as "link" | "signin"); }));
+
+async function walletConnectPage() {
+  const msg = $("#wallet-msg");
+  const req = JSON.parse(sessionStorage.getItem("nc-wallet") ?? "null") as { purpose: string; message: string; nonce: string; recipient: string; callbackUrl: string; back: string } | null;
+  const q = new URLSearchParams(location.hash.slice(1) || location.search.slice(1));
+  const accountId = q.get("accountId"), publicKey = q.get("publicKey"), signature = q.get("signature");
+  if (!req || !accountId || !publicKey || !signature) { msg.textContent = q.get("error") ? `The wallet said: ${q.get("error")}` : "No signature came back from the wallet. Try again from Settings."; return; }
+  sessionStorage.removeItem("nc-wallet");
+  try {
+    const r = await api<{ handle: string; linked?: string }>("/api/wallet/verify", { accountId, publicKey, signature, message: req.message, nonce: req.nonce, recipient: req.recipient, callbackUrl: req.callbackUrl });
+    msg.textContent = r.linked ? `Linked ${r.linked} to your store.` : "Signed in.";
+    location.href = r.linked ? "/app/settings#wallet" : "/app";
+  } catch (err) { msg.textContent = (err as Error).message; }
+}
+
+if (cfg.page === "wallet-connect") void walletConnectPage();
 if (cfg.page === "onboarding") onboarding();
 if (cfg.page === "app") sellerApp();
 if (cfg.page === "signin") void signinPage();

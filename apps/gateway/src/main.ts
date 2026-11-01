@@ -294,6 +294,7 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     secureCookies: config.public_url.startsWith("https://"),
     decimals: config.token.decimals,
     videoEnabled: !!(process.env.TTS_URL && process.env.COMFY_API_KEY),
+    walletRecipient: new URL(config.public_url).host,
   });
 }
 {

@@ -9,12 +9,13 @@ import type { ContentStore } from "@nearchant/db";
 import { QuotaExceeded } from "@nearchant/db";
 import type { HandleRecord } from "@nearchant/near";
 import { verifySellerSignature } from "./telegram.js";
+import { verifyNep413 } from "./nep413.js";
 
 /** The parts of the content store the API uses (a fake in tests, Postgres in the gateway). */
 export type SellerContent = Pick<ContentStore,
   "upsertBusiness" | "getBusiness" | "completeOnboarding" | "getProfile" | "setProfile" | "addMedia" | "listMedia" | "getMedia" |
   "upsertItem" | "listItems" | "getItem" | "listOpportunities" | "chooseOpportunities" | "createPosts" | "listPosts" | "getPost" | "updatePost" |
-  "choosePosts" | "addSignal" | "usage" | "setSetting" | "reserve">;
+  "choosePosts" | "addSignal" | "usage" | "setSetting" | "getSetting" | "reserve">;
 
 export interface SellerAppDeps {
   content: SellerContent;
@@ -30,6 +31,8 @@ export interface SellerAppDeps {
   mirrorService?: (s: { id: string; handle: string; title: string; description: string; priceUnits: string }) => Promise<void>;
   /** Paid item orders of a store + queue "shipped" (proof + mark_delivered via the outbox). */
   orders?: { list: (handle: string) => Promise<{ orderId: string; serviceId: string; amount: string; brief: string; state: string; createdAt: string }[]>; ship: (handle: string, orderId: string, note: string) => Promise<void> };
+  /** NEP-413 recipient expected in wallet messages (the public host); default: the request's host. */
+  walletRecipient?: string;
   /** Short videos can be made here (voice service + video renderer configured on the worker). */
   videoEnabled?: boolean;
   /** Token decimals for prices (nUSD: 6). */
@@ -72,6 +75,36 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     if (!h) return c.json({ error: "unknown store" }, 404);
     if (!verifySellerSignature({ message, signature, publicKey, handle, action: "session", now: now() })) return c.json({ error: "bad or expired signature" }, 401);
     if (!(await d.isOwnerKey(h.account_id, publicKey))) return c.json({ error: "that key is not a full-access key of the store account" }, 403);
+    setCookie(c, COOKIE, signSession(d.sessionKey, handle, now() + SESSION_MS), { httpOnly: true, sameSite: "Lax", secure: d.secureCookies, path: "/", maxAge: SESSION_MS / 1000 });
+    return c.json({ handle });
+  });
+  // "Connect a NEAR wallet" (Figma onboarding 1): the owner signs a NEP-413 message with their own wallet.
+  //   purpose "link"   — while signed in: this wallet account may sign in to the store from now on;
+  //   purpose "signin" — no session: the wallet account linked before signs in to its store.
+  // The message is "nearchant:wallet:<purpose>:<ms>" (10 min), the recipient our host, a nonce is used once.
+  const usedNonces = new Map<string, number>();
+  app.post("/api/wallet/verify", async (c) => {
+    const b = await json(c);
+    const accountId = String(b.accountId ?? "").toLowerCase(), publicKey = String(b.publicKey ?? ""), signature = String(b.signature ?? "");
+    const message = String(b.message ?? ""), recipient = String(b.recipient ?? ""), callbackUrl = b.callbackUrl == null ? null : String(b.callbackUrl);
+    const nonce = Buffer.from(String(b.nonce ?? ""), "base64");
+    const m = /^nearchant:wallet:(link|signin):(\d{13})$/.exec(message);
+    if (!m || Math.abs(now() - Number(m[2])) > 10 * 60_000) return c.json({ error: "expired or malformed message" }, 401);
+    if (recipient !== (d.walletRecipient ?? new URL(c.req.url).host)) return c.json({ error: "message is for another site" }, 401);
+    if (nonce.length !== 32 || usedNonces.has(nonce.toString("hex"))) return c.json({ error: "nonce reused" }, 401);
+    if (!/^[a-z0-9._-]{2,64}$/.test(accountId) || !verifyNep413({ message, nonce, recipient, callbackUrl }, publicKey, signature)) return c.json({ error: "bad signature" }, 401);
+    if (!(await d.isOwnerKey(accountId, publicKey))) return c.json({ error: "that key is not a full-access key of the wallet account" }, 403);
+    usedNonces.set(nonce.toString("hex"), now());
+    for (const [k, t] of usedNonces) if (now() - t > 15 * 60_000) usedNonces.delete(k);
+    if (m[1] === "link") {
+      const handle = seller(c);
+      if (!handle) return c.json({ error: "sign in to your store first" }, 401);
+      await d.content.setSetting(`wallet:${accountId}`, handle);
+      await d.content.setSetting(`walletOf:${handle}`, accountId);
+      return c.json({ linked: accountId, handle });
+    }
+    const handle = await d.content.getSetting<string>(`wallet:${accountId}`);
+    if (!handle) return c.json({ error: "no store is linked to this wallet yet — open your store in the browser where you made it, then Settings → Connect a NEAR wallet" }, 404);
     setCookie(c, COOKIE, signSession(d.sessionKey, handle, now() + SESSION_MS), { httpOnly: true, sameSite: "Lax", secure: d.secureCookies, path: "/", maxAge: SESSION_MS / 1000 });
     return c.json({ handle });
   });

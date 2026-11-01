@@ -12,7 +12,7 @@ const nova = { handle: "nova", account_id: "nova.nearchant.testnet" } as HandleR
 
 /** In-memory stand-in for ContentStore: only what the API touches. */
 function fakeContent() {
-  const db = { lastPlan: undefined as string | undefined, business: new Map<string, any>(), profile: new Map<string, any>(), media: [] as any[], posts: [] as any[], signals: [] as any[], quota: 12 };
+  const db = { settings: new Map<string, any>(), lastPlan: undefined as string | undefined, business: new Map<string, any>(), profile: new Map<string, any>(), media: [] as any[], posts: [] as any[], signals: [] as any[], quota: 12 };
   const c: Partial<SellerContent> = {
     upsertBusiness: async (b) => { db.business.set(b.handle, b); if (!db.profile.has(b.handle)) db.profile.set(b.handle, { status: "none", facts: [] }); },
     getBusiness: async (h) => db.business.get(h) ?? null,
@@ -25,12 +25,14 @@ function fakeContent() {
     getPost: async (id) => db.posts.find((p) => p.id === id) ?? null,
     updatePost: async (id, p) => { Object.assign(db.posts.find((x) => x.id === id), p); },
     addSignal: async (h, postId, kind) => { db.signals.push({ h, postId, kind }); },
+    getSetting: async (k: string) => db.settings.get(k) ?? null,
+    setSetting: async (k: string, v: unknown) => { db.settings.set(k, v); },
     reserve: async (_h, _p, images) => { if (images > db.quota) throw new QuotaExceeded("images", 12); db.quota -= images; },
   };
   return { c: c as SellerContent, db };
 }
 
-function setup(ownerKeys: string[] = [], videoEnabled = false) {
+function setup(ownerKeys: string[] = [], videoEnabled = false, at = Date.now()) {
   const app = new Hono();
   const { c, db } = fakeContent();
   const jobs: { task: string; payload: unknown }[] = [];
@@ -38,7 +40,7 @@ function setup(ownerKeys: string[] = [], videoEnabled = false) {
   const key = Buffer.alloc(32, 7);
   mountSellerApp(app, {
     content: c, handles: { get: async (h) => (h === "nova" ? nova : null) }, isOwnerKey: async (_a, pk) => ownerKeys.includes(pk),
-    enqueue: async (task, payload) => { jobs.push({ task, payload }); }, mediaDir, sessionKey: key, secureCookies: false, decimals: 6, videoEnabled,
+    enqueue: async (task, payload) => { jobs.push({ task, payload }); }, mediaDir, sessionKey: key, secureCookies: false, decimals: 6, videoEnabled, walletRecipient: "nearchant.com", now: () => at,
   });
   const cookie = `nc_session=${signSession(key, "nova", Date.now() + 60_000)}`;
   return { app, db, jobs, mediaDir, cookie, key };
@@ -200,5 +202,31 @@ describe("seller API", () => {
     db.business.set("nova", { handle: "nova", name: "Nova", plan: "pro" });
     await app.request("http://x/api/app/posts", post({ n: 1 }, cookie));
     expect(db.lastPlan).toBe("pro");
+  });
+
+  it("NEAR wallet: link while signed in, then sign in with it; expired, foreign and replayed messages fail", async () => {
+    const { KeyPair } = await import("near-api-js");
+    const { randomBytes } = await import("node:crypto");
+    const { walletSign } = await import("./wallet-helper.js");
+    const wallet = KeyPair.fromRandom("ed25519"), pk = wallet.getPublicKey().toString(), at = 1_790_000_000_000;
+    const { app, cookie, db } = setup([pk], false, at);
+    const body = (purpose: string, extra: Record<string, unknown> = {}) => {
+      const p = { message: `nearchant:wallet:${purpose}:${at}`, nonce: randomBytes(32), recipient: "nearchant.com", callbackUrl: "https://nearchant.com/app/wallet", ...extra } as any;
+      return { accountId: "owner.testnet", publicKey: pk, signature: walletSign(wallet, p), message: p.message, nonce: Buffer.from(p.nonce).toString("base64"), recipient: p.recipient, callbackUrl: p.callbackUrl };
+    };
+    expect((await app.request("http://x/api/wallet/verify", post(body("signin")))).status).toBe(404);    // nothing linked yet
+    expect((await app.request("http://x/api/wallet/verify", post(body("link")))).status).toBe(401);      // link needs a session
+    const linked = await app.request("http://x/api/wallet/verify", post(body("link"), cookie));
+    expect(await linked.json()).toEqual({ linked: "owner.testnet", handle: "nova" });
+    expect(db.settings.get("walletOf:nova")).toBe("owner.testnet");
+    const signin = await app.request("http://x/api/wallet/verify", post(body("signin")));
+    expect(signin.status).toBe(200);
+    expect(signin.headers.get("set-cookie")).toMatch(/nc_session=nova\./);
+    expect((await app.request("http://x/api/wallet/verify", post(body("signin", { recipient: "evil.com" })))).status).toBe(401);
+    const old = body("signin"); old.message = `nearchant:wallet:signin:${at - 11 * 60_000}`;
+    expect((await app.request("http://x/api/wallet/verify", post(old))).status).toBe(401);
+    const once = body("signin");
+    expect((await app.request("http://x/api/wallet/verify", post(once))).status).toBe(200);
+    expect((await app.request("http://x/api/wallet/verify", post(once))).status).toBe(401);           // nonce replay
   });
 });

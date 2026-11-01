@@ -5,7 +5,7 @@ import { PLAN_LIMITS, type ContentStore } from "@nearchant/db";
 import { OnboardingPage } from "./onboarding.js";
 import { CreatePage, HomePage, PostPage, PostsPage, SignInPage, checklistFor, type StoreView } from "./app-pages.js";
 import { createHash } from "node:crypto";
-import { assetV, type UiConfig } from "./kit.js";
+import { UiPage, assetV, type UiConfig } from "./kit.js";
 import { AnalyticsPage, Celebration, ReportPage, SettingsPage, WalletPage, type Insights } from "./more-pages.js";
 import { readSession } from "../seller-app.js";
 
@@ -77,6 +77,10 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const [photos, opps, usage, b] = await Promise.all([content.listMedia(s.handle, "photo"), content.listOpportunities(s.handle), content.usage(s.handle), content.getBusiness(s.handle)]);
     return c.html(<CreatePage cfg={d.cfg} test={d.test} store={s} photos={photos} opps={opps} usage={{ posts: usage.posts, limit: PLAN_LIMITS[b?.plan ?? "free"]!.posts }} />);
   }));
+  // The NEAR wallet sends the owner back here with the signed message (MyNearWallet sign-message redirect).
+  app.get("/app/wallet-connect", (c) => c.html(<UiPage title="NEAR wallet · Nearchant" cfg={d.cfg} page="wallet-connect" test={d.test}>
+    <section class="onb"><span class="logo" style="padding:0"><span class="mark">N</span>Nearchant</span><h1 class="t2">Checking your wallet…</h1><p class="sub muted" id="wallet-msg">One moment.</p><a class="btn secondary" href="/app">Back to Nearchant</a></section>
+  </UiPage>));
   app.get("/app/posts", (c) => withStore(c, async (s, img) => {
     const f = ["ready", "scheduled", "published"].includes(c.req.query("f") ?? "") ? c.req.query("f")! : "all";
     return c.html(<PostsPage cfg={d.cfg} test={d.test} store={s} posts={(await content.listPosts(s.handle, { limit: 100 })).filter((p) => p.status !== "failed")} img={img} filter={f} {...(c.req.query("batch") ? { batch: c.req.query("batch")! } : {})} />);
@@ -117,7 +121,7 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const [b, prof, usage] = await Promise.all([content.getBusiness(s.handle), content.getProfile(s.handle), content.usage(s.handle)]);
     const data = (prof?.data ?? {}) as { tone?: string; brand_colors?: string[]; wishes?: string };
     return c.html(<SettingsPage cfg={d.cfg} test={d.test} store={s} b={{ name: b!.name, kind: b!.kind, description: b!.description, links: (b!.links as string[]) ?? [] }}
-      tone={data.tone ?? ""} colors={data.brand_colors ?? []} wishes={data.wishes ?? ""} usage={{ posts: usage.posts, limit: PLAN_LIMITS[b?.plan ?? "free"]!.posts }} />);
+      tone={data.tone ?? ""} colors={data.brand_colors ?? []} wishes={data.wishes ?? ""} usage={{ posts: usage.posts, limit: PLAN_LIMITS[b?.plan ?? "free"]!.posts }} wallet={await content.getSetting<string>(`walletOf:${s.handle}`)} />);
   }));
 
   app.get("/app/report", (c) => withStore(c, async (s) => {

@@ -75,7 +75,7 @@ export const WalletPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; ba
   </Page>
 );
 
-export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; b: { name: string; kind: string; description: string; links: string[] }; tone: string; colors: string[]; wishes: string; usage: { posts: number; limit: number } }> = ({ cfg, test, store, b, tone, colors, wishes, usage }) => (
+export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; b: { name: string; kind: string; description: string; links: string[] }; tone: string; colors: string[]; wishes: string; usage: { posts: number; limit: number }; wallet?: string | null }> = ({ cfg, test, store, b, tone, colors, wishes, usage, wallet }) => (
   <Page cfg={cfg} test={test} title="Settings" active="Settings" store={store}>
     <PageHead kicker={store.name} title="Settings" />
     <div class="cols">
@@ -98,6 +98,11 @@ export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
         <div class="card dark" style="gap:10px"><div class="row" style="align-items:center;gap:8px"><span class="mark" style="background:var(--near);color:var(--near-ink)">N</span><span class="headline">NEAR account</span></div>
           <span class="t2" style="color:var(--near)">{store.account}</span><span class="foot">Created for you — no seed phrase. Posts, proofs and payments live here.</span>
           <a class="btn secondary" id="export-key" href="#" style="color:var(--label)"><Icon n="copy" />Export my key</a><Badge label="Store verified on NEAR" /></div>
+        <div class="card" id="wallet"><span class="headline">NEAR wallet</span>
+          {wallet ? <span class="foot">Linked: <b>{wallet}</b> — you can sign in with it from any browser.</span>
+            : <span class="foot muted">Link your own NEAR wallet (MyNearWallet) to sign in from any browser. It signs a one-time message: no transaction, no fee.</span>}
+          <button class="btn near" data-wallet="link"><Icon n="wallet" />{wallet ? "Link another wallet" : "Connect a NEAR wallet"}</button>
+          <output class="foot" id="wallet-out"></output></div>
         <div class="card"><span class="headline">Plan</span><div class="spread"><span class="foot">Free · {usage.posts} of {usage.limit} posts this month</span></div>
           <div class="progress"><i style={`width:${Math.min(100, (usage.posts / usage.limit) * 100)}%`}></i></div>
           <span class="foot muted">Pro — 150 posts a month, paid from your balance on NEAR (coming soon).</span></div>

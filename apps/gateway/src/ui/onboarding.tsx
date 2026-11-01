@@ -97,6 +97,7 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
       <div class="card" style="flex-direction:row;align-items:center"><div class="stack" style="gap:2px;flex:1"><span class="cap muted">Your store</span><a class="headline" id="store-url" href="#">—</a></div><button class="chip" id="copy-link"><Icon n="copy" s={14} />Copy</button></div>
       <div class="row" style="gap:10px"><a class="btn secondary" style="flex:1" id="share-tg" target="_blank" rel="noopener"><Icon n="send" />Telegram</a><a class="btn secondary" style="flex:1" id="share-wa" target="_blank" rel="noopener"><Icon n="msg" />WhatsApp</a></div>
       <div class="card dark" style="gap:8px"><div class="row" style="align-items:center;gap:8px"><span class="mark" style="background:var(--near);color:var(--near-ink)">N</span><span class="headline" style="color:var(--near)" id="near-account">—</span></div><span class="foot">Your NEAR account is ready — no seed phrase. Sales land here; escrow protects every buyer.</span><a class="foot" style="color:var(--near)" id="key-download" download>Download your account key (keep it safe)</a></div>
+      <button class="btn secondary" data-wallet="link"><Icon n="wallet" />Connect your NEAR wallet (optional)</button>
       <div class="onb-bottom"><a class="btn" href="/app">Go to my dashboard</a></div>
     </section>
   </UiPage>
