@@ -38,6 +38,8 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
       ))}
       <label class="field">Store name<input class="input" id="store-name" maxlength={60} placeholder="Nova Wear" autocomplete="organization" /></label>
       <span class="cap muted" id="store-link">Your store link: —</span>
+      <div class="card proof" style="flex-direction:row;gap:10px;align-items:flex-start;padding:14px"><Icon n="shield" s={18} c="#007A4F" />
+        <span class="foot">We create a NEAR account for your store. No seed phrase, no crypto needed — it’s yours, and you can export its key anytime in Settings.</span></div>
       <output class="foot" id="sell-out"></output>
       <div class="onb-bottom"><button class="btn" id="create-store">Continue</button></div>
     </section>

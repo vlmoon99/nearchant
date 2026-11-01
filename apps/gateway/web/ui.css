@@ -156,3 +156,11 @@ label.field { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
   .land-pillars { grid-template-columns: 1fr; }
   .land-trust { flex-direction: column; align-items: flex-start; }
 }
+
+/* Onboarding on desktop (Figma "Web · Onboarding 1–3"): a white card on the grey page; buttons sit in the card. */
+@media (min-width: 900px) {
+  body:has(.onb) { background: var(--bg-2); }
+  .onb { max-width: 560px; margin: 40px auto; padding: 32px; background: var(--bg); border-radius: var(--r-lg); padding-bottom: 32px; }
+  .onb-bottom { position: static; padding: 8px 0 0; background: none; }
+  .onb-bottom .btn { max-width: none; }
+}
