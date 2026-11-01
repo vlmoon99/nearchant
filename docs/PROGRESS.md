@@ -688,7 +688,24 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   no page errors; `/`, `/start`, store page load the new CSS. Tests: gateway 33 (landing at the bare domain, store
   host unaffected, labelled examples, word-safe captions), db 14 (showcase).
 
+## 2026-11-01 19:50 UTC — Figma audit: desktop onboarding card; icon fix; remaining gaps
+
+- After the missing landing, compared Figma frames with nearchant.com screen by screen (Chrome 1440 / 393 px).
+- Fixed: `/start` on desktop now uses the Figma "Web · Onboarding" card (grey page, 560 px white card, buttons in
+  the card); phones keep the full-screen flow. The store step now says how the NEAR account works (no seed phrase,
+  key export in Settings). Icons no longer shrink in flex rows (shield in proof cards was squashed, incl. the
+  store's "Safe to buy").
+- Close to Figma already: Create (only the 1-2-3 step indicator is missing), Posts, Post detail, store pages.
+- **Figma features not built** (need a decision or an owner action):
+  - "Continue with email" sign-up — needs an email provider (API key) for the login link; today the store key
+    lives in the browser and can be exported.
+  - "Connect a NEAR wallet" — doable with NEAR Wallet Selector (MyNearWallet / Meteor / HOT) before the freeze.
+  - Create's 3-step indicator (Photos & idea → AI makes it → Review & publish).
+- Not compared yet: Web · Home and the mobile seller screens (Figma screenshot call dropped) — next pass.
+
 ### Owner actions
+- Email sign-up (Figma onboarding 1): say if you want it, and give an email provider key (e.g. Resend or Postmark)
+  — I'll add "Continue with email" login links. "Connect a NEAR wallet" I can build without anything from you.
 - Optional: a Brave Search API key (free tier) for reliable trend opportunities — self-hosted search is blocked
   from the home network right now.
 - **URGENT (1 Nov ~18:00 UTC): all three Sparks offline** (no ping/SSH; nearchant.com 530) — likely power or
