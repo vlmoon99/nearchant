@@ -39,7 +39,7 @@ const host = (h: string, extra: Record<string, string> = {}) => ({ headers: { ho
 describe("seller card", () => {
   it("renders the card for <handle>.<base> and /h/<handle>", async () => {
     const { app } = await setup();
-    for (const [url, init] of [["http://x/", host("alice.nearchant.com")], ["http://x/h/alice", host("localhost:8787")]] as const) {
+    for (const [url, init] of [["http://x/", host("alice.nearchant.com")], ["http://x/h/alice", host("localhost:8787")], ["http://x/h/alice/", host("localhost:8787")]] as const) {
       const res = await app.request(url, init);
       expect(res.status).toBe(200);
       const html = await res.text();

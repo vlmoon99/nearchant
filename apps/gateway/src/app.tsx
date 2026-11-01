@@ -5,7 +5,7 @@ import { secureHeaders } from "hono/secure-headers";
 import { handleFromHost, type HandleRecord, type PaymentRail, type DryQuote } from "@nearchant/near";
 import { formatUnits, type GatewayConfig } from "./config.js";
 import { originOf, publicCors } from "./cors.js";
-import { CardPage, NotFoundPage, OrderPage, SITE_CSS, type ClientConfig, type OrderView } from "./pages.js";
+import { CardPage, NewShopPage, NotFoundPage, OrderPage, SITE_CSS, type ClientConfig, type OrderView } from "./pages.js";
 import { RateLimit } from "./buyers.js";
 import type { Service, Store } from "@nearchant/db";
 
@@ -26,6 +26,9 @@ export interface Deps {
   client: ClientConfig;
   /** Testnet: create + fund the implicit account of a browser key (ADR 0001). */
   sponsorBuyer?: (publicKey: string) => Promise<{ accountId: string; created?: boolean }>;
+  /** "Create your shop in 60 s" (testnet, sponsored): claims the handle and adds the default deck service. */
+  createShop?: (s: { handle: string; ownerPublicKey: string; name: string; bio: string; priceUnits: string }) => Promise<{ accountId: string }>;
+  isAvailable?: (handle: string) => Promise<boolean>;
   /** Flow 3 seller side: A2A tasks paid through escrow (docs/swarm.md). */
   a2a?: {
     network: string;
@@ -43,7 +46,7 @@ type Env = { Variables: { handle: HandleRecord | null; handleName: string | null
 const MAX_BRIEF = 4000;
 
 export function createApp(d: Deps) {
-  const app = new Hono<Env>();
+  const app = new Hono<Env>({ strict: false });
   const price = (u: string) => `${formatUnits(u, d.config.token.decimals)} ${d.config.token.symbol}`;
   const newOrderId = d.newOrderId ?? (() => `o-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`);
 
@@ -91,7 +94,7 @@ export function createApp(d: Deps) {
     c.set("handle", name ? await d.handles.get(name) : null);
   };
 
-  const seller = new Hono<Env>();
+  const seller = new Hono<Env>({ strict: false });
 
   seller.use("/public/*", publicCors(async (c) => {
     const h = c.get("handle");
@@ -264,6 +267,30 @@ export function createApp(d: Deps) {
       }
     }
     return c.json({ orderId: id, state: row.state, chainStatus: chain?.status ?? (chain === null ? "not_found" : "unknown"), amountDisplay: price(row.amount) });
+  });
+
+  // "Create your shop" lives on the platform host (not a seller subdomain).
+  const shopLimit = new RateLimit(3, 3_600_000);
+  app.get("/new", (c) => (c.get("handleName") ? c.notFound() : c.html(<NewShopPage cfg={d.client} testToken={d.config.token.test} enabled={!!d.createShop} />)));
+  app.get("/api/handles/:name", async (c) => c.json({ available: d.isAvailable ? await d.isAvailable(c.req.param("name")).catch(() => false) : false }));
+  app.post("/api/shops", async (c) => {
+    if (!d.createShop) return c.json({ error: "shop creation is off on this gateway" }, 404);
+    const b = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+    const handle = String(b?.handle ?? ""), name = String(b?.name ?? "").trim(), bio = String(b?.bio ?? "").trim();
+    const ownerPublicKey = String(b?.ownerPublicKey ?? "");
+    const price = Number(b?.price ?? 5);
+    if (!/^[a-z0-9](?:[a-z0-9]|[-_](?=[a-z0-9])){0,30}[a-z0-9]$/.test(handle)) return c.json({ error: "handle: 2–32 of a-z 0-9 - _" }, 400);
+    if (!/^ed25519:[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(ownerPublicKey)) return c.json({ error: "ownerPublicKey must be an ed25519 key" }, 400);
+    if (name.length < 2 || name.length > 80 || bio.length > 600) return c.json({ error: "name 2–80 chars, bio up to 600" }, 400);
+    if (!(price >= 0.5 && price <= 100)) return c.json({ error: "price must be 0.5–100 nUSD" }, 400);
+    const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
+    if (!shopLimit.take(ip)) return c.json({ error: "too many new shops from this address; try later" }, 429);
+    try {
+      const r = await d.createShop({ handle, ownerPublicKey, name, bio, priceUnits: String(Math.round(price * 10 ** d.config.token.decimals)) });
+      return c.json({ ...r, cardUrl: `/h/${handle}/` }, 201);
+    } catch (e) {
+      return c.json({ error: (e as Error).message.slice(0, 200) }, 409);
+    }
   });
 
   // Host-based seller routes, then the `/h/<handle>` form.

@@ -153,7 +153,7 @@ a { color: var(--accent); }
 .price { font-weight: 600; white-space: nowrap; }
 form.order { display:grid; gap:8px; margin-top: 12px; }
 label { display:grid; gap:4px; font-size:14px; }
-textarea { width:100%; font:inherit; padding:8px; border-radius:8px; border:1px solid var(--line); background:transparent; color:inherit; }
+input, textarea { width:100%; font:inherit; padding:8px; border-radius:8px; border:1px solid var(--line); background:transparent; color:inherit; }
 button { justify-self:start; font:inherit; padding:8px 16px; border-radius:8px; border:0; background:var(--accent); color:#fff; cursor:pointer; }
 output { font-size:14px; white-space: pre-wrap; }
 .steps li { color: var(--muted); } .steps li.done { color: var(--fg); } .steps li.done::marker { content: '✓  '; }
@@ -164,3 +164,27 @@ button.secondary { background: transparent; color: var(--accent); border:1px sol
 button:disabled { opacity:.6; cursor: default; }
 footer { text-align:center; color:var(--muted); font-size:13px; padding: 24px 16px; }
 `;
+
+export const NewShopPage: FC<{ cfg: ClientConfig; testToken: boolean; enabled: boolean }> = ({ cfg, testToken, enabled }) => (
+  <Layout title="Create your shop · Nearchant" testToken={testToken}>
+    <section class="card">
+      <h1>Create your shop</h1>
+      <p class="bio">Your own NEAR account and web address, plus an agent team that sells and delivers pitch decks for you.
+        Free on testnet — no wallet needed.</p>
+    </section>
+    {enabled ? (
+      <form id="new-shop" class="service order">
+        <label>Handle <input name="handle" required pattern="[a-z0-9][a-z0-9_-]{0,30}[a-z0-9]" placeholder="bob" autocomplete="off" />
+          <span class="muted" id="handle-hint">becomes bob.nearchant.testnet</span></label>
+        <label>Shop name <input name="name" required maxlength={80} placeholder="Bob's Decks" /></label>
+        <label>One paragraph about you <textarea name="bio" maxlength={600} rows={3} placeholder="Who you help and why buyers trust you"></textarea></label>
+        <label>Price for a pitch deck (nUSD) <input name="price" type="number" min="0.5" max="100" step="0.5" value="5" /></label>
+        <button type="submit">Create my shop</button>
+        <output class="result"></output>
+        <p class="muted">Your account key is created in this browser and stays here (download it after). Nearchant keeps only
+          agent keys that can deliver orders and record proofs — never move your money.</p>
+      </form>
+    ) : <p class="muted">Shop creation is off on this gateway.</p>}
+    <PageConfig base="/" cfg={cfg} />
+  </Layout>
+);

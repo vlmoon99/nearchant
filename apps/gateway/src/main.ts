@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { makeWorkerUtils, type WorkerUtils } from "graphile-worker";
 import { parse } from "yaml";
-import { Artifacts, Envelopes, MemoryStore, PgStore, claimA2aPayment, connect, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
+import { Artifacts, Envelopes, MemoryStore, PgStore, Sealer, claimA2aPayment, connect, createShop, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
 import { Router } from "@nearchant/providers";
 import { loadAgentEnv, makeAsker, type AgentEnv } from "@nearchant/swarm";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
@@ -87,6 +87,19 @@ const app = createApp({
   checkoutJs: existsSync(checkoutFile) ? readFileSync(checkoutFile, "utf8") : undefined,
   client: { rpcUrl: config.rpc_urls[0]!, orders: accounts.orders, network: config.network },
   ...(relayerKey && config.network === "testnet" ? { sponsorBuyer: (pk: string) => sponsorBuyer({ chain, accounts }, pk) } : {}),
+  isAvailable: (h: string) => chain.view<boolean>(accounts.root, "is_available", { name: h }),
+  ...(conn && relayerKey && process.env.NEARCHANT_SECRET_KEY && config.network === "testnet" ? {
+    createShop: async (s: { handle: string; ownerPublicKey: string; name: string; bio: string; priceUnits: string }) => {
+      const r = await createShop({ chain, accounts, db: conn!.db, sealer: new Sealer(process.env.NEARCHANT_SECRET_KEY!) },
+        { handle: s.handle, ownerPublicKey: s.ownerPublicKey, card: { name: s.name, bio: s.bio, avatar_hash: null, links: [] } });
+      await store.upsertService({
+        id: `${s.handle}-pitch-deck`, handle: s.handle, title: "Pitch deck in 1 hour", priceUnits: s.priceUnits, deliveryHours: 1, active: true,
+        description: "An investor deck from your brief — researched, debated, written and designed by my agent team. PDF + PPTX.",
+      });
+      handles.invalidate(s.handle);
+      return r;
+    },
+  } : {}),
   ...(conn ? {
     a2a: {
       network: config.network,

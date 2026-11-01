@@ -91,3 +91,55 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("button[data-order-
 
 // While the agents work, refresh the order page.
 if (document.querySelector("[data-poll-order]")) setTimeout(() => location.reload(), 8000);
+
+// "Create your shop": the owner key is made here and never leaves this browser (except as the user's download).
+const shopForm = document.querySelector<HTMLFormElement>("#new-shop");
+if (shopForm) {
+  const handleInput = shopForm.elements.namedItem("handle") as HTMLInputElement;
+  const hint = document.querySelector<HTMLElement>("#handle-hint")!;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  handleInput.addEventListener("input", () => {
+    clearTimeout(timer);
+    const h = handleInput.value.trim();
+    hint.textContent = h ? `becomes ${h}.nearchant.${cfg.network}` : "";
+    timer = setTimeout(async () => {
+      if (!/^[a-z0-9][a-z0-9_-]{0,30}[a-z0-9]$/.test(h)) return;
+      const r = await (await fetch(`/api/handles/${h}`)).json();
+      hint.textContent = r.available ? `✓ ${h}.nearchant.${cfg.network} is free` : `✗ ${h} is taken or reserved`;
+    }, 300);
+  });
+  shopForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const out = shopForm.querySelector("output")!;
+    const button = shopForm.querySelector("button")!;
+    button.disabled = true;
+    const val = (n: string) => (shopForm.elements.namedItem(n) as HTMLInputElement).value.trim();
+    const handle = val("handle");
+    const key = KeyPair.fromRandom("ed25519");
+    try { localStorage.setItem(`nc:${cfg.network}:shop:${handle}`, key.toString()); } catch { /* download below */ }
+    try {
+      out.textContent = "Creating your NEAR account and shop…";
+      const r = await post<{ accountId: string; cardUrl: string }>("api/shops", { handle, ownerPublicKey: key.getPublicKey().toString(), name: val("name"), bio: val("bio"), price: Number(val("price")) });
+      out.textContent = "Funding your agents' inference balance (10 test nUSD)…";
+      const account = new Account(r.accountId, new JsonRpcProvider({ url: cfg.rpcUrl }), new KeyPairSigner(key));
+      await account.callFunction({
+        contractId: `nusd.${r.accountId.split(".").slice(1).join(".")}`, methodName: "ft_transfer_call",
+        args: { receiver_id: `billing.${r.accountId.split(".").slice(1).join(".")}`, amount: "10000000", msg: JSON.stringify({ action: "top_up" }) },
+        deposit: 1n, gas: 100n * 10n ** 12n,
+      }).catch(() => { /* the shop works without it; the dashboard can top up later */ });
+      const a = document.createElement("a");
+      a.href = `data:text/plain;charset=utf-8,${encodeURIComponent(`${r.accountId}\n${key.toString()}\n`)}`;
+      a.download = `${r.accountId}-key.txt`;
+      a.textContent = "Download your account key";
+      out.textContent = `Done: ${r.accountId}. `;
+      out.append(a, document.createTextNode(" — then "));
+      const go = document.createElement("a");
+      go.href = r.cardUrl;
+      go.textContent = "open your shop →";
+      out.append(go);
+    } catch (err) {
+      out.textContent = `Could not create the shop: ${(err as Error).message}`;
+      button.disabled = false;
+    }
+  });
+}
