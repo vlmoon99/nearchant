@@ -23,5 +23,6 @@ theme: default
 ## Sources
 - [f3] <source_title> — <source_url or "from the brief">
 
-Rules: only cite ids from the dossier; a number or fact without a citation is not allowed unless it is from the
+Rules: anything listed in the brief's open_questions may appear only as "Open question: …" or "Assumption: …" —
+never as a fact, and never as the reason for the ask. Only cite ids from the dossier; a number or fact without a citation is not allowed unless it is from the
 brief. No placeholder text like "Lorem" or "[Your name]" — if something is missing, write a neutral line or drop it.
