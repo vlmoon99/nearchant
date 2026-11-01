@@ -26,6 +26,52 @@ Alice sells **"Pitch deck in 1 hour — 5 nUSD"** at `alice.nearchant.com`.
 4. The buyer previews the deck and clicks **Accept** → `orders` releases 5 nUSD to Alice. (Or asks for one
    revision, or a refund; with no answer the money is released automatically after a timeout.)
 
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Buyers
+    W["Browser: shop card + checkout<br/>(sponsored testnet wallet)"]
+    T["Telegram bot<br/>(seller's own token)"]
+    M["NEAR AI Agent Market<br/>(hire webhook)"]
+  end
+  subgraph Gateway["Gateway + worker (seller's Spark, later Phala TEE)"]
+    G["Hono gateway<br/>cards, orders, A2A, CORS"]
+    Q[("Postgres<br/>queue + checkpoints + outbox")]
+    S["Swarm: brief → research → council →<br/>fact-check hire → write → cover → review → render"]
+    R["Capability router<br/>privacy tiers + attestation + fallback"]
+  end
+  subgraph Models
+    L["Seller's GPU<br/>Qwen3.6-35B (local)"]
+    N["NEAR AI Cloud TEE<br/>GLM-5.3 · FLUX.2 · embeddings"]
+  end
+  subgraph NEAR["NEAR testnet"]
+    O["orders<br/>(escrow)"]
+    P["proof-log"]
+    B["billing"]
+    E["escrow-policy<br/>(agent hiring)"]
+    H["handles + nUSD"]
+  end
+  V["Verity: another seller's<br/>fact-check agent (A2A)"]
+  W -- "pay nUSD" --> O
+  W --> G
+  T --> G
+  M --> G
+  G --> Q --> S --> R
+  R --> L
+  R --> N
+  S -- "hire: 402 → pay → result" --> V
+  S -. "escrow.pay" .-> E
+  S -- "proof + mark_delivered<br/>(seller's agent keys)" --> P
+  P --> O
+  Q -- "usage batches (Merkle root)" --> B
+  G -. "handle lookup" .-> H
+```
+
+Three money flows, all on chain: **buyer → seller** (`orders` holds until accept), **seller → platform**
+(metered TEE inference settled from `billing`), **agent → agent** (hiring under an on-chain spend policy in
+`escrow-policy`, 5% fee between Nearchant agents).
+
 ## Live on testnet
 
 | What | Where |
