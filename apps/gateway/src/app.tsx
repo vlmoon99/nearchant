@@ -5,7 +5,7 @@ import { secureHeaders } from "hono/secure-headers";
 import { handleFromHost, type HandleRecord, type PaymentRail, type DryQuote } from "@nearchant/near";
 import { formatUnits, type GatewayConfig } from "./config.js";
 import { originOf, publicCors } from "./cors.js";
-import { CardPage, ManagePage, NewShopPage, NotFoundPage, OrderPage, SITE_CSS, type ClientConfig, type OrderView } from "./pages.js";
+import { CardPage, ManagePage, NewShopPage, NotFoundPage, OrderPage, SITE_CSS, type ClientConfig, type OrderView, type ShopStats } from "./pages.js";
 import { RateLimit } from "./buyers.js";
 import { verifyMarketSignature, type HireCreated } from "./market.js";
 import { newWebhookSecret, secretMatches, validBotToken, verifySellerSignature, type TgUpdate } from "./telegram.js";
@@ -31,6 +31,8 @@ export interface Deps {
   /** "Create your shop in 60 s" (testnet, sponsored): claims the handle and adds the default deck service. */
   createShop?: (s: { handle: string; ownerPublicKey: string; name: string; bio: string; priceUnits: string }) => Promise<{ accountId: string }>;
   isAvailable?: (handle: string) => Promise<boolean>;
+  /** Seller dashboard numbers read from chain (balances, billing, hiring campaign). */
+  stats?: (accountId: string, handle: string) => Promise<ShopStats>;
   /** Per-seller Telegram bots (ADR 0011). */
   telegram?: {
     isOwnerKey: (accountId: string, publicKey: string) => Promise<boolean>;
@@ -148,7 +150,9 @@ export function createApp(d: Deps) {
   seller.get("/manage", async (c) => {
     const h = c.get("handle");
     if (!h) return c.html(<NotFoundPage testToken={d.config.token.test} />, 404);
-    return c.html(<ManagePage handle={h} cfg={d.client} testToken={d.config.token.test} />);
+    const stats = d.stats ? await d.stats(h.account_id, h.handle).catch(() => null) : null;
+    const orders = (await d.store.listOrders(h.handle, 10)).map((o) => ({ id: o.orderId, state: o.state, amount: price(o.amount), at: o.createdAt.slice(0, 16).replace("T", " ") }));
+    return c.html(<ManagePage handle={h} cfg={d.client} testToken={d.config.token.test} stats={stats} orders={orders} fmt={price} />);
   });
 
   seller.get("/o/:id", async (c) => {

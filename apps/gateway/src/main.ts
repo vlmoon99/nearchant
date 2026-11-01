@@ -138,6 +138,14 @@ const app = createApp({
   client: { rpcUrl: config.rpc_urls[0]!, orders: accounts.orders, network: config.network },
   ...(relayerKey && config.network === "testnet" ? { sponsorBuyer: (pk: string) => sponsorBuyer({ chain, accounts }, pk) } : {}),
   isAvailable: (h: string) => chain.view<boolean>(accounts.root, "is_available", { name: h }),
+  stats: async (accountId: string, handle: string) => {
+    const [wallet, billing, campaign] = await Promise.all([
+      chain.view<string>(accounts.nusd, "ft_balance_of", { account_id: accountId }),
+      chain.view<any>(accounts.billing, "get_account", { account_id: accountId }),
+      chain.view<any>(accounts.escrow, "get_campaign", { campaign_id: `${handle}-main` }),
+    ]);
+    return { wallet, billing, campaign };
+  },
   ...(conn && relayerKey && process.env.NEARCHANT_SECRET_KEY && config.network === "testnet" ? {
     createShop: async (s: { handle: string; ownerPublicKey: string; name: string; bio: string; priceUnits: string }) => {
       const r = await createShop({ chain, accounts, db: conn!.db, sealer: new Sealer(process.env.NEARCHANT_SECRET_KEY!) },

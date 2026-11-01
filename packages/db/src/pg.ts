@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
@@ -50,6 +50,10 @@ export class PgStore implements Store {
   async getOrder(orderId: string): Promise<OrderRow | null> {
     const [r] = await this.db.select().from(schema.orders).where(eq(schema.orders.orderId, orderId));
     return r ? toOrder(r) : null;
+  }
+  async listOrders(handle: string, limit = 20): Promise<OrderRow[]> {
+    const rows = await this.db.select().from(schema.orders).where(eq(schema.orders.handle, handle)).orderBy(desc(schema.orders.createdAt)).limit(limit);
+    return rows.map(toOrder);
   }
   async transitionOrder(orderId: string, from: OrderState, to: OrderState): Promise<boolean> {
     const r = await this.db.update(schema.orders).set({ state: to, updatedAt: new Date() })

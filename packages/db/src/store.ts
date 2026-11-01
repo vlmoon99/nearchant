@@ -33,6 +33,7 @@ export interface Store {
   upsertService(s: Service): Promise<void>;
   createOrder(o: OrderRow): Promise<void>;
   getOrder(orderId: string): Promise<OrderRow | null>;
+  listOrders(handle: string, limit?: number): Promise<OrderRow[]>;
   /** Moves an order forward only from `from`; returns false if it was not in that state (idempotent updates). */
   transitionOrder(orderId: string, from: OrderState, to: OrderState): Promise<boolean>;
 }
@@ -58,6 +59,9 @@ export class MemoryStore implements Store {
   async getOrder(id: string) {
     const o = this.orders.get(id);
     return o ? { ...o } : null;
+  }
+  async listOrders(handle: string, limit = 20) {
+    return [...this.orders.values()].filter((o) => o.handle === handle).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
   }
   async transitionOrder(id: string, from: OrderState, to: OrderState) {
     const o = this.orders.get(id);

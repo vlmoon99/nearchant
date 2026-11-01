@@ -162,6 +162,7 @@ output { font-size:14px; white-space: pre-wrap; }
 .actions { display:flex; gap:8px; flex-wrap:wrap; }
 button.secondary { background: transparent; color: var(--accent); border:1px solid var(--accent); }
 button:disabled { opacity:.6; cursor: default; }
+table.stats { width:100%; border-collapse:collapse; font-size:14px; } .stats th, .stats td { text-align:left; padding:6px 8px 6px 0; border-bottom:1px solid var(--line); vertical-align:top; }
 footer { text-align:center; color:var(--muted); font-size:13px; padding: 24px 16px; }
 `;
 
@@ -189,13 +190,36 @@ export const NewShopPage: FC<{ cfg: ClientConfig; testToken: boolean; enabled: b
   </Layout>
 );
 
-export const ManagePage: FC<{ handle: HandleRecord; cfg: ClientConfig; testToken: boolean }> = ({ handle, cfg, testToken }) => (
+export interface ShopStats {
+  wallet: string;
+  billing: { balance: string; spent_today: string; spent_month: string } | null;
+  campaign: { budget: string; spent: string; reserved: string; policy: { auto_limit: string; daily_limit: string; allowlist: string[] } } | null;
+}
+
+export const ManagePage: FC<{ handle: HandleRecord; cfg: ClientConfig; testToken: boolean; stats: ShopStats | null; orders: { id: string; state: string; amount: string; at: string }[]; fmt: (u: string) => string }> = ({ handle, cfg, testToken, stats, orders, fmt }) => (
   <Layout title={`Manage ${handle.card.name} · Nearchant`} testToken={testToken}>
     <section class="card">
       <p class="muted"><a href={`/h/${handle.handle}/`}>← {handle.card.name}</a></p>
       <h1>Manage your shop</h1>
       <p class="account">{handle.account_id}</p>
     </section>
+    {stats ? (
+      <section class="service">
+        <h2>Money (on NEAR)</h2>
+        <table class="stats">
+          <tr><th>Wallet</th><td>{fmt(stats.wallet)}</td><td class="muted">payouts from accepted orders land here</td></tr>
+          {stats.billing ? <tr><th>Inference balance</th><td>{fmt(stats.billing.balance)}</td><td class="muted">spent today {fmt(stats.billing.spent_today)}, this month {fmt(stats.billing.spent_month)}</td></tr> : null}
+          {stats.campaign ? <tr><th>Hiring budget</th><td>{fmt(String(BigInt(stats.campaign.budget) - BigInt(stats.campaign.spent) - BigInt(stats.campaign.reserved)))} left</td>
+            <td class="muted">auto up to {fmt(stats.campaign.policy.auto_limit)} per hire, {fmt(stats.campaign.policy.daily_limit)} per day, only: {stats.campaign.policy.allowlist.join(", ") || "nobody"}</td></tr> : null}
+        </table>
+      </section>
+    ) : null}
+    {orders.length ? (
+      <section class="service">
+        <h2>Recent orders</h2>
+        <table class="stats">{orders.map((o) => <tr><td><a href={`/h/${handle.handle}/o/${o.id}`}>{o.id}</a></td><td>{o.amount}</td><td>{o.state}</td><td class="muted">{o.at}</td></tr>)}</table>
+      </section>
+    ) : null}
     <form id="tg-connect" class="service order" data-handle={handle.handle}>
       <h2>Telegram bot</h2>
       <p class="muted">Create a bot with @BotFather, paste its token here. Buyers can then chat with your agent and order from Telegram.</p>
