@@ -854,6 +854,19 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Public pages show only the demo store: setting `showcase_hidden` lists the 13 other test stores (Kyiv/skull era
   and test runs); "Kyiv" no longer appears on nearchant.com's home or verify pages.
 
+## 2026-11-02 04:10 UTC — night: Wallet Receive / Withdraw
+
+- Wallet page (Figma): **Receive** shows the store account with Copy; **Withdraw** sends nUSD from the store account
+  to any NEAR account, signed in the browser with the store key (the server never sees it): checks the account
+  exists and the balance, pays the receiver's one-time nUSD registration from the store if needed (0.00125 NEAR),
+  then `ft_transfer`. Prefilled with the linked NEAR wallet. Amounts converted exactly (`web/units.ts`, tested).
+- **Verified live** (`apps/gateway/e2e/withdraw.mjs`): a new store withdrew 1 nUSD to relayer.nearchant.testnet and
+  0.5 nUSD to nearchant.testnet — balances on chain moved by exactly 1.5 nUSD, no page errors.
+- Not verified yet: the registration path (receiver never held nUSD) — the re-run hit the shop-creation limit
+  (3 new stores per address per hour) after tonight's tests; retry scheduled.
+- Seen: `InvalidNonceError` on the relayer while a test script signed with the same key from the Mac; the chain
+  client's retry (fresh nonce, 4 tries) covers normal traffic.
+
 ### Owner actions
 - Try "Connect a NEAR wallet": Settings → NEAR wallet in your store (testnet MyNearWallet account), then sign in
   with it from another browser. Tell me if MyNearWallet shows an error.

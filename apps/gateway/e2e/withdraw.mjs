@@ -24,8 +24,9 @@ const store = `${handle}.nearchant.testnet`;
 log(`store ${store}`);
 
 const relayer = new Account("relayer.nearchant.testnet", provider, new KeyPairSigner(KeyPair.fromString(process.env.NC_RELAYER_KEY)));
-await relayer.callFunction({ contractId: nusd, methodName: "faucet_for", args: { account_id: store }, gas: 30n * 10n ** 12n });
-log(`faucet → store has ${await view("ft_balance_of", { account_id: store })} units`);
+// New stores get the faucet amount when they are created; claim only if the store holds nothing.
+if (BigInt(await view("ft_balance_of", { account_id: store })) === 0n) await relayer.callFunction({ contractId: nusd, methodName: "faucet_for", args: { account_id: store }, gas: 30n * 10n ** 12n });
+log(`store has ${await view("ft_balance_of", { account_id: store })} units`);
 const before = { reg: BigInt(await view("ft_balance_of", { account_id: registeredTo })), fresh: await view("storage_balance_of", { account_id: freshTo }) };
 log(`${freshTo} registered with nUSD before: ${!!before.fresh}`);
 
