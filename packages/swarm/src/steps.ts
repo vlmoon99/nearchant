@@ -46,6 +46,8 @@ export interface StepContext {
   /** Report hash of the latest TEE attestation among this job's envelopes (null if all calls were local). */
   attestationRef: () => Promise<string | null>;
   log?: (msg: string) => void;
+  /** Set by a step before it stops the job: full diagnostics, stored with the stop. */
+  stopDetail?: unknown;
 }
 
 export interface ProofEntry {
@@ -94,19 +96,50 @@ export function checkDeck(md: string, dossier: Dossier): string[] {
  * Last resort after the review rounds: delete every slide line that contains a quoted blocking item or untraced
  * claim. Returns null if any quote can't be found (then the job stops rather than ship something unchecked).
  */
-export function redact(md: string, quotes: string[]): { markdown: string; removed: string[] } | null {
+export function redact(
+  md: string,
+  items: { quote: string; required: boolean }[],
+  knownIds?: Set<string>,
+): { markdown: string; removed: string[]; ignored: string[] } | null {
   const norm = (t: string) => t.toLowerCase().replace(/[*_`"“”'’]/g, "").replace(/\s+/g, " ").trim();
+  const words = (t: string) => norm(t).split(/[^a-z0-9.%€$]+/).filter((w) => w.length > 2);
   const lines = md.split("\n");
   const removed: string[] = [];
-  for (const q of quotes) {
-    const nq = norm(q);
-    if (nq.length < 8) return null;
-    const i = lines.findIndex((l) => !l.startsWith("#") && !l.startsWith("---") && norm(l).includes(nq.slice(0, 80)));
-    if (i < 0) return null;
+  const ignored: string[] = [];
+  const editable = (l: string) => !l.startsWith("#") && !l.startsWith("---") && !l.startsWith("![");
+  // Lines citing findings that don't exist can't be traced: remove them.
+  if (knownIds) {
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const ids = [...lines[i]!.matchAll(/\[(f\d+)\]/g)].map((m) => m[1]!);
+      if (ids.some((id) => !knownIds.has(id)) && editable(lines[i]!)) removed.push(...lines.splice(i, 1));
+    }
+  }
+  for (const it of items) {
+    const nq = norm(it.quote);
+    if (nq.length < 8) { if (it.required) return null; ignored.push(it.quote); continue; }
+    let i = lines.findIndex((l) => editable(l) && norm(l).includes(nq.slice(0, 80)));
+    if (i < 0) {
+      // Paraphrased quote: the line sharing most of its words (at least 70%).
+      const qw = new Set(words(it.quote));
+      let best = -1, bestScore = 0;
+      lines.forEach((l, j) => {
+        if (!editable(l) || !qw.size) return;
+        const lw = new Set(words(l));
+        const score = [...qw].filter((w) => lw.has(w)).length / qw.size;
+        if (score > bestScore) { bestScore = score; best = j; }
+      });
+      if (bestScore >= 0.7) i = best;
+    }
+    if (i < 0) {
+      // A blocking item must be found; an untraced claim that matches no line was likely imagined by the reviewer.
+      if (it.required) return null;
+      ignored.push(it.quote);
+      continue;
+    }
     removed.push(lines[i]!);
     lines.splice(i, 1);
   }
-  return { markdown: lines.join("\n"), removed };
+  return { markdown: lines.join("\n"), removed, ignored };
 }
 
 /** Keeps the first ```markdown fence if the model wrapped the deck in one; makes sure front matter exists. */
@@ -235,12 +268,16 @@ export const STEPS: Record<Step, (c: StepContext) => Promise<unknown>> = {
     }
     // Deterministic last step: remove exactly the quoted lines, re-run the hard checks, ship only if clean.
     const last = rounds.at(-1)!;
-    const quotes = [...(last.review.blocking ?? []).map((b) => b.quote ?? ""), ...(last.review.untraced_claims ?? [])].filter(Boolean);
-    const r = last.problems.length === 0 && quotes.length > 0 ? redact(md, quotes) : null;
+    const items = [
+      ...(last.review.blocking ?? []).map((b) => ({ quote: b.quote ?? "", required: true })),
+      ...(last.review.untraced_claims ?? []).map((q) => ({ quote: q, required: false })),
+    ];
+    const r = redact(md, items, new Set(dossier.findings.map((f) => f.id)));
     if (r && checkDeck(r.markdown, dossier).length === 0) {
-      c.log?.(`review: removed ${r.removed.length} unsupported line(s) after ${ROUNDS} rounds`);
-      return { markdown: r.markdown, passed: true, rounds, redacted: r.removed };
+      c.log?.(`review: removed ${r.removed.length} unsupported line(s), ignored ${r.ignored.length} unmatched claim(s) after ${ROUNDS} rounds`);
+      return { markdown: r.markdown, passed: true, rounds, redacted: r.removed, ignored: r.ignored };
     }
+    c.stopDetail = { rounds, redaction: r ? { removed: r.removed, remainingProblems: checkDeck(r.markdown, dossier) } : "a blocking quote matched no line" };
     throw new JobStop(`deck failed review after ${ROUNDS} rounds: ${JSON.stringify(rounds.at(-1))}`.slice(0, 1000), "failed_review");
   },
 

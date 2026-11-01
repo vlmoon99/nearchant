@@ -52,7 +52,7 @@ export async function runStep(d: JobDeps, orderId: string, brief: string, step: 
     return { status: "done", next: nextStep(step) };
   } catch (e) {
     if (e instanceof JobStop) {
-      await d.artifacts.put(orderId, `stopped`, { step, kind: e.kind, reason: e.reason });
+      await d.artifacts.put(orderId, `stopped`, { step, kind: e.kind, reason: e.reason, detail: ctx.stopDetail ?? null });
       return { status: "stopped", kind: e.kind, reason: e.reason };
     }
     throw e;

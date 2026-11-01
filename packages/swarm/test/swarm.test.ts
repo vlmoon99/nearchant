@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ResultEnvelope } from "@nearchant/contracts";
 import { NoEndpointError, type CapabilityRequest } from "@nearchant/providers";
-import { block, checkDeck, citedIds, cleanDeck, extractJson, loadAgentEnv, runPipeline, slideCount, type JobDeps, type ProofEntry } from "../src/index.js";
+import { block, checkDeck, citedIds, cleanDeck, extractJson, redact, loadAgentEnv, runPipeline, slideCount, type JobDeps, type ProofEntry } from "../src/index.js";
 
 const env = loadAgentEnv(new URL("../../../envs/deck-seller", import.meta.url).pathname);
 
@@ -161,7 +161,7 @@ describe("deck pipeline", () => {
     const reworked = (a.store.get("o3/review") as { markdown: string }).markdown;
     expect(reworked.match(/!\[bg right:40%\]/g)).toHaveLength(1); // cover kept on rework, exactly once
 
-    const never = fakeRouter({ reviewer: () => ({ blocking: [], suggestions: [], untraced_claims: ["x"], score: 3 }) });
+    const never = fakeRouter({ reviewer: () => ({ blocking: [{ slide: 2, quote: "a blocking claim that is not on any slide", problem: "x", fix: "y" }], suggestions: [], untraced_claims: [], score: 3 }) });
     const b = deps(never);
     // 3 reviews, 2 edits
     expect(await runPipeline(b.d, "o4", "seed deck please, coffee")).toMatchObject({ status: "stopped", kind: "failed_review" });
@@ -173,10 +173,13 @@ describe("deck pipeline", () => {
     expect((await runPipeline(deps(lenient).d, "o7", "seed deck please, coffee")).status).toBe("done");
   });
 
-  it("deterministic checks catch what a lenient reviewer misses", async () => {
-    const lying = fakeRouter({ copywriter: () => DECK.replace("[f3]", "[f9]") });
-    const { d } = deps(lying);
-    expect(await runPipeline(d, "o5", "seed deck please, coffee")).toMatchObject({ status: "stopped", kind: "failed_review" });
+  it("deterministic checks catch what a lenient reviewer misses: invented citations are removed", async () => {
+    const lying = fakeRouter({ copywriter: () => DECK.replace("- Big brands, few fresh options [f3]", "- Big brands, few fresh options [f3]\n- 90% of buyers love us [f9]") });
+    const { d, store } = deps(lying);
+    expect((await runPipeline(d, "o5", "seed deck please, coffee")).status).toBe("done");
+    const rv = store.get("o5/review") as { markdown: string; redacted: string[] };
+    expect(rv.markdown).not.toContain("[f9]");
+    expect(rv.redacted).toEqual(["- 90% of buyers love us [f9]"]);
   });
 });
 
@@ -239,6 +242,17 @@ describe("redaction after the last round", () => {
     const rv = store.get("r1/review") as { markdown: string; redacted: string[] };
     expect(rv.redacted).toEqual(["- Two founders, roaster + growth"]);
     expect(rv.markdown).not.toContain("Two founders");
+  });
+
+  it("matches paraphrased quotes, drops unknown citations, ignores unmatched untraced claims", () => {
+    const md = "# T\n- Two founders: a roaster and a growth marketer [f1]\n- Market grows fast [f9]\n- Fine line [f2]";
+    const r = redact(md, [
+      { quote: "two founders, roaster plus growth marketer", required: true },
+      { quote: "a claim that is nowhere in the deck at all", required: false },
+    ], new Set(["f1", "f2"]))!;
+    expect(r.markdown).toBe("# T\n- Fine line [f2]");
+    expect(r.removed).toHaveLength(2);
+    expect(r.ignored).toHaveLength(1);
   });
 
   it("stops if a quote can't be found", async () => {
