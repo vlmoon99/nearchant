@@ -115,3 +115,51 @@ export async function findOpportunities(ask: Asker, p: StyleProfile, items: { ti
   }).slice(0, 4);
   return { opportunities, searched: results.length };
 }
+
+export interface PostDraft {
+  angle: string;
+  product: string | null;
+  photo: number | null;
+  audience: string;
+  caption: string;
+  hashtags: string[];
+  image_prompt: string;
+}
+
+export interface OwnerMemory { likes?: string[]; dislikes?: string[]; topics?: string[]; voice?: string; notes?: string[] }
+
+/** Writes n clearly different post options (Boost Content `ideas` i4), serving the chosen opportunity if any. */
+export async function writePostOptions(ask: Asker, a: {
+  profile: StyleProfile; n: number; photoCount: number; memory?: OwnerMemory; recentPicks?: string[]; passedAngles?: string[];
+  opportunity?: { kind: string; title: string; why: string; action?: string } | null; about?: string; today?: string;
+}): Promise<PostDraft[]> {
+  const parts = [
+    block("style_profile", a.profile),
+    `There are ${a.photoCount} product photos, numbered 1 to ${a.photoCount} like the profile's products.`,
+    `Write exactly ${a.n} post options.`,
+    a.opportunity ? block("opportunity", a.opportunity) : "",
+    a.about ? block("owner_request", a.about) : "",
+    a.memory && Object.keys(a.memory).length ? block("owner_memory", a.memory) : "",
+    a.recentPicks?.length ? block("recent_picks", a.recentPicks) : "",
+    a.passedAngles?.length ? block("passed_angles", a.passedAngles) : "",
+    `Today is ${a.today ?? new Date().toISOString().slice(0, 10)}.`,
+  ].filter(Boolean);
+  const raw = await ask<{ posts?: unknown[] }>("idea-writer", parts.join("\n\n"));
+  return (raw.posts ?? []).map((p) => (p ?? {}) as Record<string, unknown>).map((p): PostDraft => {
+    const photo = Number(p.photo);
+    const prompts = Array.isArray(p.image_prompts) ? p.image_prompts.map(String) : [];
+    return {
+      angle: str(p.angle, 160), product: str(p.product, 80) || null,
+      photo: Number.isInteger(photo) && photo >= 1 && photo <= a.photoCount ? photo : null,
+      audience: str(p.audience, 160), caption: str(p.caption_en ?? p.caption, 2200),
+      hashtags: list(p.hashtags).map((h) => h.replace(/^#/, "").replace(/\s+/g, "")).filter(Boolean).slice(0, 10),
+      image_prompt: str(p.image_prompt, 600) || prompts[0]?.slice(0, 600) || "",
+    };
+  }).filter((p) => p.caption).slice(0, a.n);
+}
+
+/** Updates the owner's taste memory from their signals (Boost Content `learn` k1). */
+export async function learnTaste(ask: Asker, memory: OwnerMemory, events: { kind: string; data: unknown }[]): Promise<OwnerMemory> {
+  const raw = await ask<Record<string, unknown>>("learner", [block("current_memory", memory), block("events", events.slice(-60))].join("\n\n"));
+  return { likes: list(raw.likes).slice(0, 8), dislikes: list(raw.dislikes).slice(0, 8), topics: list(raw.topics).slice(0, 8), voice: str(raw.voice, 300), notes: list(raw.notes).slice(0, 8) };
+}

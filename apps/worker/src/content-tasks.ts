@@ -1,10 +1,11 @@
 // Worker tasks for the content store (ADR 0018): analyse a business, find opportunities. Posts come in step 6.
-import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Task } from "graphile-worker";
 import sharp from "sharp";
 import type { ContentStore, Envelopes } from "@nearchant/db";
-import { analyzeBusiness, factsFromProfile, findOpportunities, makeAsker, type AgentEnv, type ModelRouter, type SearchResult, type StyleProfile } from "@nearchant/swarm";
+import { analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type StyleProfile } from "@nearchant/swarm";
 
 export interface ContentTaskDeps {
   content: ContentStore;
@@ -69,5 +70,71 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     }
   };
 
-  return { analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask };
+  // Posts: one idea-writer call for the batch, then caption → image per option. A missing image engine is not
+  // fatal: the option shows the store's own photo and the owner can still use it.
+  const generatePostsTask: Task = async (payload, helpers) => {
+    const { handle, batchId } = payload as { handle: string; batchId: string };
+    const prof = await d.content.getProfile(handle);
+    const profile = prof?.data as StyleProfile | undefined;
+    if (!profile?.products) throw new Error(`no profile for ${handle}`);
+    const batch = (await d.content.listPosts(handle, { limit: 50 })).filter((p) => p.batchId === batchId && p.status === "queued");
+    if (!batch.length) return;
+    const photos = (await d.content.listMedia(handle, "photo")).slice(0, 8);
+    const opps = await d.content.listOpportunities(handle);
+    const first = batch[0]!;
+    const opp = opps.find((o) => o.id === first.opportunityId) ?? null;
+    const recent = (await d.content.signalsSince(handle)).slice(-40);
+    for (const p of batch) await d.content.updatePost(p.id, { status: "writing" });
+    let drafts;
+    try {
+      drafts = await writePostOptions(askFor(handle, "ideas"), {
+        profile, n: batch.length, photoCount: photos.length, memory: prof?.learned as OwnerMemory,
+        recentPicks: recent.filter((x) => x.kind === "chose").map((x) => JSON.stringify((x.data as { idea?: unknown }).idea ?? {})).slice(-6),
+        passedAngles: recent.filter((x) => x.kind === "passed").map((x) => String(((x.data as { idea?: { angle?: string } }).idea ?? {}).angle ?? "")).filter(Boolean).slice(-6),
+        opportunity: opp && { kind: opp.kind, title: opp.title, why: opp.why, action: (opp.data as { action?: string }).action },
+        about: String((first.idea as { about?: string }).about ?? ""),
+      });
+    } catch (e) {
+      for (const p of batch) await d.content.failPost(p.id, `ideas: ${(e as Error).message}`);
+      throw e;
+    }
+    for (const [i, p] of batch.entries()) {
+      const dr = drafts[i];
+      if (!dr) { await d.content.failPost(p.id, "the model wrote fewer options than asked"); continue; }
+      const src = dr.photo ? photos[dr.photo - 1] : undefined;
+      await d.content.updatePost(p.id, { status: "rendering", caption: dr.caption, hashtags: dr.hashtags, idea: { ...dr }, sourceMediaId: src?.id ?? null });
+      let imageMediaId: string | null = null;
+      try {
+        const input: Record<string, unknown> = { prompt: dr.image_prompt || dr.angle, n: 1, size: "1024x1280" };
+        if (src) input.image_b64 = (await photoDataUrl(join(d.mediaDir, src.key))).split(",", 2)[1];
+        const env = await d.router.call({ capability: "image.generate", dataClass: "private", input, timeoutMs: 240_000 });
+        await d.envelopes.add(`content:${handle}:render`, "render", d.accountOf(handle), env);
+        const b64 = (env.output as { images?: { b64?: string }[] }).images?.[0]?.b64;
+        if (b64) {
+          const bytes = Buffer.from(b64, "base64");
+          const key = `${handle}/gen/${p.id}.png`;
+          await mkdir(join(d.mediaDir, handle, "gen"), { recursive: true });
+          await writeFile(join(d.mediaDir, key), bytes);
+          imageMediaId = await d.content.addMedia({ handle, kind: "generated", key, contentType: "image/png", sha256: createHash("sha256").update(bytes).digest("hex") });
+        }
+      } catch (e) {
+        d.log(`render ${p.id}: ${(e as Error).message.slice(0, 160)} — using the product photo`);
+      }
+      await d.content.updatePost(p.id, { status: "ready", imageMediaId: imageMediaId ?? src?.id ?? null, error: imageMediaId ? null : "image engine unavailable — showing your photo" });
+    }
+    await helpers.addJob("learn_taste", { handle }, { jobKey: `learn:${handle}`, runAt: new Date(Date.now() + 60_000), maxAttempts: 1 });
+    d.log(`posts ${handle} ${batchId}: ${drafts.length}/${batch.length} written`);
+  };
+
+  // The owner's taste memory, from what they kept, passed, edited (runs after batches; cheap and debounced).
+  const learnTasteTask: Task = async (payload) => {
+    const { handle } = payload as { handle: string };
+    const prof = await d.content.getProfile(handle);
+    const events = (await d.content.signalsSince(handle)).map((x) => ({ kind: x.kind, data: x.data }));
+    if (events.length < 3) return;
+    const learned = await learnTaste(askFor(handle, "learn"), (prof?.learned ?? {}) as OwnerMemory, events);
+    await d.content.setProfile(handle, { learned });
+  };
+
+  return { analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
 }

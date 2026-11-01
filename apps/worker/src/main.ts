@@ -157,5 +157,5 @@ const runner = await run({
   taskList: { ...contentTasks, deck_step: deckStep, outbox_drain: outboxDrain, billing_settle: billingSettle, escrow_timers: escrowTimers },
   crontab: ["* * * * * outbox_drain ?jobKey=outbox_drain", "*/5 * * * * billing_settle ?jobKey=billing_settle", "*/10 * * * * escrow_timers ?jobKey=escrow_timers"].join("\n"),
 });
-console.info("[worker] up: analyze_business, find_opportunities, deck_step, outbox_drain, billing_settle, escrow_timers");
+console.info("[worker] up: analyze_business, find_opportunities, generate_posts, learn_taste, deck_step, outbox_drain, billing_settle, escrow_timers");
 await runner.promise;

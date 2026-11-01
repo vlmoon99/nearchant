@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { join } from "node:path";
-import { analyzeBusiness, factsFromProfile, findOpportunities, loadAgentEnv, shapeProfile, type Asker } from "../src/index.js";
+import { analyzeBusiness, factsFromProfile, findOpportunities, loadAgentEnv, shapeProfile, writePostOptions, type Asker } from "../src/index.js";
 
 const env = loadAgentEnv(join(import.meta.dirname, "../../../envs/content-store"));
 
@@ -77,5 +77,24 @@ describe("findOpportunities", () => {
   it("allows a price opportunity when the store has prices", async () => {
     const { opportunities } = await findOpportunities(fakeAsk({ "opportunity-analyst": answer }), profile, [{ title: "Denim jacket", price: "45 nUSD" }], async () => results);
     expect(opportunities.map((o) => o.kind)).toContain("price");
+  });
+});
+
+describe("writePostOptions", () => {
+  const profile = shapeProfile(PROFILE, "Nova", 2);
+  it("passes the opportunity and memory, normalises hashtags and photo numbers", async () => {
+    const seen: { role: string; user: any }[] = [];
+    const ask = fakeAsk({ "idea-writer": { posts: [
+      { angle: "trend", product: "Linen shirt", photo: 2, audience: "a", caption_en: "Linen season.", hashtags: ["#linen", "kyiv style", ""], image_prompt: "sunlit street" },
+      { angle: "bundle", photo: 7, caption_en: "Denim + tee.", hashtags: [], image_prompts: ["studio, white wall"] },
+      { angle: "empty" },
+    ] } }, seen);
+    const out = await writePostOptions(ask, { profile, n: 3, photoCount: 2, memory: { likes: ["short captions"] }, opportunity: { kind: "trend", title: "Linen is trending", why: "w" } });
+    expect(seen[0]!.user).toContain("<opportunity>");
+    expect(seen[0]!.user).toContain("short captions");
+    expect(out).toHaveLength(2);
+    expect(out[0]!.hashtags).toEqual(["linen", "kyivstyle"]);
+    expect(out[1]!.photo).toBeNull();
+    expect(out[1]!.image_prompt).toBe("studio, white wall");
   });
 });
