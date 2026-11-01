@@ -24,7 +24,7 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
    `image.edit`) in `providers.local.yaml`. Verify: one product photo → restyled 1024×1280 PNG.
 2. [x] **Data model**: Drizzle migration for businesses, profiles, items, media, posts, post_images, signals,
    events, opportunities; quota helpers (reserve/refund) from Boost Content's plans (free: 12 posts/month).
-3. [ ] **Uploads + business API**: create business (what you sell, name), photo upload (multipart → media),
+3. [x] **Uploads + business API**: create business (what you sell, name), photo upload (multipart → media),
    link field; JSON endpoints used by the pages.
 4. [ ] **Analyze pipeline** (worker): vision profile prompt (port of Boost Content `profile`), facts streamed to
    the "Getting to know you" screen; replay fixture + tests.

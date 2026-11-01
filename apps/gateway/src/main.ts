@@ -1,10 +1,11 @@
+import { createHash } from "node:crypto";
 // Gateway entry. env: DATABASE_URL (else in-memory), NEAR_RELAYER_KEY (buyer sponsorship), MEDIA_DIR, PUBLIC_URL, PORT.
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { makeWorkerUtils, type WorkerUtils } from "graphile-worker";
 import { parse } from "yaml";
-import { Artifacts, Envelopes, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
+import { Artifacts, ContentStore, Envelopes, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
 import { TelegramApi, handleUpdate, type TgUpdate } from "./telegram.js";
 import { marketOrderId, type HireCreated } from "./market.js";
 import { formatUnits } from "./config.js";
@@ -12,6 +13,7 @@ import { Router } from "@nearchant/providers";
 import { loadAgentEnv, makeAsker, type AgentEnv } from "@nearchant/swarm";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
 import { createApp } from "./app.js";
+import { mountSellerApp } from "./seller-app.js";
 import { RateLimit, sponsorBuyer } from "./buyers.js";
 import { loadGatewayConfig } from "./config.js";
 
@@ -131,13 +133,20 @@ function startPolling(handle: string) {
 if (conn && sealer && !useWebhooks) for (const h of await handlesWithSecret({ db: conn.db }, "telegram-token")) startPolling(h);
 
 const checkoutFile = join(import.meta.dirname, "web/checkout.js");
+/** A full-access key of the account = the owner (agent keys are function-call only). */
+const isOwnerKey = async (accountId: string, publicKey: string) => {
+  const k = await chain.provider.viewAccessKey({ accountId, publicKey, finality: "optimistic" } as never).catch(() => null) as { permission?: unknown } | null;
+  return k?.permission === "FullAccess";
+};
+
+const mediaDir = process.env.MEDIA_DIR ?? join(configDir, "../.media");
 const app = createApp({
   config,
   handles,
   store,
   rail: new TestnetDirectRail(accounts, chain.view),
   anyChainQuote,
-  mediaDir: process.env.MEDIA_DIR ?? join(configDir, "../.media"),
+  mediaDir,
   checkoutJs: existsSync(checkoutFile) ? readFileSync(checkoutFile, "utf8") : undefined,
   client: { rpcUrl: config.rpc_urls[0]!, orders: accounts.orders, network: config.network },
   ...(relayerKey && config.network === "testnet" ? { sponsorBuyer: (pk: string, allowNew: () => boolean) => sponsorBuyer({ chain, accounts }, pk, allowNew) } : {}),
@@ -164,10 +173,7 @@ const app = createApp({
   } : {}),
   ...(conn && sealer ? {
     telegram: {
-      isOwnerKey: async (accountId: string, publicKey: string) => {
-        const k = await chain.provider.viewAccessKey({ accountId, publicKey, finality: "optimistic" } as never).catch(() => null) as { permission?: unknown } | null;
-        return k?.permission === "FullAccess";
-      },
+      isOwnerKey,
       connect: async (handle: string, token: string, webhookUrl: string, secret: string) => {
         const api = new TelegramApi(token);
         const me = await api.call<{ username: string }>("getMe", {});
@@ -230,6 +236,20 @@ const app = createApp({
     console.info(`[gateway] order ${id} paid on chain → swarm job queued`);
   },
 });
+
+// The seller app API (ADR 0018): needs Postgres for content and the secret key for session cookies.
+if (conn && process.env.NEARCHANT_SECRET_KEY) {
+  mountSellerApp(app, {
+    content: new ContentStore(conn.db), handles, isOwnerKey, mediaDir,
+    enqueue: async (task, payload, jobKey) => {
+      if (!queue) throw new Error("no job queue (DATABASE_URL unset)");
+      await queue.addJob(task, payload, { ...(jobKey ? { jobKey } : {}), maxAttempts: 3 });
+    },
+    sessionKey: createHash("sha256").update(`nearchant-session:${process.env.NEARCHANT_SECRET_KEY}`).digest(),
+    secureCookies: config.public_url.startsWith("https://"),
+    decimals: config.token.decimals,
+  });
+}
 
 serve({ fetch: app.fetch, hostname: config.listen.host, port: config.listen.port }, (i) =>
   console.info(`[gateway] ${config.profile}/${config.network} on http://${i.address}:${i.port} (public ${config.public_url})`));
