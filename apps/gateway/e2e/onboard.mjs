@@ -54,4 +54,17 @@ await visible("live", 120_000);
 log("live");
 await shot("7-live");
 console.log("errors:", errors.length ? errors : "none");
+// For e2e/journey.sh: list the first photo as an item for sale, then hand over the store and its session.
+if (process.env.LIST_ITEM) {
+  const handle = await page.evaluate(async () => {
+    const me = await fetch("/api/app/me").then((r) => r.json());
+    const photo = (await fetch("/api/app/photos").then((r) => r.json())).photos[0];
+    const r = await fetch("/api/app/items", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "Denim jacket with rhinestone skull", price: 1, description: "Made in Kyiv.", options: ["S", "M", "L"], photoMediaId: photo?.id }) });
+    if (!r.ok) throw new Error(`item: ${r.status}`);
+    return me.handle;
+  });
+  const token = (await page.context().cookies()).find((c) => c.name === "nc_session").value;
+  console.log(`STORE ${base}/h/${handle}/ ${token}`);
+}
 await browser.close();

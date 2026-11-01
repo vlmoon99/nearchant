@@ -536,6 +536,28 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Not yet: `make demo` still replays the first (deck) service — next: a content-store replay (analyze →
   opportunities → posts with pictures) recorded from a live run, so judges can run the new story with Docker only.
 
+## 2026-11-01 16:25 UTC (machine clock; earlier entries' times were estimates) — step 13 (part 2): `make demo` on the new story
+
+- `make demo` now replays the content store with Docker only: `apps/worker/src/content-cli.ts` runs 3 product photos →
+  analysis → opportunities → 3 post options with pictures → `.media/demo-store/index.html` (+ result.json, post-*.png).
+  Recording in `fixtures/replay/store/` (5 model calls via NEAR AI, 3 Comfy Cloud pictures, Qwen-Image-Edit 2511
+  Lightning). The old deck replay is `make demo-deck`; CI checks both.
+- Prompt rule added: never promise offers the owner did not state (no discounts, free delivery, deadlines).
+  Comfy Cloud sometimes ends a job in `non_retryable_error`: the demo retries one other seed, then skips the picture.
+- **Verified**: live record 126 s; replay with no keys gives a byte-identical result.json; `make demo` locally OK;
+  captions checked for made-up offers (none). CI: see next entry / run 41325948230.
+- **CI green** (run 41325948230: demo-store outputs + demo-deck).
+- **Full journey on https://nearchant.com** — new `apps/gateway/e2e/journey.sh` (onboard.mjs with `LIST_ITEM=1`
+  lists the first photo as an item, then buy-item.mjs): store created 7 s → analysis → opportunities 71 s → 3 posts
+  with pictures 167 s → live 171 s → buyer paid 12 s → shipped → delivered on chain 62 s → Released 81 s; no page
+  errors; screenshots checked. Step 13 ticked.
+- First run failed: `relayer.nearchant.testnet` had 0.08 NEAR (a sponsored store costs ~0.15). Topped up 20 NEAR
+  from the faucet into the root (throwaway accounts deleted into it) and sent 6 NEAR to the relayer (~40 stores).
+  The onboarding page shows "Could not create the store" in that case.
+- Not seen: the new store's page doesn't list "Latest posts" yet right after scheduling (posts publish on their
+  schedule) — check after the first scheduled publish.
+- Next: 13b video shorts (Comfy Cloud first; the Sparks are still offline).
+
 ### Owner actions
 - Optional: a Brave Search API key (free tier) for reliable trend opportunities — self-hosted search is blocked
   from the home network right now.

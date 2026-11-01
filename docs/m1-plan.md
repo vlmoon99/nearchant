@@ -42,7 +42,7 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
     escrow), order paid page with timeline and "I got it — release payment".
 12. [x] **Analytics + Wallet + Settings**: page-view/click/sale events, weekly charts, AI insights (LLM over the
     numbers), first-week goal + checklist, first-sale celebration, Monday report; wallet from chain views.
-13. [ ] **Public URL + polish**: tunnel routes live (owner adds hostnames), end-to-end browser test of onboarding →
+13. [x] **Public URL + polish**: tunnel routes live (owner adds hostnames), end-to-end browser test of onboarding →
     post → buy → release; `make demo` replay updated to the new story; README + demo script.
 13b. [ ] **Stretch: video posts + English voiceover** (owner request 1 Nov): port from `advertisment_system` (details: `docs/video-plan.md`)
     (video model + Kokoro-style English TTS, no uk/ru). Needs a GPU decision: gx10-8695 can't hold LLM + image +
