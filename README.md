@@ -2,75 +2,78 @@
 
 [![ci](https://github.com/vlmoon99/nearchant/actions/workflows/ci.yml/badge.svg)](https://github.com/vlmoon99/nearchant/actions/workflows/ci.yml)
 
-**Your own AI agents sell your services — and get paid on NEAR.**
+**Sell more, work less, get paid on NEAR.** An AI content manager for small sellers: it learns your store from a
+few photos, finds ways to sell more, makes your posts, tells you what works — and your buyers pay you through
+escrow on NEAR, with every post and every payment provable on chain.
 
-Nearchant (NEAR + merchant) is an open-source (MIT) platform where a seller's agent team researches, debates,
-produces and delivers real work for buyers, with payments held in escrow on NEAR until the buyer accepts.
-Inference runs on the seller's own GPUs or on NEAR AI Cloud TEE models, metered and settled on chain.
+Nearchant (NEAR + merchant) is open source (MIT). It combines the author's Boost Content product (photos → posts) with
+NEAR rails: a NEAR account per store (made in the browser, no seed phrase), escrow for orders, prepaid AI billing,
+and a public proof log.
 
-> Built for the [NEAR Hackathon](https://nearhackathon.com) (Nov 2026). Tracks: **Agent Economy** (lead),
-> Privacy & Private AI, Autonomous Business. Everything runs on **NEAR testnet** with a free test token (`nUSD`) —
-> nobody pays real money to try it.
+> Built for the [NEAR Hackathon](https://nearhackathon.com) (Nov 2026). Tracks: **Agent Economy**, Private AI,
+> Autonomous Business. Everything runs on **NEAR testnet** with a free test token (`nUSD`) — nobody pays real money.
+> Live: **https://nearchant.com/start**
 
-## What happens in the demo
+## The story (try it at nearchant.com/start)
 
-Alice sells **"Pitch deck in 1 hour — 5 nUSD"** at `alice.nearchant.com`.
+1. **Onboarding (2 minutes, phone-first).** Say what you sell, add a few product photos. A NEAR account
+   (`<store>.nearchant.testnet`) is created in your browser.
+2. **AI learns the store.** A vision model reads the photos: products, style, buyers, what gets saves.
+3. **AI finds ways to sell more** — trend (only with a real web source), price, upsell bundle, channel — each with
+   an honest monthly estimate ("estimates, not promises").
+4. **First posts in a minute.** Captions in the store's voice + AI pictures of the real product in new scenes
+   (Qwen-Image-Edit keeps the product intact). Schedule them for the best time.
+5. **Published post → proof on NEAR.** The store's own agent key writes a `proof-log` entry: fingerprint of caption
+   + image, the AI that made it, the time. Buyers can check a post is really the store's and unchanged.
+6. **A buyer buys** on the storefront: free test wallet in the browser → `nUSD` into the `orders` escrow →
+   the seller marks it shipped (recorded on NEAR) → the buyer confirms → the escrow pays the store.
+7. **Analytics + wallet.** Views by source, sales, AI insights over the real numbers, balances read from chain,
+   first-sale celebration, weekly report. AI usage is metered and settled on chain (`billing`).
 
-1. A buyer opens her card, describes their startup and pays 5 nUSD. The `orders` contract **holds** the money.
-   (The page also shows a live NEAR Intents quote for paying from another chain.)
-2. Alice's agents get to work: a brief analyst, three research scouts (live web search), a **council**
-   (advocate, skeptic, buyer persona, judge — two different model families), a copywriter, an image designer and an
-   independent reviewer. Every model call is metered against Alice's prepaid `billing` balance.
-3. The deck is rendered to PDF / PPTX / HTML. A proof (hashes of brief, output, review, TEE attestation) is written
-   to `proof-log`, and the order is marked delivered — signed by Alice's agent with a key that can't move money.
-4. The buyer previews the deck and clicks **Accept** → `orders` releases 5 nUSD to Alice. (Or asks for one
-   revision, or a refund; with no answer the money is released automatically after a timeout.)
+Three money flows, all on NEAR testnet: **buyer → seller** (`orders` escrow), **seller → platform** (metered AI in
+`billing`, Merkle-batched), **agent → agent** (hiring under an on-chain spend policy in `escrow-policy`).
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  subgraph Buyers
-    W["Browser: shop card + checkout<br/>(sponsored testnet wallet)"]
-    T["Telegram bot<br/>(seller's own token)"]
-    M["NEAR AI Agent Market<br/>(hire webhook)"]
+  subgraph Web["nearchant.com (desktop + mobile web)"]
+    O["Onboarding /start"]
+    A["Seller app /app<br/>Home · Create · Posts · Analytics · Wallet · Settings"]
+    S["Storefront /h/&lt;store&gt;<br/>shop · item · escrow checkout"]
   end
-  subgraph Gateway["Gateway + worker (seller's Spark, later Phala TEE)"]
-    G["Hono gateway<br/>cards, orders, A2A, CORS"]
-    Q[("Postgres<br/>queue + checkpoints + outbox")]
-    S["Swarm: brief → research → council →<br/>fact-check hire → write → cover → review → render"]
-    R["Capability router<br/>privacy tiers + attestation + fallback"]
+  subgraph Gateway["Gateway + worker (Spark or Mac, later Phala TEE)"]
+    G["Hono gateway<br/>pages, JSON API, sessions"]
+    Q[("Postgres<br/>stores, posts, events, queue, outbox")]
+    W["Worker: analyze → opportunities →<br/>posts → render → publish"]
+    R["Capability router<br/>privacy tiers + attestation"]
+    L["Admin image lab (tailnet only)"]
   end
   subgraph Models
-    L["Seller's GPU<br/>Qwen3.6-35B (local)"]
-    N["NEAR AI Cloud TEE<br/>GLM-5.3 · FLUX.2 · embeddings"]
+    LL["Own GPU: Qwen3.6 (text+vision)<br/>ComfyUI Qwen-Image-Edit"]
+    NA["NEAR AI Cloud TEE"]
+    CC["Comfy Cloud (images, video)"]
   end
   subgraph NEAR["NEAR testnet"]
-    O["orders<br/>(escrow)"]
-    P["proof-log"]
-    B["billing"]
-    E["escrow-policy<br/>(agent hiring)"]
-    H["handles + nUSD"]
+    OR["orders (escrow)"]
+    PL["proof-log"]
+    BI["billing"]
+    HN["handles + nUSD"]
   end
-  V["Verity: another seller's<br/>fact-check agent (A2A)"]
-  W -- "pay nUSD" --> O
-  W --> G
-  T --> G
-  M --> G
-  G --> Q --> S --> R
-  R --> L
-  R --> N
-  S -- "hire: 402 → pay → result" --> V
-  S -. "escrow.pay" .-> E
-  S -- "proof + mark_delivered<br/>(seller's agent keys)" --> P
-  P --> O
-  Q -- "usage batches (Merkle root)" --> B
-  G -. "handle lookup" .-> H
+  O --> G
+  A --> G
+  S --> G
+  G --> Q --> W --> R
+  R --> LL
+  R --> NA
+  W --> CC
+  L --> CC
+  S -- "pay nUSD" --> OR
+  W -- "post proof (store's agent key)" --> PL
+  G -- "ship → mark_delivered" --> OR
+  Q -- "usage batches (Merkle root)" --> BI
+  G -. "new store" .-> HN
 ```
-
-Three money flows, all on chain: **buyer → seller** (`orders` holds until accept), **seller → platform**
-(metered TEE inference settled from `billing`), **agent → agent** (hiring under an on-chain spend policy in
-`escrow-policy`, 5% fee between Nearchant agents).
 
 ## Live on testnet
 
@@ -80,9 +83,9 @@ Three money flows, all on chain: **buyer → seller** (`orders` holds until acce
 | Test token (faucet) | `nusd.nearchant.testnet` |
 | Escrow for buyer payments | `orders.nearchant.testnet` |
 | Prepaid inference balances | `billing.nearchant.testnet` |
-| Proofs of work | `proofs.nearchant.testnet` |
+| Proofs of posts, deliveries and shipments | `proofs.nearchant.testnet` (`get {proof_id}`) |
 | Agent hiring budgets | `escrow.nearchant.testnet` |
-| Demo seller | `alice.nearchant.testnet` |
+| Example stores | any `<store>.nearchant.testnet` created at nearchant.com/start |
 
 ## Run it
 
@@ -92,8 +95,8 @@ Three money flows, all on chain: **buyer → seller** (`orders` holds until acce
 make demo
 ```
 
-Runs the whole agent pipeline (brief → research → council → fact-check → write → cover image → review → render)
-on **recorded answers from a real run** (Qwen3.6-35B on the seller's GPU + GLM-5.3 and FLUX.2 on NEAR AI Cloud
+Replays the agent pipeline of the first demo service (an investor deck: brief → research → council → fact-check →
+write → cover image → review → render) on **recorded answers from a real run** (Qwen3.6-35B on the seller's GPU + GLM-5.3 and FLUX.2 on NEAR AI Cloud
 TEE). It takes ~3 seconds after the image builds and writes `.media/demo-deck/deck.pdf`, `deck.pptx`, `deck.html`
 and `artifacts.json` (every step's output: dossier with sources, council debate, review rounds, proof entry).
 
@@ -117,13 +120,14 @@ pnpm -r test                                             # unit + integration te
 
 ### 3. The live product on your machine
 
-`scripts/dev.sh gateway` and `scripts/dev.sh worker` run the real thing against testnet (they read keys from the
-macOS Keychain — see `deploy/local/.env.example` for what's needed). Then:
+`docker compose -f deploy/local/compose.yaml up -d` runs gateway, worker, Postgres, renderer and search
+(`deploy/local/.env.example` lists the keys; `config/providers.local.yaml` = own GPU, `providers.mac.yaml` =
+NEAR AI TEE text + Comfy Cloud images). Then:
 
-- `http://alice.localhost:8787/` — Alice's shop: order a deck, pay with a free sponsored test wallet, watch the
-  agents work on the order page, accept to release the escrow.
-- `http://localhost:8787/new` — create your own shop in a minute.
-- `apps/gateway/e2e/buy-deck.mjs` and `create-shop.mjs` drive both flows in a real browser (installed Chrome).
+- `http://localhost:8787/start` — onboarding: create a store, add photos, get opportunities and first posts.
+- `http://localhost:8787/app` — the seller app; `http://localhost:8787/h/<store>/` — the storefront.
+- Browser tests (installed Chrome): `apps/gateway/e2e/onboard.mjs` (onboarding → posts → live),
+  `buy-item.mjs` (pay → ship → confirm → released), plus the earlier `buy-deck.mjs` / `create-shop.mjs`.
 
 ## How it is built
 

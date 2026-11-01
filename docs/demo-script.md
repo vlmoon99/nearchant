@@ -1,25 +1,21 @@
-# Demo video — 90 seconds
+# Demo video — 90 seconds (the content store, ADR 0018)
 
-One take, screen recording + voice. Everything shown is live on NEAR testnet; the agent part is sped up (×8)
-where marked. Prepare: a fresh browser profile (so a new test wallet is created), Alice's card open, the manage
-page in a second tab, a NEAR explorer tab on `orders.nearchant.testnet`.
+One take, phone-sized browser (393 px) + one desktop shot. Everything is live on NEAR testnet; AI steps are sped
+up where marked. Prepare: a fresh browser profile, 3 product photos, the NEAR explorer on `proofs.nearchant.testnet`.
 
 | Time | Screen | Voice |
 |---|---|---|
-| 0:00 | Alice's card `alice.nearchant.com` | "This is Alice. She doesn't make pitch decks — her agents do. Nearchant gives every seller a NEAR account, a shop, and an agent team that sells and delivers for them." |
-| 0:10 | Type a brief, click **Order** | "A buyer describes their startup and pays five test dollars. No wallet to install — on testnet we sponsor one in the browser." |
-| 0:18 | Status: "Paying into escrow… From another chain via NEAR Intents: about 5.06 USDC on Solana" | "The money goes into escrow on NEAR. And this is a live NEAR Intents quote: the same buyer could pay from Solana." |
-| 0:25 | Order page, steps ticking (×8) | "Now the agents work. Scouts research the market on the live web. A council — an advocate, a skeptic, a buyer persona and a judge, on two different model families — agrees on the story." |
-| 0:40 | Worker log line `hire: escrow payment → verity.nearchant.testnet` | "Alice's agent hires another agent — Verity, a fact-checker — over A2A, and pays it from an escrow budget. The contract enforces Alice's limits: two dollars per hire, only allowlisted agents." |
-| 0:52 | Steps: write, cover, review | "Every claim must cite a source. An independent reviewer can block the deck; unsupported lines are removed, not shipped." |
-| 1:00 | "Your deck" — slide preview, PDF / PPTX | "Delivered. The deck's hash, the brief's hash and the TEE attestation of the model that reviewed it are recorded on NEAR before the buyer sees it." |
-| 1:08 | Click **Accept** → "escrow: Released" | "The buyer accepts, and the escrow pays Alice." |
-| 1:13 | Manage tab: wallet, inference balance, hiring budget | "Alice pays only for what her agents used — local GPU calls are free, NEAR AI TEE calls are metered and settled on chain with a Merkle root anyone can verify." |
-| 1:22 | `/new` page | "Anyone can open a shop in a minute. Open source, MIT. Nearchant." |
+| 0:00 | nearchant.com/start — "Sell more. Work less. Get paid on NEAR." | "Small sellers don't have time for marketing. Nearchant is their AI content manager — and their payments run on NEAR." |
+| 0:08 | "What do you sell?" → name → Continue | "Two taps and the store has its own NEAR account — made in the browser, no seed phrase." |
+| 0:15 | Add 3 photos → Analyze (×4) — facts appear | "AI reads the photos: the products, the style, who buys, what gets saves." |
+| 0:25 | "We found N ways to sell more" with estimates | "Then it finds ways to sell more — a bundle, a channel, a price — with honest estimates, and trends only when there's a real source." |
+| 0:35 | First posts with AI pictures (×4) → Schedule all | "First posts in a minute: captions in the store's voice, pictures of the real product in new scenes." |
+| 0:45 | Post detail → "Proof on NEAR" → explorer `get` | "When a post goes live, the store's own key records a proof on NEAR: what was published, by which AI, unchanged." |
+| 0:55 | Storefront on a phone → item → Pay into escrow | "A buyer pays with a free test wallet. The money waits in escrow on NEAR — not with us." |
+| 1:05 | Seller: Mark shipped → buyer: "I got it" → Done | "The seller ships, the buyer confirms, and the escrow pays the store." |
+| 1:13 | Home: "Your first sale! 🎉" → Analytics with AI insights → Wallet | "Then: what sold, where visitors came from, what to do next — and the balance, read straight from the chain." |
+| 1:23 | Admin image lab (tailnet) — models side by side | "Open source, MIT. Nearchant." |
 
-## Shots to capture separately (for the X post)
-
-1. The order page with the slide preview and "escrow: Released".
-2. The manage page money table.
-3. `make demo` in a terminal finishing in 3 seconds.
-4. The proof entry on the explorer (`proofs.nearchant.testnet` → `get`).
+## Shots for the X post
+1. Onboarding opportunities screen. 2. A post picture next to the original product photo. 3. Proof on the explorer.
+4. "Your first sale!" card. 5. Analytics with AI insights.
