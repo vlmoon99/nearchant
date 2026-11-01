@@ -222,4 +222,47 @@ function nextSlot(k: number): Date {
   return d;
 }
 
+// ---------------- seller app pages ----------------
+function sellerApp() {
+  // Posts page: refresh while AI is still making posts.
+  const r = document.querySelector<HTMLElement>("[data-refresh]");
+  if (r) setTimeout(() => location.reload(), Number(r.dataset.refresh) || 4000);
+
+  // Create: upload photos, pick an opportunity, create a batch.
+  const input = document.querySelector<HTMLInputElement>("#create-photos");
+  input?.addEventListener("change", async () => {
+    const fd = new FormData();
+    for (const f of Array.from(input.files ?? []).slice(0, 8)) fd.append("photo", new File([await shrink(f)], "photo.jpg", { type: "image/jpeg" }));
+    try { await api("/api/app/photos", fd); location.reload(); } catch (e) { $("#create-out").textContent = (e as Error).message; }
+  });
+  let opp: string | null = document.querySelector<HTMLElement>("[data-opp-pick].on")?.dataset.oppPick ?? null;
+  $$("[data-opp-pick]").forEach((el) => el.addEventListener("click", () => { opp = el.dataset.oppPick!; $$("[data-opp-pick]").forEach((x) => x.classList.toggle("on", x === el)); }));
+  document.querySelector("#create-go")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget as HTMLButtonElement; btn.disabled = true;
+    try {
+      await api("/api/app/posts", { n: 3, opportunityIds: opp ? [opp] : [], about: document.querySelector<HTMLInputElement>("#create-about")?.value ?? "" });
+      location.href = "/app/posts";
+    } catch (err) { btn.disabled = false; $("#create-out").textContent = (err as { code?: string }).code === "quota_exceeded" ? "You used this month’s free posts. Pro gives 150 a month." : (err as Error).message; }
+  });
+
+  // Post detail: save caption, schedule.
+  document.querySelector("#save-caption")?.addEventListener("click", async (e) => {
+    const id = (e.currentTarget as HTMLElement).dataset.post!;
+    try { await api(`/api/app/posts/${id}/caption`, { caption: $<HTMLTextAreaElement>("#caption").value }); $("#post-out").textContent = "Saved ✓"; } catch (err) { $("#post-out").textContent = (err as Error).message; }
+  });
+  $$("[data-schedule]").forEach((b) => b.addEventListener("click", async () => {
+    const at = b.dataset.when === "now" ? new Date() : nextSlot(0);
+    try { await api(`/api/app/posts/${b.dataset.schedule}/schedule`, { at: at.toISOString() }); location.reload(); } catch (err) { alert((err as Error).message); }
+  }));
+}
+
+/** No session cookie: sign in with the store key kept in this browser, else go to onboarding. */
+async function signinPage() {
+  const h = store.get(CUR);
+  if (h && (await signIn(h).catch(() => false))) { location.reload(); return; }
+  $("#signin-msg").textContent = "No store key in this browser. Create a store, or open Nearchant in the browser where you made it.";
+}
+
 if (cfg.page === "onboarding") onboarding();
+if (cfg.page === "app") sellerApp();
+if (cfg.page === "signin") void signinPage();

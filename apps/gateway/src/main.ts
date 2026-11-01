@@ -259,6 +259,9 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     cfg: { base: "/", rpcUrl: config.rpc_urls[0] ?? "", network: config.network, token: config.token.symbol, decimals: config.token.decimals, storeBase },
     test: config.token.test, css: readFileSync(join(import.meta.dirname, "../web/ui.css"), "utf8"),
     js: existsSync(appFile) ? readFileSync(appFile, "utf8") : undefined, sessionKey,
+    ...(conn ? { content: new ContentStore(conn.db) } : {}),
+    accountOf: (h) => `${h}.${accounts.root}`,
+    explorer: (a) => `https://${config.network === "mainnet" ? "" : "testnet."}nearblocks.io/address/${a}`,
   });
 }
 
