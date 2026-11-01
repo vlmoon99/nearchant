@@ -456,6 +456,17 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Next: more model families in the lab (FLUX.2 Klein 4B edit, HiDream E1.1, video: Wan 2.2 i2v / LTX on Comfy
   Cloud), wire `settings.image_variant` into post rendering, step 11 storefront.
 
+## 2026-11-01 ~20:00 UTC — image lab: FLUX.2 Klein added (graph from Comfy Cloud's node definitions)
+
+- `config/image-lab/flux2_edit.json` (ReferenceLatent + CFGGuider + Flux2Scheduler + SamplerCustomAdvanced, built
+  from Comfy Cloud `/api/object_info`) with variants Klein 4B (4 steps), Klein 4B base (24 steps, cfg 3.5), Klein 9B
+  (labelled non-commercial). All three render (22–41 s).
+- Same jacket test: every Klein variant shows the jacket from the front — the rhinestone skull (the product's
+  design) is lost; Qwen-Image-Edit 2511 Lightning 4-step is still the only one that keeps it. 9 models now in the
+  lab for the owner to compare on more photos.
+- Next: move the Comfy Cloud client to `packages/providers` and render posts with `settings.image_variant` on the
+  cloud profile; HiDream E1.1 and video (Wan 2.2 i2v 5B/14B) variants; step 11 storefront.
+
 ### Owner actions
 - **URGENT (1 Nov ~18:00 UTC): all three Sparks offline** (no ping/SSH; nearchant.com 530) — likely power or
   network at the site. `gx10-c3c8` went silent first (~17:30, during a video render). Check power/network; power-

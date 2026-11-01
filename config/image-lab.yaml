@@ -30,3 +30,17 @@ variants:
     workflow: qwen_t2i.json
     needs_photo: false
     set: { "2.lora_name": Wuli-Qwen-Image-2512-Turbo-LoRA-2steps-V1.0-bf16.safetensors, "9.steps": 2 }
+  - id: flux2-klein4b
+    label: FLUX.2 Klein 4B · edit, 4 steps (Apache-2.0)
+    workflow: flux2_edit.json
+    needs_photo: true
+  - id: flux2-klein4b-base
+    label: FLUX.2 Klein 4B base · edit, 24 steps (Apache-2.0)
+    workflow: flux2_edit.json
+    needs_photo: true
+    set: { "1.unet_name": flux-2-klein-base-4b.safetensors, "13.steps": 24, "10.cfg": 3.5 }
+  - id: flux2-klein9b
+    label: FLUX.2 Klein 9B · edit, 4 steps (non-commercial licence — test only)
+    workflow: flux2_edit.json
+    needs_photo: true
+    set: { "1.unet_name": flux-2-klein-9b.safetensors, "2.clip_name": qwen_3_8b_fp8mixed.safetensors }
