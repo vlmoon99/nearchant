@@ -196,6 +196,19 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
         ...(cleanMediaId && cleanMediaId !== imageMediaId ? { idea: { ...dr, ...(writer ? { writer } : {}), cleanImageMediaId: cleanMediaId } } : {}) });
       await helpers.addJob("check_post", { postId: p.id }, { jobKey: `check:${p.id}`, maxAttempts: 2 });
     }
+    // Onboarding: the store's very first posts come with a short for the first one (3 picture credits; skipped
+    // when there is no video engine or no credit left).
+    if (d.video && !(await d.content.getBusiness(handle))?.onboardedAt) {
+      const first = (await Promise.all(batch.map((x) => d.content.getPost(x.id)))).find((x) => x?.status === "ready" && x.imageMediaId);
+      if (first) {
+        try {
+          await d.content.reserve(handle, 0, 3, (await d.content.getBusiness(handle))?.plan ?? "free");
+          await d.content.updatePost(first.id, { idea: { ...(first.idea as object), video: { status: "writing" } } });
+          await helpers.addJob("make_video", { postId: first.id }, { jobKey: `video:${first.id}:first`, maxAttempts: 1 });
+          d.log(`first short queued for ${first.id}`);
+        } catch (e) { d.log(`first short skipped: ${(e as Error).message.slice(0, 120)}`); }
+      }
+    }
     await helpers.addJob("learn_taste", { handle }, { jobKey: `learn:${handle}`, runAt: new Date(Date.now() + 60_000), maxAttempts: 1 });
     d.log(`posts ${handle} ${batchId}: ${drafts.length}/${batch.length} written`);
   };

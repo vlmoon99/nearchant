@@ -45,7 +45,7 @@ describe("assSubtitles", () => {
   it("hook on a brand-colour box, captions on a dark pill at ~70% height, then the end-card", () => {
     const s = assSubtitles(o);
     expect(s).toContain("Style: Hook,Montserrat ExtraBold,60,&H00FFFFFF,&H00FFFFFF,&H003232A8");
-    expect(s).toMatch(/Style: Cap,[^\n]*,3,14,0,2,80,80,384,1/);
+    expect(s).toMatch(/Style: Cap,Montserrat ExtraBold,62,&H00FFFFFF,&H00FFFFFF,&H38000000,[^\n]*,3,14,0,2,80,80,384,1/);
     expect(s).toContain("{\\fad(120,200)}RAW DENIM\\NB0TRUTH");
     expect(s).toContain("Cap,,0,0,0,,Hix");
     expect(s).toContain("Dialogue: 2,0:00:06.40,0:00:07.90,Card");

@@ -92,6 +92,8 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
       <span class="dot ok" style="width:64px;height:64px"><Icon n="check" s={32} /></span>
       <h1 class="t2">Your store is live! 🎉</h1>
       <p class="sub muted" style="margin:0">Share the link — the first visitors are what get the first sale.</p>
+      <div class="card soft" style="flex-direction:row;gap:10px;align-items:center;padding:14px"><Icon n="sparkles" s={18} c="#007AFF" />
+        <span class="foot">AI is also making a short video of your first post — hook, captions and voice, about 8 seconds. It appears on that post in a couple of minutes.</span></div>
       <div class="card" style="flex-direction:row;align-items:center"><div class="stack" style="gap:2px;flex:1"><span class="cap muted">Your store</span><a class="headline" id="store-url" href="#">—</a></div><button class="chip" id="copy-link"><Icon n="copy" s={14} />Copy</button></div>
       <div class="row" style="gap:10px"><a class="btn secondary" style="flex:1" id="share-tg" target="_blank" rel="noopener"><Icon n="send" />Telegram</a><a class="btn secondary" style="flex:1" id="share-wa" target="_blank" rel="noopener"><Icon n="msg" />WhatsApp</a></div>
       <div class="card dark" style="gap:8px"><div class="row" style="align-items:center;gap:8px"><span class="mark" style="background:var(--near);color:var(--near-ink)">N</span><span class="headline" style="color:var(--near)" id="near-account">—</span></div><span class="foot">Your NEAR account is ready — no seed phrase. Sales land here; escrow protects every buyer.</span><a class="foot" style="color:var(--near)" id="key-download" download>Download your account key (keep it safe)</a></div>

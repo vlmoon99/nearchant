@@ -87,8 +87,8 @@ export function assSubtitles(o: Overlay): string {
     "[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n" +
     // BorderStyle 3 = a box behind the text (the contrast scrim): brand colour for the hook, translucent dark for captions.
     `Style: Hook,Montserrat ExtraBold,60,${A(fg)},${A(fg)},${A(accent)},${A("#000000", 0xa0)},-1,0,0,0,100,100,0,0,3,16,0,8,70,70,150,1\n` +
-    `Style: Cap,Montserrat ExtraBold,58,${A("#FFFFFF")},${A("#FFFFFF")},${A("#000000", 0x70)},${A("#000000", 0xa0)},-1,0,0,0,100,100,0,0,3,14,0,2,80,80,${Math.round(VIDEO_H * 0.3)},1\n` +
-    `Style: Card,Montserrat ExtraBold,64,${A(fg)},${A(fg)},${A(accent)},${A(accent)},-1,0,0,0,100,100,0,0,1,0,0,5,60,60,0,1\n\n` +
+    `Style: Cap,Montserrat ExtraBold,62,${A("#FFFFFF")},${A("#FFFFFF")},${A("#000000", 0x38)},${A("#000000", 0xa0)},-1,0,0,0,100,100,0,0,3,14,0,2,80,80,${Math.round(VIDEO_H * 0.3)},1\n` +
+    `Style: Card,Montserrat ExtraBold,88,${A(fg)},${A(fg)},${A(accent)},${A(accent)},-1,0,0,0,100,100,0,0,1,0,0,5,60,60,0,1\n\n` +
     "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n";
   const lines: string[] = [];
   const hook = assText(o.hook).toUpperCase();
@@ -100,8 +100,8 @@ export function assSubtitles(o: Overlay): string {
     const a = o.voiceEnd + TAIL_S, b = a + ENDCARD_S, c1 = A(accent).replace(/^&H00/, "&H") + "&";
     lines.push(`Dialogue: 2,${t(a)},${t(b)},Card,,0,0,0,,{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c${c1}\\fad(150,0)}m 0 0 l ${VIDEO_W} 0 l ${VIDEO_W} ${VIDEO_H} l 0 ${VIDEO_H}{\\p0}`);
     lines.push(`Dialogue: 3,${t(a)},${t(b)},Card,,0,0,0,,{\\an5\\pos(${VIDEO_W / 2},${Math.round(VIDEO_H * 0.42)})\\fad(150,0)}${balance(assText(o.store))}`);
-    if (o.cta) lines.push(`Dialogue: 3,${t(a)},${t(b)},Card,,0,0,0,,{\\an5\\pos(${VIDEO_W / 2},${Math.round(VIDEO_H * 0.56)})\\fs40\\fad(150,0)}${assText(o.cta)}`);
-    if (o.link) lines.push(`Dialogue: 3,${t(a)},${t(b)},Card,,0,0,0,,{\\an5\\pos(${VIDEO_W / 2},${Math.round(VIDEO_H * 0.62)})\\fs30\\b0\\fad(150,0)}${assText(o.link)}`);
+    if (o.cta) lines.push(`Dialogue: 3,${t(a)},${t(b)},Card,,0,0,0,,{\\an5\\pos(${VIDEO_W / 2},${Math.round(VIDEO_H * 0.56)})\\fs50\\fad(150,0)}${assText(o.cta)}`);
+    if (o.link) lines.push(`Dialogue: 3,${t(a)},${t(b)},Card,,0,0,0,,{\\an5\\pos(${VIDEO_W / 2},${Math.round(VIDEO_H * 0.62)})\\fs36\\b0\\fad(150,0)}${assText(o.link)}`);
   }
   return head + lines.join("\n") + "\n";
 }

@@ -8,5 +8,5 @@ Return ONLY a JSON object:
    words. No numbers, digits, dates, prices, percentages, phone numbers, abbreviations or acronyms.",
  "video_prompt": "for the video model: the picture comes alive with ONE natural, subtle motion (slow push-in, gentle
    pan, fabric moving in a breeze, soft light change). Photorealistic, true-to-life light and texture. The product
-   stays exactly the same: same shape, colours, prints and details. No text, no people appearing, no CGI."}
+   stays exactly the same: same shape, colours, prints and details. Only the product and its setting: no people, no hands, no text, no CGI."}
 Use the post's caption and angle as the story; keep the business's voice from the style profile. Shorter is better.
