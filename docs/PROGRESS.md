@@ -174,6 +174,20 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - **Next:** run the stack on gx10-8695 in Docker (ADR 0007 primary), tunnel `*.nearchant.com` (needs Cloudflare
   token), Phala standby (needs account), README polish + video script.
 
+## 2026-11-01 ~02:30 UTC — stack runs on the Spark; all three flows in one browser order
+
+- **Done:** the whole stack (Postgres, gateway, worker, renderer) runs in Docker on **gx10-8695** from a clone of the
+  public repo (`~/nearchant`), secrets in `deploy/local/.env` there (mode 600, git-ignored, written from the Mac
+  Keychain over SSH). Database + media migrated from the Mac. Gateway listens on the tailnet (`100.64.0.13:8787`).
+  The Mac now only develops. Quiet `accountExists` (no error logs for new wallets).
+- **Verified live:** `buy-deck.mjs` against `http://100.64.0.13:8787/h/alice/`: paid → brief → research → council →
+  **factcheck hired verity via escrow payment 2** → write → design → review → render → proof + `mark_delivered` →
+  accept → `Released`, 577 s. Order `o-mvx4o3mw-25ffd720`.
+- **Redeploy on the Spark:** `ssh server@100.64.0.13 'cd ~/nearchant && git pull && docker compose -f
+  deploy/local/compose.yaml up -d --build gateway worker'`.
+- **Next:** Cloudflare tunnel for `*.nearchant.com` (needs token), Phala standby, polish (dashboard balance/top-up,
+  README video script).
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
