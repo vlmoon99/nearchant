@@ -75,7 +75,7 @@ function fakeRouter(script: Script = {}) {
     judge: () => ({ slides: [{ n: 1, title: "Problem", key_message: "k", bullets: [], evidence: ["f1"], visual: null }], tone: "plain", minority_report: "market sizing is thin" }),
     copywriter: () => DECK,
     "image-designer": () => ({ prompt: "a box of coffee beans on a wooden table, morning light" }),
-    reviewer: () => ({ passed: true, score: 8, issues: [], untraced_claims: [] }),
+    reviewer: () => ({ blocking: [], suggestions: [{ slide: 2, problem: "tone", fix: "x" }], untraced_claims: [], score: 8 }),
   };
   const router = {
     calls,
@@ -154,13 +154,13 @@ describe("deck pipeline", () => {
   });
 
   it("reworks after a failed review, and stops after three failed rounds", async () => {
-    const pass2 = fakeRouter({ reviewer: (n) => ({ passed: n > 1, score: n > 1 ? 8 : 4, issues: n > 1 ? [] : [{ slide: 2, problem: "vague", fix: "cite" }], untraced_claims: [] }) });
+    const pass2 = fakeRouter({ reviewer: (n) => ({ blocking: n > 1 ? [] : [{ slide: 2, problem: "untraced number", fix: "cite" }], suggestions: [], untraced_claims: [], score: n > 1 ? 8 : 4 }) });
     const a = deps(pass2);
     expect((await runPipeline(a.d, "o3", "seed deck please, coffee")).status).toBe("done");
     expect(pass2.calls.filter((c) => c.role === "copywriter")).toHaveLength(2);
     expect((a.store.get("o3/review") as { markdown: string }).markdown).toContain("![bg right:40%]"); // cover kept on rework
 
-    const never = fakeRouter({ reviewer: () => ({ passed: false, score: 3, issues: [], untraced_claims: ["x"] }) });
+    const never = fakeRouter({ reviewer: () => ({ blocking: [], suggestions: [], untraced_claims: ["x"], score: 3 }) });
     const b = deps(never);
     // 3 reviews, 2 edits
     expect(await runPipeline(b.d, "o4", "seed deck please, coffee")).toMatchObject({ status: "stopped", kind: "failed_review" });
@@ -168,7 +168,7 @@ describe("deck pipeline", () => {
     expect(never.calls.filter((c) => c.role === "reviewer")).toHaveLength(3);
     expect(never.calls.filter((c) => c.role === "copywriter")).toHaveLength(3);
 
-    const lenient = fakeRouter({ reviewer: () => ({ passed: false, score: 8, issues: [{ slide: 2, problem: "minor", fix: "x" }], untraced_claims: [] }) });
+    const lenient = fakeRouter({ reviewer: () => ({ blocking: [], suggestions: [{ slide: 2, problem: "style only", fix: "x" }], untraced_claims: [], score: 5 }) });
     expect((await runPipeline(deps(lenient).d, "o7", "seed deck please, coffee")).status).toBe("done");
   });
 

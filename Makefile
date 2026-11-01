@@ -6,11 +6,11 @@ COMPOSE := docker compose -f deploy/local/compose.yaml
 help: ## list targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
 
-demo: ## full deck pipeline on recorded model answers (Docker only) → .media/demo-beanbox/deck.{pdf,pptx,html}
+demo: ## full deck pipeline on recorded model answers (Docker only) → .media/demo-deck/deck.{pdf,pptx,html}
 	mkdir -p .media
 	NEARCHANT_SECRET_KEY=demo-not-used-0000000000000000000000 $(COMPOSE) --profile demo run --rm --build demo
 	$(COMPOSE) --profile demo stop demo-renderer >/dev/null
-	@ls -la .media/demo-beanbox/
+	@ls -la .media/demo-deck/
 
 contracts: ## build every contract to contracts/target/near/<name>/<name>.wasm
 	@set -e; for c in $(CONTRACTS); do (cd contracts/$$c && cargo near build non-reproducible-wasm); done

@@ -22,7 +22,8 @@ export interface Brief {
 export interface Finding { id?: string; claim: string; source_url: string | null; source_title: string; confidence: string }
 export interface Dossier { summary: string; findings: (Finding & { id: string })[]; gaps: string[] }
 export interface Strategy { slides: { n: number; title: string; key_message: string; bullets: string[]; evidence: string[]; visual: string | null }[]; tone: string; minority_report: string }
-export interface Review { passed: boolean; score: number; issues: { slide: number; problem: string; fix: string }[]; untraced_claims: string[] }
+export interface ReviewIssue { slide: number; problem: string; fix: string }
+export interface Review { blocking: ReviewIssue[]; suggestions: ReviewIssue[]; untraced_claims: string[]; score: number; passed?: boolean }
 export interface Rendered { files: { kind: "pdf" | "pptx" | "html" | "md"; name: string; sha256: string; url: string }[] }
 
 export interface SearchResult { title: string; url: string; snippet: string }
@@ -172,17 +173,18 @@ export const STEPS: Record<Step, (c: StepContext) => Promise<unknown>> = {
     for (let round = 0; round < ROUNDS; round++) {
       const problems = checkDeck(md, dossier);
       const review = await c.ask<Review>("reviewer", [block("brief", brief), block("dossier", dossier), block("draft", md)].join("\n\n"));
-      // Hard rules decide: deterministic checks clean, nothing untraced, and the reviewer passes it or scores it >= 7.
-      const untraced = (review.untraced_claims ?? []).length;
-      const passed = problems.length === 0 && untraced === 0 && (review.passed === true || Number(review.score) >= 7);
+      // Only hard rules block: deterministic checks, untraced claims, blocking issues. Style never blocks.
+      const blocking = review.blocking ?? [];
+      const untraced = review.untraced_claims ?? [];
+      const passed = problems.length === 0 && untraced.length === 0 && blocking.length === 0;
       rounds.push({ review: { ...review, passed }, problems });
       if (passed) return { markdown: md, passed: true, rounds };
       if (round === ROUNDS - 1) break;
       // One rework: the copywriter gets the issues and rewrites (the cover image line is kept).
       const cover = md.match(/!\[bg right:40%\]\([^)]+\)\n\n/)?.[0] ?? "";
-      const fix = { reviewer_issues: review.issues, untraced_claims: review.untraced_claims, checks: problems };
+      const fix = { must_fix: blocking, untraced_claims: untraced, checks: problems, nice_to_have: (review.suggestions ?? []).slice(0, 3) };
       // Edit the existing draft rather than starting over, so fixed slides don't regress.
-      let next = cleanDeck(await c.ask<string>("copywriter", [block("brief", brief), block("dossier", dossier), block("draft", md), block("findings", fix), "Edit the deck in <draft>: fix every issue listed in <findings>, keep everything else, and return the whole corrected deck."].join("\n\n")));
+      let next = cleanDeck(await c.ask<string>("copywriter", [block("brief", brief), block("dossier", dossier), block("draft", md), block("findings", fix), "Edit the deck in <draft>: fix everything in must_fix, untraced_claims and checks (remove or label a claim you can't trace), apply nice_to_have only if easy, keep everything else, and return the whole corrected deck."].join("\n\n")));
       if (cover) next = next.replace(/(^---\n[\s\S]*?\n---\n\s*\n?)(#)/, `$1${cover}$2`);
       md = next;
     }

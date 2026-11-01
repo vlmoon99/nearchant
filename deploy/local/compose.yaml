@@ -62,8 +62,8 @@ services:
     build: { context: ../.., dockerfile: deploy/Dockerfile }
     command: ["node", "apps/worker/dist/cli.js"]
     environment:
-      REPLAY_DIR: /app/fixtures/replay/deck-demo
-      ORDER_ID: demo-beanbox
+      REPLAY_DIR: /app/fixtures/replay/deck
+      ORDER_ID: demo-deck
       RENDERER_URL: http://demo-renderer:8080
       MEDIA_DIR: /app/.media
     volumes: ["../../fixtures:/app/fixtures:ro", "../../.media:/app/.media"]
