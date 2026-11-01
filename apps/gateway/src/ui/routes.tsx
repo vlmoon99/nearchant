@@ -4,7 +4,8 @@ import { getCookie } from "hono/cookie";
 import { PLAN_LIMITS, type ContentStore } from "@nearchant/db";
 import { OnboardingPage } from "./onboarding.js";
 import { CreatePage, HomePage, PostPage, PostsPage, SignInPage, checklistFor, type StoreView } from "./app-pages.js";
-import type { UiConfig } from "./kit.js";
+import { createHash } from "node:crypto";
+import { assetV, type UiConfig } from "./kit.js";
 import { AnalyticsPage, Celebration, ReportPage, SettingsPage, WalletPage, type Insights } from "./more-pages.js";
 import { readSession } from "../seller-app.js";
 
@@ -19,6 +20,8 @@ export interface UiDeps {
 }
 
 export function mountUi(app: Hono<any>, d: UiDeps): void {
+  assetV.css = createHash("sha256").update(d.css).digest("hex").slice(0, 10);
+  if (d.js) assetV.js = createHash("sha256").update(d.js).digest("hex").slice(0, 10);
   app.get("/assets/ui.css", (c) => c.body(d.css, 200, { "content-type": "text/css; charset=utf-8", "cache-control": "public, max-age=300" }));
   app.get("/assets/app.js", (c) => (d.js ? c.body(d.js, 200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=300" }) : c.text("app.js not built", 503)));
   app.get("/start", (c) => c.html(<OnboardingPage cfg={d.cfg} test={d.test} />));

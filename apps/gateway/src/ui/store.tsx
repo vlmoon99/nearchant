@@ -1,7 +1,7 @@
 // Buyer storefront (Figma "Storefront for buyers"): store page + item page with the existing escrow checkout
 // (web/checkout.ts hooks onto form.order[data-service] and the #nc-config tag).
 import type { FC, PropsWithChildren } from "hono/jsx";
-import { Badge, Icon } from "./kit.js";
+import { Badge, Icon, asset } from "./kit.js";
 
 export interface StoreItem { id: string; title: string; description: string; price: string; img: string | null; kind: string; options: string[] }
 export interface StorePost { caption: string; img: string | null; video?: string | null; proofId: string | null }
@@ -10,9 +10,9 @@ export interface CheckoutCfg { base: string; rpcUrl: string; orders: string; net
 
 const Shell: FC<PropsWithChildren<{ title: string; s: StoreData; cfg: CheckoutCfg; test: boolean }>> = ({ title, s, cfg, test, children }) => (
   <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>{title}</title><link rel="stylesheet" href="/assets/ui.css" />
+    <title>{title}</title><link rel="stylesheet" href={asset("/assets/ui.css", "css")} />
     <script type="application/json" id="nc-config" dangerouslySetInnerHTML={{ __html: JSON.stringify(cfg).replaceAll("<", "\\u003c") }}></script>
-    <script type="module" src="/assets/checkout.js"></script></head>
+    <script type="module" src={asset("/assets/checkout.js", "checkout")}></script></head>
     <body>
       {test ? <div class="cap" style="text-align:center;padding:4px;background:#fff3c4;color:#5c4a00">TEST network — payments use free test tokens</div> : null}
       <header class="spread" style="padding:14px 20px;border-bottom:1px solid var(--sep)">

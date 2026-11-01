@@ -25,6 +25,11 @@ const P: Record<string, string> = {
 export const Icon: FC<{ n: string; s?: number; c?: string }> = ({ n, s = 18, c }) =>
   raw(`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c ?? "currentColor"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] ?? ""}</svg>`);
 
+/** Content fingerprints of the served assets: a deploy changes the URL, so Cloudflare's edge cache can't serve old
+ *  CSS/JS with new pages. Set once at startup (routes.tsx / main.ts). */
+export const assetV: Record<"css" | "js" | "checkout", string> = { css: "", js: "", checkout: "" };
+export const asset = (path: string, k: keyof typeof assetV) => (assetV[k] ? `${path}?v=${assetV[k]}` : path);
+
 export interface UiConfig { base: string; rpcUrl: string; network: string; token: string; decimals: number; storeBase: string }
 
 /** HTML page with the UI stylesheet, the client config and the app script. */
@@ -35,9 +40,9 @@ export const UiPage: FC<PropsWithChildren<{ title: string; cfg: UiConfig; page: 
       <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       <meta name="theme-color" content="#ffffff" />
       <title>{title}</title>
-      <link rel="stylesheet" href="/assets/ui.css" />
+      <link rel="stylesheet" href={asset("/assets/ui.css", "css")} />
       <script type="application/json" id="nc-config" dangerouslySetInnerHTML={{ __html: JSON.stringify({ ...cfg, page }).replaceAll("<", "\\u003c") }}></script>
-      <script type="module" src="/assets/app.js"></script>
+      <script type="module" src={asset("/assets/app.js", "js")}></script>
     </head>
     <body>
       {test ? <div class="cap" style="text-align:center;padding:4px;background:#fff3c4;color:#5c4a00">TEST network — payments use free test tokens</div> : null}

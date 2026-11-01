@@ -15,6 +15,7 @@ import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote }
 import { createApp } from "./app.js";
 import { mountSellerApp } from "./seller-app.js";
 import { LandingPage } from "./ui/landing.js";
+import { assetV } from "./ui/kit.js";
 import { mountUi } from "./ui/routes.js";
 import { labApp } from "./admin/lab.js";
 import { ComfyCloud, type LabVariant } from "@nearchant/providers";
@@ -152,6 +153,9 @@ const landing = conn ? async () => {
   return LandingPage({ cfg: landingCfg, test: config.token.test, d: { posts, stats: { proofs: sc.proofs, paidOrders: sc.paidOrders, stores: sc.stores }, verifyHref: posts[0]?.href ?? null, limits: { free: PLAN_LIMITS.free!, pro: PLAN_LIMITS.pro! } } });
 } : undefined;
 
+const checkoutJs = existsSync(checkoutFile) ? readFileSync(checkoutFile, "utf8") : undefined;
+if (checkoutJs) assetV.checkout = createHash("sha256").update(checkoutJs).digest("hex").slice(0, 10);
+
 const app = createApp({
   ...(landing ? { landing } : {}),
   config,
@@ -160,7 +164,7 @@ const app = createApp({
   rail: new TestnetDirectRail(accounts, chain.view),
   anyChainQuote,
   mediaDir,
-  checkoutJs: existsSync(checkoutFile) ? readFileSync(checkoutFile, "utf8") : undefined,
+  checkoutJs: checkoutJs,
   client: { rpcUrl: config.rpc_urls[0]!, orders: accounts.orders, network: config.network },
   ...(relayerKey && config.network === "testnet" ? { sponsorBuyer: (pk: string, allowNew: () => boolean) => sponsorBuyer({ chain, accounts }, pk, allowNew) } : {}),
   isAvailable: (h: string) => chain.view<boolean>(accounts.root, "is_available", { name: h }),

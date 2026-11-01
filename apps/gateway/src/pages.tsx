@@ -1,3 +1,4 @@
+import { asset } from "./ui/kit.js";
 import type { FC, PropsWithChildren } from "hono/jsx";
 import type { HandleRecord } from "@nearchant/near";
 import type { Service } from "@nearchant/db";
@@ -62,7 +63,7 @@ export interface ClientConfig { rpcUrl: string; orders: string; network: string 
 const PageConfig: FC<{ base: string; cfg: ClientConfig }> = ({ base, cfg }) => (
   <>
     <script type="application/json" id="nc-config" dangerouslySetInnerHTML={{ __html: JSON.stringify({ base, ...cfg }).replaceAll("<", "\\u003c") }}></script>
-    <script type="module" src="/assets/checkout.js"></script>
+    <script type="module" src={asset("/assets/checkout.js", "checkout")}></script>
   </>
 );
 
