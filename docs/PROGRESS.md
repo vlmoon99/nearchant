@@ -257,6 +257,18 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Next: when the Sparks are back, redeploy there (`git pull` + rebuild) and run `buy-deck.mjs`; point the Spark's
   `SEARXNG_URL` at the bundled service so it no longer depends on `gx10-c3c8`.
 
+## 2026-11-01 ~06:45 UTC — paid browser order on the cloud-only (Phala) configuration
+
+- A separate stack on the Mac (`docker compose -p ncphala`, fresh database, `PROVIDERS_FILE=providers.cloud.yaml`,
+  bundled search): `create-shop.mjs` made `cloud15151.nearchant.testnet`, then `buy-deck.mjs` bought from it in
+  Chrome: paid (10 s) → agents on NEAR AI TEE models only → delivered on chain (1078 s) → accepted → `Released`.
+  Order `o-48f5d7dc-…`. Billing: 4 batches settled on chain (outbox `billing.settle` done ×4).
+- The fact-check hire returned 404 (the fresh database has no verity shop) and the job continued without it, as
+  designed. Flow 3 stays verified on the Spark (escrow payments 1–4).
+- Stack stopped afterwards (volume kept); it does not share data with the Spark.
+- Not verified: the Phala CVM itself (needs the account); hiring on a cloud-only deployment (needs verity
+  migrated, which the runbook's pg_dump step does).
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
