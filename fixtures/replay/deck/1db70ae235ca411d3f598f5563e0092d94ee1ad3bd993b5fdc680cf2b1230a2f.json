@@ -1,0 +1,27 @@
+{
+ "capability": "chat",
+ "output": {
+  "message": {
+   "role": "assistant",
+   "content": "---\nmarp: true\npaginate: true\ntheme: default\n---\n\n# BeanBox: Specialty Coffee Subscription\n## 400 Subscribers in 6 Months | 7,200 EUR MRR\n\n---\n\n## The Opportunity\n- Kyiv’s specialty coffee market is growing and resilient [f16]\n- Consumers accept premium pricing for high-quality coffee [f15]\n- Direct-to-consumer subscription models are validated [f17]\n- BeanBox has achieved strong initial product-market fit\n- Open question: What is the Total Addressable Market (TAM)?\n\n---\n\n## Our Traction\n- 400 paying subscribers achieved in 6 months [f2]\n- Rapid growth rate: ~67 new subscribers per month [f5]\n- Monthly Recurring Revenue (MRR) ≈ 7,200 EUR [f4]\n- Calculation: 400 subscribers × 18 EUR/month [f3]\n- Assumption: Current growth trajectory is sustainable\n\n---\n\n## The Team\n- Two founders with complementary expertise\n- Founder 1: Specialist Roaster (Product & Operations)\n- Founder 2: Growth Marketer (Acquisition & Scaling)\n- Combined skills drive both quality and customer growth [f6]\n- Assumption: Specific past track records are not disclosed\n\n---\n\n## Competitive Landscape\n- Active market with established players [f13]\n- Key competitors: Kyiv City Roast, Idealist Coffee [f9]\n- Competitors: Kolo Coffee, Hipsters Coffee Roastery [f12]\n- Differentiation: Focused DTC subscription model\n- Assumption: Specific competitive advantages are not quantified\n\n---\n\n## Market Context\n- Specialty coffee normalized and popular since 2019 [f18]\n- Premium drinks retail 80–200 UAH in Kyiv restaurants [f15]\n- Competitors use unique flavors to differentiate [f10]\n- Mature customer base accustomed to home delivery [f19]\n- Assumption: Market size estimates are based on active roasters\n\n---\n\n## Financial Snapshot\n- MRR: 7,200 EUR (400 subs × 18 EUR) [f4]\n- Gross Margin: Not yet disclosed\n- Churn Rate: Not yet disclosed\n- Customer Acquisition Cost (CAC): Not yet disclosed\n- Lifetime Value (LTV): Not yet disclosed\n\n---\n\n## The Ask: 300k EUR Seed Round\n- Goal: Raise 300k EUR for seed funding [f7]\n- Use of Funds: Open a second roastery [f8]\n- Purpose: Solve production bottleneck to scale growth\n- Equity Offer: Not yet specified\n- Liabilities: No existing debts or liabilities disclosed\n\n---\n\n## Why This Works Now\n- Proven demand: 400 subscribers in 6 months [f5]\n- Clear bottleneck: Current capacity limits growth\n- Solution: Second roastery enables scaling to 1,000+ subs\n- Market timing: Growing specialty coffee culture in Kyiv [f18]\n- Assumption: Specific operational milestones are not defined\n\n---\n\n## Open Questions\n- What is the churn rate?\n- What is the Customer Acquisition Cost (CAC)?\n- What is the Lifetime Value (LTV)?\n- What is the current burn rate?\n- What is the Total Addressable Market (TAM)?\n\n---\n\n## Sources\n- [f1] BeanBox Company Overview — from the brief\n- [f2] BeanBox Subscriber Count — from the brief\n- [f3] BeanBox Pricing — from the brief\n- [f4] BeanBox MRR Calculation — from the brief\n- [f5] BeanBox Traction Timeline — from the brief\n- [f6] BeanBox Team Composition — from the brief\n- [f7] BeanBox Funding Ask — from the brief\n- [f8] BeanBox Use of Funds — from the brief\n- [f9] Coffee subscription | Coffee subscription - kyivcityroast.com.ua — https://kyivcityroast.com.ua/en/subscribe-to-coffee/\n- [f10] Chocolate-flavored or even alcoholic flavors: 9 best Ukrainian coffee brands — https://visitukraine.today/blog/3763/chocolate-flavored-or-even-alcoholic-flavors-9-best-ukrainian-coffee-brands\n- [f11] BeanBox Growth Rate — model knowledge\n- [f12] Chocolate-flavored or even alcoholic flavors: 9 best Ukrainian coffee brands — https://visitukraine.today/blog/3763/chocolate-flavored-or-even-alcoholic-flavors-9-best-ukrainian-coffee-brands\n- [f13] Top 7 Coffee Service Companies in Ukraine (2026) | ensun — https://ensun.io/search/coffee-service/ukraine\n- [f14] Self-service coffee shop franchise in Ukraine from €2 599 | Kavil — https://www.kavil.com.ua/en\n- [f15] Ключові тренди ресторанного бізнесу в Україні 2026: тенденції ... — https://business-broker.com.ua/blog/kliuchovi-trendy-restorannoho-biznesu-v-ukraini-tendentsii-suchasnogo-restorannoho-biznesu/\n- [f16] How Ukraine's coffee industry is standing firm in the shadow of war — https://www.worldcoffeeportal.com/feature/on-the-front-line-of-europes-coffee-industry/\n- [f17] Coffee subscription | Coffee subscription - kyivcityroast.com.ua — https://kyivcityroast.com.ua/en/subscribe-to-coffee/\n- [f18] How Ukraine's coffee industry is standing firm in the shadow of war — https://www.worldcoffeeportal.com/feature/on-the-front-line-of-europes-coffee-industry/\n- [f19] Coffee beans roasting in Ukraine. - Hipsters Coffee Roastery — https://hipsters.ua/en/",
+   "refusal": null,
+   "annotations": null,
+   "audio": null,
+   "function_call": null,
+   "reasoning": null
+  },
+  "finish_reason": "stop"
+ },
+ "model": "qwen3.6-35b-a3b",
+ "endpointId": "spark-8695",
+ "privacyTier": "local",
+ "usage": {
+  "inputTokens": 4770,
+  "outputTokens": 1319
+ },
+ "costUsd": 0,
+ "requestHash": "1db70ae235ca411d3f598f5563e0092d94ee1ad3bd993b5fdc680cf2b1230a2f",
+ "outputHash": "6530554637dbeecd11f35645a6b52e860536e8f233081b8eaf281d76d19fedc9",
+ "latencyMs": 18848,
+ "createdAt": "2026-11-01T00:57:23.914Z"
+}

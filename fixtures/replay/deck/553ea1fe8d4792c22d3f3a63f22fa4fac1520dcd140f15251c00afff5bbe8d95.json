@@ -1,0 +1,27 @@
+{
+ "capability": "chat",
+ "output": {
+  "message": {
+   "role": "assistant",
+   "content": "{\n  \"findings\": [\n    {\n      \"claim\": \"BeanBox's Monthly Recurring Revenue (MRR) is approximately 7,200 EUR, calculated from 400 paying subscribers at 18 EUR per month.\",\n      \"source_url\": null,\n      \"source_title\": \"model knowledge\",\n      \"confidence\": \"high\"\n    },\n    {\n      \"claim\": \"Kyiv-based competitors like Idealist Coffee and Kolo Coffee position themselves in the premium specialty segment, often leveraging barista championships and unique flavor profiles (e.g., chocolate or alcoholic infusions) to differentiate from mass-market brands.\",\n      \"source_url\": \"https://visitukraine.today/blog/3763/chocolate-flavored-or-even-alcoholic-flavors-9-best-ukrainian-coffee-brands\",\n      \"source_title\": \"Chocolate-flavored or even alcoholic flavors: 9 best Ukrainian coffee brands\",\n      \"confidence\": \"medium\"\n    },\n    {\n      \"claim\": \"The Kyiv specialty coffee market includes established roasters such as 2muchcoffee, Kyiv City Roast, and JDE Professional Ukraine, which compete on both retail subscription quality and B2B service availability.\",\n      \"source_url\": \"https://ensun.io/search/coffee-service/ukraine\",\n      \"source_title\": \"Top 7 Coffee Service Companies in Ukraine (2026) | ensun\",\n      \"confidence\": \"medium\"\n    },\n    {\n      \"claim\": \"Indirect competitors include self-service coffee franchises like Kavil, which offer turnkey solutions for €2,599, providing consumers with convenient, low-cost access to coffee outside of subscription models.\",\n      \"source_url\": \"https://www.kavil.com.ua/en\",\n      \"source_title\": \"Self-service coffee shop franchise in Ukraine from €2 599 | Kavil\",\n      \"confidence\": \"high\"\n    },\n    {\n      \"claim\": \"Specialty coffee drinks in Kyiv restaurants typically retail between 80–200 UAH, indicating a consumer willingness to pay premium prices for high-quality coffee experiences in the region.\",\n      \"source_url\": \"https://business-broker.com.ua/blog/kliuchovi-trendy-restorannoho-biznesu-v-ukraini-tendentsii-suchasnogo-restorannoho-biznesu/\",\n      \"source_title\": \"Ключові тренди ресторанного бізнесу в Україні 2026: тенденції ...\",\n      \"confidence\": \"medium\"\n    },\n    {\n      \"claim\": \"The Ukrainian specialty coffee sector has seen growth since 2019, with founders like Volodymyr Yefremov (Idealist Coffee) noting a shift from niche interest to mainstream appreciation despite economic challenges.\",\n      \"source_url\": \"https://www.worldcoffeeportal.com/feature/on-the-front-line-of-europes-coffee-industry/\",\n      \"source_title\": \"How Ukraine's coffee industry is standing firm in the shadow of war\",\n      \"confidence\": \"medium\"\n    }\n  ]\n}",
+   "refusal": null,
+   "annotations": null,
+   "audio": null,
+   "function_call": null,
+   "reasoning": null
+  },
+  "finish_reason": "stop"
+ },
+ "model": "qwen3.6-35b-a3b",
+ "endpointId": "spark-8695",
+ "privacyTier": "local",
+ "usage": {
+  "inputTokens": 1636,
+  "outputTokens": 683
+ },
+ "costUsd": 0,
+ "requestHash": "553ea1fe8d4792c22d3f3a63f22fa4fac1520dcd140f15251c00afff5bbe8d95",
+ "outputHash": "6a780cfc312e7816b8d2b7212ad86a3ef39c71b8648d0f92e063bdff0de3e4c1",
+ "latencyMs": 14280,
+ "createdAt": "2026-11-01T00:55:44.043Z"
+}

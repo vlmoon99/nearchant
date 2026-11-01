@@ -10,3 +10,6 @@ dist/
 packages/*/dist/
 apps/*/dist/
 .media/
+# only the curated demo recording is committed
+fixtures/replay/*
+!fixtures/replay/deck/

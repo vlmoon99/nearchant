@@ -1,0 +1,27 @@
+{
+ "capability": "chat",
+ "output": {
+  "message": {
+   "role": "assistant",
+   "content": "{\n  \"findings\": [\n    {\n      \"claim\": \"BeanBox's Monthly Recurring Revenue (MRR) is 7,200 EUR, calculated from 400 paying subscribers at 18 EUR per month.\",\n      \"source_url\": null,\n      \"source_title\": \"model knowledge\",\n      \"confidence\": \"high\"\n    },\n    {\n      \"claim\": \"BeanBox achieved 400 subscribers within 6 months of launch, indicating a rapid initial traction rate of approximately 67 new subscribers per month.\",\n      \"source_url\": null,\n      \"source_title\": \"model knowledge\",\n      \"confidence\": \"high\"\n    },\n    {\n      \"claim\": \"Kyiv's specialty coffee market is active and growing, with established local roasters like Kyiv City Roastery and Idealist Coffee offering similar subscription and fresh-roast delivery models.\",\n      \"source_url\": \"https://kyivcityroast.com.ua/en/subscribe-to-coffee/\",\n      \"source_title\": \"Coffee subscription | Coffee subscription - kyivcityroast.com.ua\",\n      \"confidence\": \"high\"\n    },\n    {\n      \"claim\": \"The Ukrainian specialty coffee sector has demonstrated resilience and growth despite the war, with roasters like Idealist Coffee reporting that specialty coffee consumption has become more normalized and popular since 2019.\",\n      \"source_url\": \"https://www.worldcoffeeportal.com/feature/on-the-front-line-of-europes-coffee-industry/\",\n      \"source_title\": \"How Ukraine's coffee industry is standing firm in the shadow of war\",\n      \"confidence\": \"medium\"\n    },\n    {\n      \"claim\": \"The founding team combines technical expertise in roasting with growth marketing skills, a structure that aligns with the rapid subscriber acquisition observed in the first 6 months.\",\n      \"source_url\": null,\n      \"source_title\": \"model knowledge\",\n      \"confidence\": \"high\"\n    },\n    {\n      \"claim\": \"Competitors in Kyiv, such as Kyiv City Roastery and Hipsters Coffee Roastery, also emphasize fresh roasting and home delivery, suggesting a mature customer base accustomed to this service model.\",\n      \"source_url\": \"https://hipsters.ua/en/\",\n      \"source_title\": \"Coffee beans roasting in Ukraine. - Hipsters Coffee Roastery\",\n      \"confidence\": \"high\"\n    }\n  ]\n}",
+   "refusal": null,
+   "annotations": null,
+   "audio": null,
+   "function_call": null,
+   "reasoning": null
+  },
+  "finish_reason": "stop"
+ },
+ "model": "qwen3.6-35b-a3b",
+ "endpointId": "spark-8695",
+ "privacyTier": "local",
+ "usage": {
+  "inputTokens": 1604,
+  "outputTokens": 531
+ },
+ "costUsd": 0,
+ "requestHash": "9a814214ee6ff71abe2e28cd6a7909a0c7b0387092ea09b9d9092edcaf5927c8",
+ "outputHash": "364cc5600bb7dc749f8e29b0f20fd396ee1ed1ea93bf7bda5b2b9b6f89131590",
+ "latencyMs": 12339,
+ "createdAt": "2026-11-01T00:55:42.044Z"
+}

@@ -6,9 +6,10 @@ COMPOSE := docker compose -f deploy/local/compose.yaml
 help: ## list targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
 
+demo: export NEARCHANT_SECRET_KEY = demo-not-used-0000000000000000000000
 demo: ## full deck pipeline on recorded model answers (Docker only) → .media/demo-deck/deck.{pdf,pptx,html}
 	mkdir -p .media
-	NEARCHANT_SECRET_KEY=demo-not-used-0000000000000000000000 $(COMPOSE) --profile demo run --rm --build demo
+	$(COMPOSE) --profile demo run --rm --build demo
 	$(COMPOSE) --profile demo stop demo-renderer >/dev/null
 	@ls -la .media/demo-deck/
 
