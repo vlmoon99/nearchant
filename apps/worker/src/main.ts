@@ -22,7 +22,7 @@ const need = (k: string) => process.env[k] ?? (console.error(`${k} is not set`),
 const gw = parse(readFileSync(join(root, "config/gateway.yaml"), "utf8"));
 const accounts = loadAccounts(join(root, "config/defaults/accounts.yaml"), gw.network);
 const conn = connect(need("DATABASE_URL"));
-await runMigrations(conn.db);
+await runMigrations(conn.db, conn.sql);
 const store = new PgStore(conn.db);
 const artifacts = new Artifacts(conn.db);
 const envelopes = new Envelopes(conn.db);

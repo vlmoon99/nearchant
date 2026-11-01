@@ -33,7 +33,7 @@ let artifacts: Artifacts | null = null;
 let conn: Connection | null = null;
 if (process.env.DATABASE_URL) {
   conn = connect(process.env.DATABASE_URL);
-  await runMigrations(conn.db);
+  await runMigrations(conn.db, conn.sql);
   store = new PgStore(conn.db);
   artifacts = new Artifacts(conn.db);
   queue = await makeWorkerUtils({ connectionString: process.env.DATABASE_URL });

@@ -18,7 +18,7 @@ if (!["create-shop", "add-service"].includes(cmd ?? "") || !handle || !name) {
   process.exit(2);
 }
 const conn = connect(need("DATABASE_URL"));
-await runMigrations(conn.db);
+await runMigrations(conn.db, conn.sql);
 if (cmd === "add-service") {
   const [id, title, priceUnits, hours, agentEnv, description] = [name, bio, ...rest];
   if (!id || !title || !/^[0-9]+$/.test(priceUnits ?? "") || !description) { console.error(usage); process.exit(2); }

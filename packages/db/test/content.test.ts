@@ -62,3 +62,24 @@ describe("ContentStore", () => {
     expect(rows.find((r) => r.kind === "sale")?.n).toBe(1);
   });
 });
+
+describe("migrations", () => {
+  it("two processes migrating a fresh database at once both succeed (advisory lock)", async () => {
+    const { connect, runMigrations } = await import("../src/index.js");
+    const postgres = (await import("postgres")).default;
+    const admin = process.env.TEST_DATABASE_URL ?? "postgres://nearchant:nearchant-dev@127.0.0.1:55432/nearchant";
+    const name = `t_race_${Date.now().toString(36)}`;
+    const a0 = postgres(admin, { max: 1, onnotice: () => {} });
+    await a0.unsafe(`create database ${name}`);
+    const url = admin.replace(/\/[^/]+$/, `/${name}`);
+    const p1 = connect(url, { max: 2 }), p2 = connect(url, { max: 2 });
+    try {
+      await Promise.all([runMigrations(p1.db, p1.sql), runMigrations(p2.db, p2.sql)]);
+      const [{ n }] = await p1.sql`select count(*)::int as n from information_schema.tables where table_name = 'posts'`;
+      expect(n).toBe(1);
+    } finally {
+      await p1.close(); await p2.close();
+      await a0.unsafe(`drop database ${name}`); await a0.end();
+    }
+  });
+});

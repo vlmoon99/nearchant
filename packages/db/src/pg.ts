@@ -19,8 +19,21 @@ export function connect(url: string, opts: { max?: number } = {}): Connection {
   return { db: drizzle(client, { schema }), sql: client, close: () => client.end({ timeout: 5 }) };
 }
 
-export async function runMigrations(db: Db): Promise<void> {
-  await migrate(db, { migrationsFolder: fileURLToPath(new URL("../drizzle", import.meta.url)) });
+/**
+ * Applies pending migrations. With `sql`, a Postgres advisory lock serialises processes that start together
+ * (gateway + worker), so two of them never create the same table at once.
+ */
+export async function runMigrations(db: Db, sql?: postgres.Sql): Promise<void> {
+  const run = () => migrate(db, { migrationsFolder: fileURLToPath(new URL("../drizzle", import.meta.url)) });
+  if (!sql) return run();
+  const lockConn = await sql.reserve();
+  try {
+    await lockConn`select pg_advisory_lock(7461626)`;
+    await run();
+  } finally {
+    await lockConn`select pg_advisory_unlock(7461626)`.catch(() => {});
+    lockConn.release();
+  }
 }
 
 const toOrder = (r: typeof schema.orders.$inferSelect): OrderRow => ({

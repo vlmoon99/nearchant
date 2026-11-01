@@ -11,7 +11,7 @@ export async function freshDb(): Promise<Connection & { drop: () => Promise<void
   await admin.unsafe(`create database ${name}`);
   const url = ADMIN_URL.replace(/\/[^/]+$/, `/${name}`);
   const conn = connect(url, { max: 4 });
-  await runMigrations(conn.db);
+  await runMigrations(conn.db, conn.sql);
   return {
     ...conn,
     drop: async () => {
