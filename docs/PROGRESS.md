@@ -199,6 +199,20 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - **Verified:** CI run `c2f2925`: contracts, typescript, demo all success. `make demo` on the Linux Spark from an
   empty `.media`. Dashboard numbers reconcile with chain (alice 80 nUSD, 19.956 billing, 9 nUSD hiring left).
 
+## 2026-11-01 ~03:30 UTC — security review fixed; reliability fixes; regression green
+
+- **Security review** (independent agent, 14 findings): all high + medium fixed in contracts (upgraded on testnet,
+  30 sandbox tests) and services; known low-severity limitations listed in `docs/security.md`.
+- **Reliability found by regression runs on the Spark:** relayer nonce clashes between gateway and worker (retry with
+  a fresh nonce); GLM timeouts on long review prompts (timeouts fail fast, 150 s per second-seat call, sticky fallback
+  to the main seat within a step); last-resort redaction now matches paraphrased quotes, removes lines citing
+  unknown findings, ignores untraced claims that match nothing; full diagnostics stored when a job stops.
+- **Verified:** browser purchase on the Spark after all fixes — paid → hire verity (escrow payment 4, memo bound to
+  the task text) → review (1 line redacted) → delivered on chain → accepted → `Released`, 814 s
+  (`o-17461606-…`). CI green. Escrow timers + revision redelivery deployed (revision path not exercised live yet).
+- **Known:** an order interrupted by a worker restart mid-step (`o-43187251-…`) stays locked until graphile releases
+  it (4 h); if not delivered, the escrow timer refunds the buyer after the 7-day deadline.
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
