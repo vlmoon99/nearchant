@@ -1,0 +1,19 @@
+spec: nearchant.com/spec/agentenv/v1
+name: content-store
+version: 0.1.0
+license: MIT
+description: AI content manager for a small store — learns the business from its photos, finds ways to sell more, writes posts, learns the owner's taste, explains the numbers. Prompts ported from Boost Content (profile p2, ideas i4, learn k1, localize l1).
+requires:
+  capabilities:
+    vision: { min_context: 24000 }
+    chat: { tool_calling: false }
+    image.generate: { optional: true }
+  data_class: private
+seats:
+  main: {}
+  second: {}
+roles: [profiler, opportunity-analyst, idea-writer, localizer, learner, insight-writer]
+pipeline: [analyze, opportunities, ideas, render, publish]
+research:
+  scouts: []
+policy: { publish: require_approval, payments: escrow_only }

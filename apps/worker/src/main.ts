@@ -3,7 +3,7 @@
 //      SEARXNG_URL?, RENDERER_URL, MEDIA_DIR, MEDIA_PUBLIC
 import { join, resolve } from "node:path";
 import { run, type Task } from "graphile-worker";
-import { Artifacts, Envelopes, Outbox, PgStore, Sealer, connect, runMigrations } from "@nearchant/db";
+import { Artifacts, ContentStore, Envelopes, Outbox, PgStore, Sealer, connect, runMigrations } from "@nearchant/db";
 import { Chain, loadAccounts } from "@nearchant/near";
 import { PIPELINE, hireAgent, loadAgentEnv, runStep, type JobDeps, type Step } from "@nearchant/swarm";
 import { agentKey } from "@nearchant/db";
@@ -15,6 +15,7 @@ import { KeyPair, type KeyPairString } from "near-api-js";
 import type { ResultEnvelope } from "@nearchant/contracts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { makeRouter } from "./router.js";
+import { makeContentTasks } from "./content-tasks.js";
 import { localMedia, marpServerRender, searxng } from "./tools.js";
 
 const root = resolve(import.meta.dirname, "../../..");
@@ -140,13 +141,21 @@ const escrowTimers: Task = async (_p, helpers) => {
   }
 };
 
+const mediaDir = process.env.MEDIA_DIR ?? join(root, ".media");
+const contentTasks = makeContentTasks({
+  content: new ContentStore(conn.db), envelopes, router, env: loadAgentEnv(join(root, "envs/content-store")), mediaDir,
+  accountOf: (h) => `${h}.${accounts.root}`, decimals: Number(gw.token?.decimals ?? 6),
+  ...(process.env.SEARXNG_URL ? { search: searxng(process.env.SEARXNG_URL) } : {}),
+  log: (m) => console.info(`[content] ${m}`),
+});
+
 const runner = await run({
   connectionString: need("DATABASE_URL"),
   concurrency: Number(process.env.WORKER_CONCURRENCY ?? 4),
   noHandleSignals: false,
   pollInterval: 1000,
-  taskList: { deck_step: deckStep, outbox_drain: outboxDrain, billing_settle: billingSettle, escrow_timers: escrowTimers },
+  taskList: { ...contentTasks, deck_step: deckStep, outbox_drain: outboxDrain, billing_settle: billingSettle, escrow_timers: escrowTimers },
   crontab: ["* * * * * outbox_drain ?jobKey=outbox_drain", "*/5 * * * * billing_settle ?jobKey=billing_settle", "*/10 * * * * escrow_timers ?jobKey=escrow_timers"].join("\n"),
 });
-console.info("[worker] up: deck_step, outbox_drain, billing_settle, escrow_timers");
+console.info("[worker] up: analyze_business, find_opportunities, deck_step, outbox_drain, billing_settle, escrow_timers");
 await runner.promise;

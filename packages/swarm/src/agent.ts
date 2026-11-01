@@ -32,9 +32,12 @@ export function contentOf(env: ResultEnvelope): string {
   return "";
 }
 
+/** A user turn: text, optionally with images (data: or https: URLs) for vision roles. */
+export type UserInput = string | { text: string; images: string[] };
+
 export interface Asker {
   /** Calls a role; JSON roles return parsed JSON (one repair retry), markdown roles return text. */
-  <T = unknown>(roleName: string, user: string): Promise<T>;
+  <T = unknown>(roleName: string, user: UserInput): Promise<T>;
 }
 
 /** Builds the role caller for one job. `track` receives every envelope (metering, proof). */
@@ -42,22 +45,26 @@ export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultE
   // Once a seat model failed in this step, later calls skip it (no repeated multi-minute timeouts).
   const degraded = new Set<string>();
   const degrade = (role: string, model: string, why: string) => { degraded.add(model); onDegrade?.(role, model, why); };
-  return async function ask<T>(roleName: string, user: string): Promise<T> {
+  return async function ask<T>(roleName: string, user: UserInput): Promise<T> {
     const role: Role | undefined = env.roles[roleName];
     if (!role) throw new Error(`unknown role ${roleName}`);
     const seat = env.seats[role.seat]?.model;
     const model = seat && !degraded.has(seat) ? seat : undefined;
-    const messages: { role: string; content: string }[] = [
+    const images = typeof user === "string" ? [] : user.images;
+    const userContent: unknown = typeof user === "string" ? user
+      : [{ type: "text", text: user.text }, ...images.map((url) => ({ type: "image_url", image_url: { url } }))];
+    const messages: { role: string; content: unknown }[] = [
       { role: "system", content: role.system },
-      { role: "user", content: user },
+      { role: "user", content: userContent },
     ];
+    const capability = images.length ? ("vision" as const) : ("chat" as const);
     let maxTokens = role.max_tokens;
     let seatModel = model;
     let lengthRetries = 0;
     let parseFailures = 0;
     let last = "";
     for (let calls = 0; calls < 5; calls++) {
-      const req = { capability: "chat" as const, dataClass: "private" as const, input: { messages, temperature: role.temperature, max_tokens: maxTokens }, ...(role.timeout_s && seatModel ? { timeoutMs: role.timeout_s * 1000 } : {}), ...(role.reasoning === false ? { reasoning: false } : {}) };
+      const req = { capability, dataClass: "private" as const, input: { messages, temperature: role.temperature, max_tokens: maxTokens }, ...(role.timeout_s && seatModel ? { timeoutMs: role.timeout_s * 1000 } : {}), ...(role.reasoning === false ? { reasoning: false } : {}) };
       let e: ResultEnvelope;
       try {
         e = await router.call(seatModel ? { ...req, model: seatModel } : req);
