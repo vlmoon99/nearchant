@@ -467,6 +467,15 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Next: move the Comfy Cloud client to `packages/providers` and render posts with `settings.image_variant` on the
   cloud profile; HiDream E1.1 and video (Wan 2.2 i2v 5B/14B) variants; step 11 storefront.
 
+## 2026-11-01 ~20:20 UTC — the lab's choice drives production post pictures
+
+- `settings.image_variant` (set by "Use in production" in the admin lab) is read per render by the worker; with a
+  Comfy key it renders the post picture with that variant's workflow on Comfy Cloud, otherwise it falls back to the
+  router's image route. Comfy client moved to `@nearchant/providers` (shared by gateway lab + worker).
+- **Verified** on the Mac stack: default set to `qie2511-l4` via the lab API → a post batch for `novatestaegk`
+  logged "render with lab model qie2511-l4" and came back ready.
+- Next: video variants on Comfy Cloud (Wan 2.2 TI2V 5B / I2V 14B, LTX-2.x) in the lab, then step 11 storefront.
+
 ### Owner actions
 - **URGENT (1 Nov ~18:00 UTC): all three Sparks offline** (no ping/SSH; nearchant.com 530) — likely power or
   network at the site. `gx10-c3c8` went silent first (~17:30, during a video render). Check power/network; power-
