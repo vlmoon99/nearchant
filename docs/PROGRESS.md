@@ -631,10 +631,31 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   attestation_ref; earlier proofs keep their NEAR AI report. Videos use Comfy Cloud (Wan 2.2 14B) + the Spark's TTS.
 - gx10-c3c8 (video box) left untouched: its LTX memory cap is still untested after the freeze.
 
+## 2026-11-01 18:40 UTC — Levanto Sage checks captions; both Sparks are Nearchant's; a bigger model for gx10-c3c8
+
+- **Owner decisions (1 Nov evening)**: Nearchant is priority #1. gx10-8695 + gx10-c3c8 are Nearchant's; the Gigabyte
+  (dgx-spark-2) is the owner's personal machine. Boost Content is set aside: on c3c8 I stopped and disabled the
+  `inf-node.service` watchdog and stopped `inf-node-agent` (restart=no) so it cannot place models there; nothing
+  deleted (undo: `systemctl --user enable --now inf-node.service`). Sage: use it for checks + proof review.
+- **Levanto Sage caption check**: new capability `decide` (spec) → NEAR AI `/v1/systemone` (request
+  `{model, state, questions:{id:{type:noul|choice|score|box, instructions, criteria?}}}`, answer `noul` = P(yes)).
+  Worker `check_post` after each written post and after each caption edit asks "does the caption promise anything the
+  owner did not state (discount, sale price, free delivery, gift, deadline, limited stock, other price)?"; the post
+  page shows a yellow warning when P ≥ 0.5; the proof's `review` = passed unless flagged, `reviewer_hash` = sha256
+  of Sage's answer (only when the check read the current caption). **Sage has no attestation report** (NEAR AI
+  `/attestation/report` → 503), so only public data goes to it: the caption and what the store page shows.
+  Buyer-message checks (private: addresses, phones) wait until Sage is attested.
+- **Verified live on nearchant.com (Spark)**: a real post with "This week only: 50% off and free delivery!" appended →
+  0.9971, flagged, warning shown (phone screenshot, no page errors); original caption → 0.0105, not flagged.
+  Tests: 107 (providers 12: decide routing, private refused; swarm 33; worker 12; gateway 31).
+- **Bigger LLM** (research with sources in this session): one model across both Sparks is a poor fit (80–115 GB
+  per node, fragile multi-node vLLM, ~1.3× speed). Plan: one model per box — gx10-c3c8 runs **Qwen3.8-27B NVFP4**
+  (Apache-2.0, vision, ~23 GB; Artificial Analysis 44–52 vs ~32 for Qwen3.6-35B-A3B; ~25 tok/s with MTP) for
+  writing + insights; gx10-8695 keeps Qwen3.6-35B-A3B (fast, vision) + images + app. Downloading the weights and
+  pulling NGC vLLM 26.10 (the Sparks' vllm-node is 0.23.1; Qwen3.8 needs ≥0.25.1) on c3c8.
+- Next: start Qwen3.8-27B on c3c8, route idea-writer / insight-writer / video-director to it, compare outputs.
+
 ### Owner actions
-- **Decide Levanto Sage's job** (step 14): it answers yes/no/choice/score questions with probabilities, it does not
-  route between models. Recommended: use it for policy checks (invented offers in captions, buyer messages that try
-  to change payment) and as the proof's review signal; keep model choice in `config/`.
 - Optional: a Brave Search API key (free tier) for reliable trend opportunities — self-hosted search is blocked
   from the home network right now.
 - **URGENT (1 Nov ~18:00 UTC): all three Sparks offline** (no ping/SSH; nearchant.com 530) — likely power or
