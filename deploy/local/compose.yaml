@@ -62,6 +62,15 @@ services:
     volumes: ["media:/home/marp/app"]
     restart: unless-stopped
 
+  tailnet:    # optional: serve the gateway on a tailnet IP. `COMPOSE_PROFILES=tailnet TAILNET_IP=100.x.y.z`
+    # Binding the gateway itself to the tailnet IP fails at boot when Docker starts before Tailscale, and Docker
+    # never retries a failed bind. The gateway stays on 127.0.0.1; this forwarder restarts until the IP exists.
+    image: alpine/socat@sha256:beb4a68d9e4fe6b0f21ea774a0fde6c31f580dde6368939ed70100c5385b015e
+    network_mode: host
+    command: ["TCP-LISTEN:8787,bind=${TAILNET_IP:-127.0.0.2},fork,reuseaddr", "TCP:127.0.0.1:8787"]
+    profiles: [tailnet]
+    restart: unless-stopped
+
   tunnel:     # optional: public reach without opening ports (ADR 0008). `docker compose --profile tunnel up`
     image: cloudflare/cloudflared:2025.9.1
     command: ["tunnel", "--no-autoupdate", "run"]
