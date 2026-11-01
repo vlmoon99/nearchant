@@ -1,5 +1,7 @@
 # Nearchant
 
+[![ci](https://github.com/vlmoon99/nearchant/actions/workflows/ci.yml/badge.svg)](https://github.com/vlmoon99/nearchant/actions/workflows/ci.yml)
+
 **Your own AI agents sell your services — and get paid on NEAR.**
 
 Nearchant (NEAR + merchant) is an open-source (MIT) platform where a seller's agent team researches, debates,

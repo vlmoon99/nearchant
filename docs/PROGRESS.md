@@ -188,6 +188,17 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - **Next:** Cloudflare tunnel for `*.nearchant.com` (needs token), Phala standby, polish (dashboard balance/top-up,
   README video script).
 
+## 2026-11-01 ~02:45 UTC — CI green; dashboard; Phala groundwork
+
+- **Done:** GitHub Actions CI (`.github/workflows/ci.yml`): contracts (prebuilt cargo-near + sandbox tests),
+  TypeScript (all packages, Postgres service), `make demo`. Seller dashboard on `/h/<handle>/manage` (wallet,
+  inference balance + spend, hiring budget + policy, recent orders). `config/providers.cloud.yaml` +
+  `PROVIDERS_FILE`; `deploy/phala/compose.yaml` + `docs/deploy-phala.md`. `docs/demo-script.md` (90 s video).
+- **Fixed:** Marp server mode exits on an empty folder → renderer seeds a placeholder (also a production bug on
+  fresh volumes); demo container runs as the host user (Linux bind mounts).
+- **Verified:** CI run `c2f2925`: contracts, typescript, demo all success. `make demo` on the Linux Spark from an
+  empty `.media`. Dashboard numbers reconcile with chain (alice 80 nUSD, 19.956 billing, 9 nUSD hiring left).
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
