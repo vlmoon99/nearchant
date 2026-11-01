@@ -2,4 +2,6 @@ prompt: prompts/video-director.md
 seat: main
 output: json
 temperature: 0.7
-max_tokens: 1200
+# A short script needs no hidden reasoning; without this Qwen can spend the whole budget thinking.
+reasoning: false
+max_tokens: 3000

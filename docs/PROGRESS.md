@@ -598,7 +598,26 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   router for production; Phala deploy (owner account).
 - Next: video model comparison in the lab (product fidelity), then Levanto Sage routing.
 
+## 2026-11-01 17:35 UTC — video model: Wan 2.2 I2V 14B (keeps the product); Levanto Sage is not a router
+
+- Image lab variant `wan22-i2v14b-l4` (Wan 2.2 I2V A14B fp8, high+low noise, Lightning 4-step LoRAs, 720×1280,
+  81 frames @16 fps) on Comfy Cloud. Same picture + motion prompt as the 5B: **the 14B keeps the product** (jacket
+  stays flat, same colour; sweater in place; only a slow push-in) while the 5B added a hanger and darkened the
+  jacket. 14B is also faster on Comfy Cloud (94 s vs ~130 s). Now the default (`VIDEO_VARIANT`).
+- Fixed: the video-director came back empty (Qwen spent all 1200 tokens thinking) → `reasoning: false`,
+  max_tokens 3000. Video length cap 20 → 30 s (an 18.7 s voiceover was close to being cut).
+- **Verified live**: a video for the published post p-6305… (proof #18) in 102 s → copied to the public store;
+  the store page shows and loads it (19.3 s, poster, "Proof #18 on NEAR" badge, no page errors).
+- **Levanto Sage 1.4 (finding)**: on NEAR AI it is a *decision* model (`/v1/systemone`): typed yes/no, choice and
+  score questions → calibrated probabilities, not generated text and not a model router. The plan's "pick the model
+  per task" would mean asking it a choice question per call. Better fits: cheap policy checks (does a caption
+  promise an offer the owner did not state? is a buyer message trying to change payment or recipient?) and the
+  review "passed" bit in proofs. → Owner decision below; nothing built yet.
+
 ### Owner actions
+- **Decide Levanto Sage's job** (step 14): it answers yes/no/choice/score questions with probabilities, it does not
+  route between models. Recommended: use it for policy checks (invented offers in captions, buyer messages that try
+  to change payment) and as the proof's review signal; keep model choice in `config/`.
 - Optional: a Brave Search API key (free tier) for reliable trend opportunities — self-hosted search is blocked
   from the home network right now.
 - **URGENT (1 Nov ~18:00 UTC): all three Sparks offline** (no ping/SSH; nearchant.com 530) — likely power or

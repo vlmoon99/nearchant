@@ -228,7 +228,7 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
       const profile = (await d.content.getProfile(p.handle))?.data as StyleProfile;
       const script = await writeVideoScript(askFor(p.handle, "video"), { profile, caption: p.caption ?? "", angle: String(idea.angle ?? "") });
       await setVideo({ status: "rendering", script });
-      const picture = await sharp(await readFile(join(d.mediaDir, m.key))).rotate().resize(704, 1280, { fit: "cover" }).png().toBuffer();
+      const picture = await sharp(await readFile(join(d.mediaDir, m.key))).rotate().resize(720, 1280, { fit: "cover" }).png().toBuffer();
       const [clip, voice] = await Promise.all([d.video.render(script.video_prompt, picture), d.video.tts.speak(script.voiceover, p.handle)]);
       const dir = join(d.mediaDir, p.handle, "gen", `v-${p.id}`);
       await mkdir(dir, { recursive: true });

@@ -190,7 +190,7 @@ const labRender = comfy ? async (prompt: string, photo: Buffer | null): Promise<
 } : undefined;
 
 // Short videos: the lab's video variant on Comfy Cloud + the English voice service (TTS_URL).
-const videoVariant = lab.variants.find((x) => x.id === (process.env.VIDEO_VARIANT ?? "wan22-ti2v5b"));
+const videoVariant = lab.variants.find((x) => x.id === (process.env.VIDEO_VARIANT ?? "wan22-i2v14b-l4"));
 const video = comfy && videoVariant && process.env.TTS_URL ? {
   tts: makeTts(process.env.TTS_URL, process.env.TTS_API_KEY ?? ""),
   fontsDir: process.env.FONTS_DIR ?? join(root, "assets/fonts"),
