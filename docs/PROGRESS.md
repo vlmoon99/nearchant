@@ -392,6 +392,19 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Video + English voiceover being built on `gx10-c3c8` by a parallel agent (worktree branch; I review and merge).
 - Next: step 10 (Home, Create, Posts, Post detail with the proof), step 11 (storefront).
 
+## 2026-11-01 ~17:10 UTC — M1 step 10: seller app pages
+
+- `src/ui/app-pages.tsx` + `routes.tsx`: Home (week stats, posts grid with proofs, "Ways to sell more",
+  getting-started checklist), Create (photos, pick an AI idea or write one, 3 options), Posts (filters,
+  auto-refresh while AI works), Post detail (caption edit, schedule best time / now, proof on NEAR card with the
+  explorer link), sign-in page that uses the store key kept in the browser.
+- **Verified** with Chrome screenshots at 1440 and 393 px on `https://nearchant.com/app…` (session for an
+  onboarding-created store): real AI posts with pictures, the published one shows "Verified on NEAR", no page
+  errors. Fixed: post detail stayed two-column on phones.
+- Not yet: wallet balance in the sidebar (step 12), sales numbers (step 11/12).
+- Owner offered a third Spark (to move the LLM or images off the busy nodes) → waiting for its tailnet IP.
+- Next: step 11 storefront (store page, item page, checkout with escrow, order paid).
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
@@ -407,6 +420,7 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   (verified: /new 200, verity.nearchant.com 200, alice via Cloudflare edge 200).
 - ~~HF token~~ — given 1 Nov (Keychain `HF_TOKEN`).
 - ~~GPU for video~~ — decided 1 Nov: `gx10-c3c8` (own containers; inference_system untouched).
+- Third Spark: send its tailnet IP (and make sure `server` is in the docker group) to move the LLM or images there.
 - NEAR AI credit ~$2: top up before step 14 of `docs/m1-plan.md` (end of the build).
 - `gx10-c3c8` / inference_system: its own engines are off; its config still lists the reinstalled `dgx-spark-2`
   (now `gx10-8695`) as node1. Nearchant doesn't depend on it; fix in that repo when convenient.

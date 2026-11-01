@@ -98,7 +98,7 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
   return (
     <Page cfg={cfg} test={test} title="Post" active="Posts" store={store}>
       <PageHead kicker={`Posts › ${clip(p.caption ?? "Post", 40)}`} title="Post details" />
-      <div class="cols" style="grid-template-columns:minmax(0,420px) 1fr">
+      <div class="cols post-cols">
         <div class="stack s12">
           <div class="post"><div class="img" style={img(p.imageMediaId) ? `background-image:url('${img(p.imageMediaId)}');aspect-ratio:4/5` : "aspect-ratio:4/5"}></div></div>
           <textarea class="input" id="caption" data-post={p.id} rows={6}>{p.caption ?? ""}</textarea>

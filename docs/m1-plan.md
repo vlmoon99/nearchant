@@ -37,7 +37,7 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
 8. [x] **UI foundation**: CSS tokens from the Figma variables + type styles, layout shell (desktop sidebar,
    mobile web bottom nav), components (badge "Verified on NEAR", stat card, post card, buttons, chips).
 9. [x] **Onboarding pages** (10 screens, mobile web first) wired to steps 3–6.
-10. [ ] **Seller app pages**: Home, Create (3 steps), Posts, Post detail + proof.
+10. [x] **Seller app pages**: Home, Create (3 steps), Posts, Post detail + proof.
 11. [ ] **Storefront**: store page from items/posts, item page, checkout (existing sponsored wallet + `orders`
     escrow), order paid page with timeline and "I got it — release payment".
 12. [ ] **Analytics + Wallet + Settings**: page-view/click/sale events, weekly charts, AI insights (LLM over the

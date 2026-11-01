@@ -55,6 +55,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .row { display: flex; gap: 16px; align-items: flex-start; }
 .row > .grow { flex: 1; min-width: 0; }
 .cols { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+.post-cols { grid-template-columns: minmax(0, 420px) 1fr; }
 .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .stack { display: flex; flex-direction: column; gap: 16px; }
