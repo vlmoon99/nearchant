@@ -10,6 +10,8 @@ import { ComfyCloud, fillWorkflow, type LabVariant } from "@nearchant/providers"
 import { analyzeBusiness, factsFromProfile, findOpportunities, loadAgentEnv, makeAsker, writePostOptions } from "@nearchant/swarm";
 import { makeRouter } from "./router.js";
 import { recordedSearch, searxng } from "./tools.js";
+import { applyHeadline, headlineAss } from "./image-text.js";
+import { pickAccent } from "./video-compose.js";
 
 const root = resolve(import.meta.dirname, "../../..");
 const fixture = process.env.RECORD_DIR ?? process.env.REPLAY_DIR ?? join(root, "fixtures/replay/store");
@@ -63,7 +65,17 @@ const posts = await writePostOptions(ask, { profile, n: 3, photoCount: photos.le
 const rendered: { caption: string; hashtags: string[]; angle: string; image: string | null }[] = [];
 for (const [i, p] of posts.entries()) {
   const png = await picture(p.image_prompt || p.angle, p.photo ? p.photo - 1 : null);
-  if (png) writeFileSync(join(out, `post-${i + 1}.png`), png);
+  if (png) {
+    writeFileSync(join(out, `post-${i + 1}.png`), png);
+    // The headline strip in our font + the brand colour (needs ffmpeg with libass — the Docker image has it).
+    if (p.headline) {
+      try {
+        writeFileSync(join(out, `post-${i + 1}.ass`), headlineAss(p.headline, 1024, 1280, pickAccent(profile.brand_colors)));
+        await applyHeadline({ input: join(out, `post-${i + 1}.png`), output: join(out, `post-${i + 1}-h.png`), ass: join(out, `post-${i + 1}.ass`), fontsDir: join(root, "assets/fonts") });
+        writeFileSync(join(out, `post-${i + 1}.png`), readFileSync(join(out, `post-${i + 1}-h.png`)));
+      } catch { /* plain picture */ }
+    }
+  }
   rendered.push({ caption: p.caption, hashtags: p.hashtags, angle: p.angle, image: png ? `post-${i + 1}.png` : null });
   log(`post ${i + 1} · ${p.angle}${png ? " · picture ✓" : " · no picture"}`);
 }

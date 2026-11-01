@@ -180,7 +180,9 @@ const comfy = process.env.COMFY_API_KEY ? new ComfyCloud(process.env.COMFY_API_K
 const lab = parse(readFileSync(join(root, "config/image-lab.yaml"), "utf8")) as { variants: LabVariant[] };
 const labRender = comfy ? async (prompt: string, photo: Buffer | null): Promise<Buffer | null> => {
   const id = await contentStore.getSetting<string>("image_variant");
-  const v = lab.variants.find((x) => x.id === id);
+  let v = lab.variants.find((x) => x.id === id);
+  // A post without a product photo is painted from text: the edit model needs a photo (it renders black without).
+  if (v?.needs_photo && !photo) v = lab.variants.find((x) => x.id === (process.env.T2I_VARIANT ?? "qi2512-l4"));
   if (!v || (v.needs_photo && !photo)) return null;
   const template = JSON.parse(readFileSync(join(root, "config/image-lab", v.workflow), "utf8"));
   const ref = photo ? await comfy.upload(photo, `post-${Date.now()}.png`) : undefined;

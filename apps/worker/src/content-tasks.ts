@@ -164,7 +164,10 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
           const b64 = (env.output as { images?: { b64?: string }[] }).images?.[0]?.b64;
           return b64 ? Buffer.from(b64, "base64") : null;
         };
+        // A blank (all-black / one-colour) picture is a failed render: one retry, then the product photo.
+        const blank = async (b: Buffer | null) => !b || (await sharp(b).stats()).channels.slice(0, 3).every((c) => c.stdev < 4);
         let bytes = await renderOnce();
+        if (await blank(bytes)) { d.log(`render ${p.id}: blank picture — retry`); bytes = await renderOnce(); if (await blank(bytes)) bytes = null; }
         // Models garble lettering: a picture painted from nothing that came out with text gets one re-roll. Not for
         // a restyled product photo — its label is real text (advertisment_system ad_post QA).
         if (bytes && !src && (await hasTextArtifacts(bytes))) { d.log(`render ${p.id}: text in the picture — one re-roll`); bytes = (await renderOnce()) ?? bytes; }

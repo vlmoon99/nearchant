@@ -7,7 +7,7 @@ describe("headline strip", () => {
     expect(s).toContain("PlayResX: 1024\nPlayResY: 1280");
     expect(s).toContain("\\1c&H3232A8&");
     expect(s).toContain("LAYERS FOR\\NCITY DAYS");
-    expect(s).toMatch(/Style: Strip,Montserrat ExtraBold,63,&H00FFFFFF/);
+    expect(s).toMatch(/Style: Strip,Montserrat ExtraBold,80,&H00FFFFFF/);
     expect(NO_TEXT).toMatch(/No text/);
   });
 });

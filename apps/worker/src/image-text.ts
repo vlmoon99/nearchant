@@ -11,7 +11,7 @@ export const NO_TEXT = " No text, letters, words, numbers, logos or watermarks a
 export function headlineAss(text: string, w: number, h: number, accent: string): string {
   const clean = text.replace(/[{}\\]/g, "").replace(/\s+/g, " ").trim().toUpperCase();
   const lines = balance(clean).split("\\N").length;
-  const size = Math.round(w * 0.062), strip = Math.round(size * (1.25 * lines + 1.1));
+  const size = Math.round(w * 0.078), strip = Math.round(size * (1.25 * lines + 1.1));
   const fg = onColor(accent), A = assColor, c1 = A(accent).replace(/^&H00/, "&H") + "&";
   return `[Script Info]\nScriptType: v4.00+\nPlayResX: ${w}\nPlayResY: ${h}\nWrapStyle: 2\nScaledBorderAndShadow: yes\n\n` +
     "[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n" +
