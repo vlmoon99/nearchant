@@ -39,7 +39,9 @@ export class OpenAICompatibleAdapter implements CapabilityAdapter {
       res = await this.fetchFn(this.url(path), { ...init, signal: s });
     } catch (e) {
       if (signal?.aborted) throw e;
-      throw new ProviderError(`${this.endpoint.id}: ${(e as Error).message}`, true);
+      // A timed-out generation rarely finishes on an immediate retry: fail fast so the caller can fall back.
+      const timedOut = timeout.aborted;
+      throw new ProviderError(`${this.endpoint.id}: ${(e as Error).message}`, !timedOut);
     }
     const text = await res.text();
     if (!res.ok) {

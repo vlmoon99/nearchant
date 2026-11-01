@@ -3,3 +3,4 @@ seat: second
 output: json
 temperature: 0.5
 max_tokens: 4000
+timeout_s: 150

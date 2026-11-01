@@ -39,10 +39,14 @@ export interface Asker {
 
 /** Builds the role caller for one job. `track` receives every envelope (metering, proof). */
 export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultEnvelope, role: string) => Promise<void>, onDegrade?: (role: string, model: string, reason: string) => void): Asker {
+  // Once a seat model failed in this step, later calls skip it (no repeated multi-minute timeouts).
+  const degraded = new Set<string>();
+  const degrade = (role: string, model: string, why: string) => { degraded.add(model); onDegrade?.(role, model, why); };
   return async function ask<T>(roleName: string, user: string): Promise<T> {
     const role: Role | undefined = env.roles[roleName];
     if (!role) throw new Error(`unknown role ${roleName}`);
-    const model = env.seats[role.seat]?.model;
+    const seat = env.seats[role.seat]?.model;
+    const model = seat && !degraded.has(seat) ? seat : undefined;
     const messages: { role: string; content: string }[] = [
       { role: "system", content: role.system },
       { role: "user", content: user },
@@ -52,16 +56,17 @@ export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultE
     let lengthRetried = false;
     let parseFailures = 0;
     for (let calls = 0; calls < 5; calls++) {
-      const req = { capability: "chat" as const, dataClass: "private" as const, input: { messages, temperature: role.temperature, max_tokens: maxTokens } };
+      const req = { capability: "chat" as const, dataClass: "private" as const, input: { messages, temperature: role.temperature, max_tokens: maxTokens }, ...(role.timeout_s && seatModel ? { timeoutMs: role.timeout_s * 1000 } : {}) };
       let e: ResultEnvelope;
       try {
         e = await router.call(seatModel ? { ...req, model: seatModel } : req);
       } catch (err) {
         // The second seat is a preference: if its model is unreachable, degrade to the main route (architecture §3.10).
         if (!(err instanceof NoEndpointError) || !seatModel) throw err;
-        onDegrade?.(roleName, seatModel, (err as Error).message);
+        degrade(roleName, seatModel, (err as Error).message);
         seatModel = undefined;
-        e = await router.call(req);
+        const { timeoutMs: _, ...mainReq } = req as typeof req & { timeoutMs?: number };
+        e = await router.call(mainReq);
       }
       await track(e, roleName);
       const text = contentOf(e);
@@ -80,7 +85,7 @@ export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultE
           messages.push({ role: "assistant", content: text.slice(0, 4000) }, { role: "user", content: `That was not valid JSON (${(err as Error).message}). Reply with only the JSON object.` });
         } else if (seatModel) {
           // The second-seat model can't produce the format: let the main seat answer the original request.
-          onDegrade?.(roleName, seatModel, "no valid JSON from the second seat");
+          degrade(roleName, seatModel, "no valid JSON from the second seat");
           seatModel = undefined;
           messages.splice(2);
           lengthRetried = false;

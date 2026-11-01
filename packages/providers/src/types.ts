@@ -10,6 +10,8 @@ export interface CapabilityRequest {
   input: Record<string, unknown>;
   /** Restrict to these endpoint ids (still subject to privacy rules). */
   endpoints?: string[];
+  /** Per-request timeout (ms); defaults to the endpoint's `timeout_ms`. */
+  timeoutMs?: number;
   signal?: AbortSignal;
 }
 

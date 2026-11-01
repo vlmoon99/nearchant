@@ -170,7 +170,7 @@ export class Router {
       if (attempt > 0) await this.opts.sleep(300 * 2 ** (attempt - 1) + Math.random() * 100);
       const started = this.opts.now();
       try {
-        const r = await s.adapter.call(req.capability, req.input, { model, timeoutMs: ep.timeout_ms ?? 120_000, signal: req.signal, requestKey });
+        const r = await s.adapter.call(req.capability, req.input, { model, timeoutMs: req.timeoutMs ?? ep.timeout_ms ?? 120_000, signal: req.signal, requestKey });
         s.failures = 0;
         const replayed = ep.adapter === "replay";
         const env: ResultEnvelope = {

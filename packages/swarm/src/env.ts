@@ -10,6 +10,8 @@ export interface Role {
   output: "json" | "markdown";
   temperature: number;
   max_tokens: number;
+  /** Per-call timeout in seconds (optional). */
+  timeout_s?: number;
 }
 
 export interface AgentEnv {
@@ -37,6 +39,7 @@ export function loadAgentEnv(dir: string): AgentEnv {
       output: r.output,
       temperature: Number(r.temperature ?? 0.4),
       max_tokens: Number(r.max_tokens ?? 2000),
+      ...(r.timeout_s ? { timeout_s: Number(r.timeout_s) } : {}),
     };
   }
   return { name: m.name, version: m.version, seats: { main: m.seats?.main ?? {}, second: m.seats?.second ?? {} }, roles, research: m.research, dir };
