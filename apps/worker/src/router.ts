@@ -10,7 +10,7 @@ export async function makeRouter(configFile: string) {
   const config = parse(readFileSync(configFile, "utf8"));
   const replayDir = process.env.REPLAY_DIR;
   if (replayDir && !process.env.NEARAI_API_KEY) {
-    const caps = ["chat", "image.generate", "embed"];
+    const caps = ["chat", "vision", "image.generate", "embed"];
     return Router.fromConfig({
       endpoints: [{ id: "replay", adapter: "replay", base_url: replayDir, privacy_tier: "local", capabilities: caps }],
       routing: { ...Object.fromEntries(caps.map((c) => [c, ["replay"]])), private_data_allowed_tiers: ["tee", "local"] },

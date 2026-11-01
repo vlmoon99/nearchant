@@ -13,3 +13,4 @@ apps/*/dist/
 # only the curated demo recording is committed
 fixtures/replay/*
 !fixtures/replay/deck/
+!fixtures/replay/store/

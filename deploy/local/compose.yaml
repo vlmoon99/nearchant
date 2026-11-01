@@ -124,6 +124,15 @@ services:
     volumes: ["../../fixtures:/app/fixtures:ro", "../../.media:/app/.media"]
     depends_on: [demo-renderer]
     profiles: [demo]
+  # `make demo`: the content store on recorded answers (ADR 0013/0018). No keys, no GPU, no chain writes.
+  demo-store:
+    image: nearchant/app:dev
+    build: { context: ../.., dockerfile: deploy/Dockerfile }
+    command: ["node", "apps/worker/dist/content-cli.js"]
+    user: "${DEMO_UID:-1000}:${DEMO_GID:-1000}"
+    environment: { REPLAY_DIR: /app/fixtures/replay/store, MEDIA_DIR: /app/.media, PROVIDERS_FILE: providers.mac.yaml }
+    volumes: ["../../fixtures:/app/fixtures:ro", "../../.media:/app/.media"]
+    profiles: [demo]
   demo-renderer:
     image: marpteam/marp-cli@sha256:3cf660df7b9737f875e57f7169dff0b08d1d3ab604ea2d655ab761102942fa42
     entrypoint: ["sh", "-c", "[ -f _renderer.md ] || echo '# renderer' > _renderer.md; exec docker-entrypoint --server --allow-local-files ."]

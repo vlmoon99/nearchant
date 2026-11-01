@@ -92,13 +92,14 @@ flowchart LR
 ### 0. The one-command demo (Docker only — no accounts, no GPU, no keys)
 
 ```bash
-make demo
+make demo          # the content store: open .media/demo-store/index.html
 ```
 
-Replays the agent pipeline of the first demo service (an investor deck: brief → research → council → fact-check →
-write → cover image → review → render) on **recorded answers from a real run** (Qwen3.6-35B on the seller's GPU + GLM-5.3 and FLUX.2 on NEAR AI Cloud
-TEE). It takes ~3 seconds after the image builds and writes `.media/demo-deck/deck.pdf`, `deck.pptx`, `deck.html`
-and `artifacts.json` (every step's output: dossier with sources, council debate, review rounds, proof entry).
+Replays one recorded live run of the content-store story (NEAR AI TEE text + vision, Comfy Cloud
+Qwen-Image-Edit pictures): 3 product photos → what the AI found → ways to sell more → 3 post options with AI
+pictures of the real products. It takes a few seconds after the image builds and writes
+`.media/demo-store/{index.html, result.json, post-*.png}`. `make demo-deck` replays the first demo service (an
+investor-deck agent pipeline) the same way.
 
 ### 1. Contracts only (no setup beyond Rust)
 

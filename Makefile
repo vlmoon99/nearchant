@@ -1,7 +1,7 @@
 CONTRACTS := nusd handles proof-log orders billing escrow-policy
 COMPOSE := docker compose -f deploy/local/compose.yaml
 
-.PHONY: help demo contracts test-contracts build test up down logs doctor
+.PHONY: help demo demo-deck contracts test-contracts build test up down logs doctor
 
 help: ## list targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -9,7 +9,15 @@ help: ## list targets
 demo: export NEARCHANT_SECRET_KEY = demo-not-used-0000000000000000000000
 demo: export DEMO_UID := $(shell id -u)
 demo: export DEMO_GID := $(shell id -g)
-demo: ## full deck pipeline on recorded model answers (Docker only) → .media/demo-deck/deck.{pdf,pptx,html}
+demo: ## the content store (ADR 0018) on recorded answers (Docker only): photos → AI profile → opportunities → 3 posts with pictures → .media/demo-store/index.html
+	mkdir -p .media
+	$(COMPOSE) --profile demo run --rm --build demo-store
+	@ls -la .media/demo-store/
+
+demo-deck: export NEARCHANT_SECRET_KEY = demo-not-used-0000000000000000000000
+demo-deck: export DEMO_UID := $(shell id -u)
+demo-deck: export DEMO_GID := $(shell id -g)
+demo-deck: ## the first demo service (investor deck pipeline) on recorded answers → .media/demo-deck/deck.{pdf,pptx,html}
 	mkdir -p .media
 	$(COMPOSE) --profile demo run --rm --build demo
 	$(COMPOSE) --profile demo stop demo-renderer >/dev/null

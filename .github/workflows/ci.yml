@@ -33,4 +33,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: make demo
+      - run: test -s .media/demo-store/index.html && test -s .media/demo-store/post-1.png && grep -q opportunities .media/demo-store/result.json
+      - run: make demo-deck
       - run: test -s .media/demo-deck/deck.pdf && test -s .media/demo-deck/deck.pptx
