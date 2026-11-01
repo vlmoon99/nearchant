@@ -703,6 +703,18 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   - Create's 3-step indicator (Photos & idea → AI makes it → Review & publish).
 - Not compared yet: Web · Home and the mobile seller screens (Figma screenshot call dropped) — next pass.
 
+## 2026-11-01 20:15 UTC — Figma audit, part 2: Home and the Create flow
+
+- Web · Home: account pill (store account + balance), "Payments" card (latest paid item orders with escrow state,
+  balance, Wallet link — no Withdraw button until withdrawing exists), 7-day bars under views, sales and proofs.
+  Sidebar column stays grey on long pages.
+- Create flow (Figma Create 1–3): step bar Photos & idea → AI makes it → Review & publish; after "Create posts"
+  the page goes to `/app/posts?batch=…`, which shows step 2 while the AI works and step 3 when the batch is ready.
+- **Verified** in Chrome on nearchant.com: Home with real data; a real Create run went 1 → 2 → 3 with three posts
+  with pictures, no page errors. Gateway tests 33.
+- Still from the audit: "Continue with email" (owner: email provider) and "Connect a NEAR wallet" (next);
+  mobile seller screens not compared yet.
+
 ### Owner actions
 - Email sign-up (Figma onboarding 1): say if you want it, and give an email provider key (e.g. Resend or Postmark)
   — I'll add "Continue with email" login links. "Connect a NEAR wallet" I can build without anything from you.
