@@ -743,6 +743,27 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   payment), its 3 posts published → proofs #21–#23; nearchant.com home now shows them (no "Kyiv" on the page).
   Older Kyiv test stores still exist at their own links but are not shown on the home page.
 
+## 2026-11-01 21:30 UTC — intros, subtitles and text on pictures (ported from advertisment_system)
+
+- Read (read-only) advertisment_system `subtitles.py`, `overlay.py`, `ad_post.py`, `docs/TEXT_ON_MEDIA_PLAN.md`; Boost
+  Content has no media-text code (its strength is the copy, already ported). Rule kept: text is always ours, never
+  drawn by the image/video model.
+- Shorts (`video-compose.ts`): hook on a brand-colour box (balanced 2 lines, safe area); captions use the script's
+  words on whisper's timing (`alignToScript`), chunks break at pauses > 0.6 s, min 0.3 s, on a dark box at ~70 %
+  height; 1.5 s end-card in the brand colour (store name, "Tap the link to shop", `<handle>.nearchant.com`).
+  Brand accent = most vivid profile brand colour (`pickAccent`). The first post of a new store gets a short
+  automatically during onboarding (3 picture credits; skipped without credit); the "live" step says so.
+- Picture posts: post writer returns a 2–5 word `headline`; a brand-colour headline strip is burned on in our
+  font (ASS/libass via ffmpeg, `image-text.ts`); the clean picture is kept for videos. Every picture prompt ends
+  with a no-text guard; a vision check (local Qwen3.6) re-rolls once when lettering appears — it caught an
+  invented "ZARA" label on a demo jacket. Posts without a product photo are painted with Qwen-Image 2512 (the
+  edit model rendered them black); blank renders are retried.
+- Fixed: Pro stores were checked against the free limits (the API never passed the plan).
+- **Verified**: live on nearchant.com — Nova Wear NYC batch with three headline pictures (no stray text), an 8.7 s
+  short with the red hook box, captions and the end-card; `make demo` in Docker shows the headline strips
+  (re-recorded, replay identical). Tests: worker 18, gateway 34, swarm 34.
+- Seen: Wan 2.2 added hands to one clip although the prompt said no people → prompt now says "no people, no hands".
+
 ### Owner actions
 - Email sign-up (Figma onboarding 1): say if you want it, and give an email provider key (e.g. Resend or Postmark)
   — I'll add "Continue with email" login links. "Connect a NEAR wallet" I can build without anything from you.
