@@ -18,7 +18,7 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
 
 ## Build order
 
-1. [ ] **Image engine on gx10-8695**: ComfyUI + Qwen-Image-Edit-2511 (weights in `~/nearchant-node/comfy`),
+1. [x] **Image engine on gx10-8695**: ComfyUI + Qwen-Image-Edit-2511 (weights in `~/nearchant-node/comfy`),
    an OpenAI-shaped images service (port of `inference_system/services/image/app.py`, `/v1/images/generations`
    with `image_b64`/`image_url`), compose service `image`, router endpoint `spark-image` (`image.generate`,
    `image.edit`) in `providers.local.yaml`. Verify: one product photo → restyled 1024×1280 PNG.

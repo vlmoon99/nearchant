@@ -366,6 +366,20 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   needed).
 - Next: step 7 (publish + proof on NEAR), step 10 (Home/Create/Posts/Post detail), step 11 (storefront).
 
+## 2026-11-01 ~16:10 UTC — M1 step 1: image engine live (Qwen-Image-Edit on our ComfyUI)
+
+- Weights: the home internet was down to ~1 MB/s, but `gx10-c3c8` already had the same files (checksums from
+  inference_system's weights.lock) → copied Spark-to-Spark over the LAN at 111 MB/s (20 GB in 3 min), sha256 OK.
+  `gx10-c3c8` also already holds the LTX-2.5 video weights (~40 GB) and Kokoro English TTS — no downloads needed
+  for video.
+- `comfy` + `image` compose services up on `gx10-8695` (profile `gpu`). **Verified**: the rhinestone denim
+  jacket photo → "worn by a young woman on a sunny Kyiv street in autumn" → 1024×1280 PNG in 27 s (cold), product
+  kept exactly. Posts now get real AI pictures instead of the fallback photo.
+- Owner gave a Hugging Face read token (Keychain `HF_TOKEN`; access to gated `Lightricks/LTX-2.5` confirmed) and
+  agreed: Spark 1 (`gx10-8695`) = LLM + images, Spark 2 (`gx10-c3c8`) = video + English voiceover (own
+  containers; Boost Content's inference_system untouched). A third Spark may be connected later.
+- Next: video + voiceover services on `gx10-c3c8` (13b, now unblocked), step 7 publish + proof, step 10 pages.
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
@@ -379,10 +393,8 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Phala Cloud account with credit, needed by ~8 Nov.
 - ~~Cloudflare routes~~ — done 1 Nov: `https://nearchant.com` and `https://<store>.nearchant.com` are public
   (verified: /new 200, verity.nearchant.com 200, alice via Cloudflare edge 200).
-- Video weights (stretch 13b): LTX-2.5 is gated on Hugging Face — accept its licence and give an HF token
-  (Keychain `HF_TOKEN`, account `nearchant`) when we start video.
-- GPU for video (stretch 13b): may Nearchant use `gx10-c3c8` (Boost Content's Spark; its engines are off) for
-  video + TTS, or should video time-share `gx10-8695`?
+- ~~HF token~~ — given 1 Nov (Keychain `HF_TOKEN`).
+- ~~GPU for video~~ — decided 1 Nov: `gx10-c3c8` (own containers; inference_system untouched).
 - NEAR AI credit ~$2: top up before step 14 of `docs/m1-plan.md` (end of the build).
 - `gx10-c3c8` / inference_system: its own engines are off; its config still lists the reinstalled `dgx-spark-2`
   (now `gx10-8695`) as node1. Nearchant doesn't depend on it; fix in that repo when convenient.
