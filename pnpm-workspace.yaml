@@ -5,3 +5,5 @@ packages:
 # esbuild ships its binary as a platform package; its postinstall script isn't needed.
 allowBuilds:
   esbuild: false
+  # sharp ships prebuilt libvips per platform (@img/*); its install script only checks for it.
+  sharp: false
