@@ -172,3 +172,6 @@ svg { flex-shrink: 0; }
 .acct-pill { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--sep); color: var(--label); background: var(--bg); }
 .acct-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
 @media (max-width: 899px) { .acct-pill { display: none; } }
+
+/* The sidebar column stays grey below the sticky sidebar (long pages, full-page captures). */
+@media (min-width: 900px) { .app { background: linear-gradient(to right, var(--bg-2) 248px, var(--bg) 248px); } }
