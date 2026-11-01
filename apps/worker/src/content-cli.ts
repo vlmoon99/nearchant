@@ -10,7 +10,7 @@ import { ComfyCloud, fillWorkflow, type LabVariant } from "@nearchant/providers"
 import { analyzeBusiness, factsFromProfile, findOpportunities, loadAgentEnv, makeAsker, writePostOptions } from "@nearchant/swarm";
 import { makeRouter } from "./router.js";
 import { recordedSearch, searxng } from "./tools.js";
-import { applyHeadline, headlineAss } from "./image-text.js";
+import { NO_TEXT, applyHeadline, headlineAss } from "./image-text.js";
 import { pickAccent } from "./video-compose.js";
 
 const root = resolve(import.meta.dirname, "../../..");
@@ -64,7 +64,7 @@ for (const o of opportunities) log(`opportunity · ${o.kind}: ${o.title} (≈ +$
 const posts = await writePostOptions(ask, { profile, n: 3, photoCount: photos.length, opportunity: opportunities[0] ?? null, today: meta.today });
 const rendered: { caption: string; hashtags: string[]; angle: string; image: string | null }[] = [];
 for (const [i, p] of posts.entries()) {
-  const png = await picture(p.image_prompt || p.angle, p.photo ? p.photo - 1 : null);
+  const png = await picture((p.image_prompt || p.angle) + NO_TEXT, p.photo ? p.photo - 1 : null);
   if (png) {
     writeFileSync(join(out, `post-${i + 1}.png`), png);
     // The headline strip in our font + the brand colour (needs ffmpeg with libass — the Docker image has it).

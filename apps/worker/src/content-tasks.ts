@@ -66,7 +66,7 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     try {
       const url = `data:image/jpeg;base64,${(await sharp(png).resize(768, 768, { fit: "inside" }).jpeg({ quality: 80 }).toBuffer()).toString("base64")}`;
       const env = await d.router.call({ capability: "vision", dataClass: "private", reasoning: false, timeoutMs: 60_000, input: { max_tokens: 60, temperature: 0, messages: [{ role: "user", content: [
-        { type: "text", text: 'Does this picture contain any visible text, letters, words, numbers or logo-like lettering drawn inside it (garbled or not)? Answer only JSON: {"has_text": true|false}' },
+        { type: "text", text: 'Does this picture contain any visible text, letters, words, numbers, brand names, labels or logo-like lettering drawn inside it (garbled or not)? Answer only JSON: {"has_text": true|false}' },
         { type: "image_url", image_url: { url } }] }] } });
       const txt = String((env.output as { message?: { content?: string } }).message?.content ?? "");
       return /"has_text"\s*:\s*true/.test(txt);
@@ -168,9 +168,9 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
         const blank = async (b: Buffer | null) => !b || (await sharp(b).stats()).channels.slice(0, 3).every((c) => c.stdev < 4);
         let bytes = await renderOnce();
         if (await blank(bytes)) { d.log(`render ${p.id}: blank picture — retry`); bytes = await renderOnce(); if (await blank(bytes)) bytes = null; }
-        // Models garble lettering: a picture painted from nothing that came out with text gets one re-roll. Not for
-        // a restyled product photo — its label is real text (advertisment_system ad_post QA).
-        if (bytes && !src && (await hasTextArtifacts(bytes))) { d.log(`render ${p.id}: text in the picture — one re-roll`); bytes = (await renderOnce()) ?? bytes; }
+        // Models garble lettering and even invent brand labels (a "ZARA" tag on our jacket): a picture with text gets
+        // one re-roll. A real label on a restyled product photo may cost one extra render — acceptable.
+        if (bytes && (await hasTextArtifacts(bytes))) { d.log(`render ${p.id}: text in the picture — one re-roll`); bytes = (await renderOnce()) ?? bytes; }
         if (bytes) {
           const key = `${handle}/gen/${p.id}.png`;
           await mkdir(join(d.mediaDir, handle, "gen"), { recursive: true });
