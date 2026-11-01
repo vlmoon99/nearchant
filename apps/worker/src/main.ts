@@ -102,6 +102,17 @@ const outboxDrain: Task = async (_p, helpers) => {
       if (p.entries.length === 0) return { skipped: "no charges" };
       return { charged: await chain.call<string>(accounts.billing, "settle_batch", p, { gasTgas: 150 }) };
     }
+    if (kind === "post.proof") {
+      // A published post's proof, signed by the store's own proofs agent key (function-call only).
+      const p = payload as { postId: string; handle: string; entry: Record<string, unknown> };
+      const post = await contentStore.getPost(p.postId);
+      const done = (post?.proof as { proofId?: string } | null)?.proofId;
+      if (done) return { proofId: done };
+      const key = await agentKey({ db: conn.db, sealer }, p.handle, "proofs-key");
+      const proofId = await chain.callAs<string>(`${p.handle}.${accounts.root}`, key, accounts.proofs, "record", { entry: p.entry }, 50);
+      await contentStore.updatePost(p.postId, { proof: { proofId, outputHash: p.entry.output_hash, contract: accounts.proofs } });
+      return { proofId };
+    }
     throw new Error(`no handler for outbox kind ${kind}`);
   });
   if (n) helpers.logger.info(`outbox: sent ${n}`);
@@ -142,8 +153,9 @@ const escrowTimers: Task = async (_p, helpers) => {
 };
 
 const mediaDir = process.env.MEDIA_DIR ?? join(root, ".media");
+const contentStore = new ContentStore(conn.db);
 const contentTasks = makeContentTasks({
-  content: new ContentStore(conn.db), envelopes, router, env: loadAgentEnv(join(root, "envs/content-store")), mediaDir,
+  content: contentStore, envelopes, router, outbox, env: loadAgentEnv(join(root, "envs/content-store")), mediaDir,
   accountOf: (h) => `${h}.${accounts.root}`, decimals: Number(gw.token?.decimals ?? 6),
   ...(process.env.SEARXNG_URL ? { search: searxng(process.env.SEARXNG_URL) } : {}),
   log: (m) => console.info(`[content] ${m}`),

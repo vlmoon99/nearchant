@@ -18,6 +18,19 @@ export interface ContentTaskDeps {
   search?: (q: string) => Promise<SearchResult[]>;
   decimals: number;
   log: (m: string) => void;
+  /** Side effects sent once per key (chain calls). */
+  outbox: { enqueue(key: string, kind: string, payload: unknown): Promise<unknown> };
+}
+
+/** The proof-log entry for a published post: what was published, made by which AI, owned by whom (ADR 0018). */
+export function postProofEntry(p: { id: string; caption: string; imageSha256: string | null; idea: unknown }) {
+  const h = (s: string) => createHash("sha256").update(s).digest("hex");
+  return {
+    task_id: `post:${p.id}`, order_id: null, brief_hash: h(JSON.stringify(p.idea ?? {})),
+    producer: "nearchant:content-store@0.1.0 (qwen3.6 + qwen-image-edit-2511)",
+    output_hash: h(`${p.caption}\n${p.imageSha256 ?? ""}`), attestation_ref: null,
+    review: { passed: true, reviewer_hash: h(p.caption) },
+  };
 }
 
 /** A photo as a JPEG data URL, at most 1024 px on the long side (vision models bill by pixels). */
@@ -153,6 +166,7 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
       await copyFile(join(d.mediaDir, m.key), join(d.mediaDir, publicKey));
     }
     await d.content.updatePost(p.id, { status: "published", publishedAt: new Date(), idea: { ...(p.idea as object), publicImage: publicKey } });
+    await d.outbox.enqueue(`proof:post:${p.id}`, "post.proof", { postId: p.id, handle: p.handle, entry: postProofEntry({ id: p.id, caption: p.caption ?? "", imageSha256: m?.sha256 ?? null, idea: p.idea }) });
     d.log(`published ${p.id}`);
   };
 
