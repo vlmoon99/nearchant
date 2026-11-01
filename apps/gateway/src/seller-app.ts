@@ -153,7 +153,11 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
       throw e;
     }
   }));
-  app.get("/api/app/posts", (c) => authed(c, async (handle) => c.json({ posts: await d.content.listPosts(handle, { limit: 50 }) })));
+  app.get("/api/app/posts", (c) => authed(c, async (handle) => {
+    const posts = await d.content.listPosts(handle, { limit: 50 });
+    const url = async (id: string | null) => { if (!id) return null; const m = await d.content.getMedia(id); return m ? `/files/${m.key}` : null; };
+    return c.json({ posts: await Promise.all(posts.map(async (p) => ({ ...p, imageUrl: await url(p.imageMediaId) }))) });
+  }));
   app.post("/api/app/posts/choose", (c) => authed(c, async (handle) => {
     const b = await json(c);
     await d.content.choosePosts(handle, String(b.batchId ?? ""), ((b.keep as unknown[]) ?? []).map(String));

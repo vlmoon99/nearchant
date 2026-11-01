@@ -1,6 +1,6 @@
 // Worker tasks for the content store (ADR 0018): analyse a business, find opportunities. Posts come in step 6.
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Task } from "graphile-worker";
 import sharp from "sharp";
@@ -136,5 +136,25 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     await d.content.setProfile(handle, { learned });
   };
 
-  return { analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
+  // Publishing at the scheduled time: the image becomes public on the store. The proof on NEAR is step 7.
+  const publishPostTask: Task = async (payload, helpers) => {
+    const { postId } = payload as { postId: string };
+    const p = await d.content.getPost(postId);
+    if (!p || p.status !== "scheduled") return;
+    if (p.scheduledAt && p.scheduledAt.getTime() > Date.now() + 5_000) {
+      await helpers.addJob("publish_post", { postId }, { jobKey: `publish:${postId}`, runAt: p.scheduledAt, maxAttempts: 3 });
+      return;
+    }
+    let publicKey: string | null = null;
+    const m = p.imageMediaId ? await d.content.getMedia(p.imageMediaId) : null;
+    if (m) {
+      publicKey = `${p.handle}/public/${p.id}.${m.key.split(".").pop()}`;
+      await mkdir(join(d.mediaDir, p.handle, "public"), { recursive: true });
+      await copyFile(join(d.mediaDir, m.key), join(d.mediaDir, publicKey));
+    }
+    await d.content.updatePost(p.id, { status: "published", publishedAt: new Date(), idea: { ...(p.idea as object), publicImage: publicKey } });
+    d.log(`published ${p.id}`);
+  };
+
+  return { publish_post: publishPostTask, analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
 }

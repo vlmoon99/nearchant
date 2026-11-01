@@ -14,6 +14,7 @@ import { loadAgentEnv, makeAsker, type AgentEnv } from "@nearchant/swarm";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
 import { createApp } from "./app.js";
 import { mountSellerApp } from "./seller-app.js";
+import { mountUi } from "./ui/routes.js";
 import { RateLimit, sponsorBuyer } from "./buyers.js";
 import { loadGatewayConfig } from "./config.js";
 
@@ -248,6 +249,16 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     sessionKey: createHash("sha256").update(`nearchant-session:${process.env.NEARCHANT_SECRET_KEY}`).digest(),
     secureCookies: config.public_url.startsWith("https://"),
     decimals: config.token.decimals,
+  });
+}
+{
+  const appFile = join(import.meta.dirname, "../dist/web/app.js");
+  const sessionKey = createHash("sha256").update(`nearchant-session:${process.env.NEARCHANT_SECRET_KEY ?? "dev"}`).digest();
+  const storeBase = config.public_url.startsWith("https://") ? new URL(config.public_url).host : "";
+  mountUi(app, {
+    cfg: { base: "/", rpcUrl: config.rpc_urls[0] ?? "", network: config.network, token: config.token.symbol, decimals: config.token.decimals, storeBase },
+    test: config.token.test, css: readFileSync(join(import.meta.dirname, "../web/ui.css"), "utf8"),
+    js: existsSync(appFile) ? readFileSync(appFile, "utf8") : undefined, sessionKey,
   });
 }
 

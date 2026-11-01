@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "start": "node dist/main.js",
-    "build:web": "esbuild ./web/checkout.ts --bundle --format=esm --target=es2022 --platform=browser --alias:util=./web/util-shim.js --minify --outfile=dist/web/checkout.js"
+    "build:web": "esbuild ./web/checkout.ts --bundle --format=esm --target=es2022 --platform=browser --alias:util=./web/util-shim.js --minify --outfile=dist/web/checkout.js && esbuild ./web/app.ts --bundle --format=esm --target=es2022 --platform=browser --alias:util=./web/util-shim.js --minify --outfile=dist/web/app.js"
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",
