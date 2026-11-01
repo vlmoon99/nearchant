@@ -66,3 +66,36 @@ export const ItemPage: FC<{ s: StoreData; i: StoreItem; cfg: CheckoutCfg; test: 
     </div>
   </Shell>
 );
+
+/** Buyer's order page for a store item (Figma "Order paid"): paid → shipped → you confirm. Buttons are handled by
+ *  web/checkout.ts (data-order-action / #order-msg / data-poll-order), so the escrow logic is shared with decks. */
+export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; o: { orderId: string; title: string; amount: string; chainStatus: string | null } }> = ({ s, cfg, test, o }) => {
+  const st = o.chainStatus;
+  const step = st === "Released" ? 3 : st === "Delivered" ? 2 : st === "Held" ? 1 : 0;
+  const rows: [string, string][] = [
+    ["Paid", "Your money is held in escrow on NEAR"],
+    [`${s.name} ships it`, "Recorded on NEAR when it is shipped"],
+    ["You confirm you got it", "Or it confirms itself after the deadline"],
+    ["Payment released to the store", `Escrow → ${s.account}`],
+  ];
+  return (
+    <Shell title={`Order · ${s.name}`} s={s} cfg={cfg} test={test}>
+      <a class="sub" href={cfg.base}>‹ {s.name}</a>
+      <section class="card" style="align-items:center;text-align:center;gap:10px" {...(st === "Held" || st === "Opening" || !st ? { "data-poll-order": o.orderId } : {})}>
+        <span class={`dot ${step >= 1 ? "ok" : "now"}`} style="width:64px;height:64px"><Icon n={step >= 1 ? "check" : "lock"} s={32} /></span>
+        <h1 class="t2">{st === "Released" ? "Done — thank you!" : st === "Delivered" ? "Shipped — confirm when you get it" : st === "Held" ? "Paid — safe in escrow" : st === "Refunded" ? "Refunded" : "Waiting for payment…"}</h1>
+        <span class="sub muted">{o.amount} · {o.title} · {s.name}</span>
+      </section>
+      <section class="card" style="gap:0">
+        {rows.map(([t, d], i) => (
+          <div class="row" style={`gap:12px;padding:${i ? "14px" : "0"} 0 0 0`}>
+            <span class={`dot ${i < step ? "ok" : i === step ? "now" : "todo"}`}>{i < step ? <Icon n="check" s={14} /> : <span class="cap b">{i + 1}</span>}</span>
+            <span class="stack" style="gap:2px"><span class={`callout b ${i > step ? "muted" : ""}`}>{t}</span><span class="foot muted">{d}</span></span>
+          </div>))}
+      </section>
+      {st === "Delivered" ? <div class="stack s12"><button class="btn block" data-order-action="accept" data-order={o.orderId}><Icon n="check" />I got it — release payment</button><button class="btn secondary block" data-order-action="request_refund" data-order={o.orderId}>Problem — request a refund</button></div> : null}
+      <output id="order-msg" class="foot"></output>
+      <div class="card proof" style="flex-direction:row;gap:10px;align-items:center"><Icon n="shield" c="#007A4F" /><span class="stack" style="gap:2px"><span class="foot b proof-t">Escrow on NEAR · {cfg.orders}</span><span class="cap muted">Order {o.orderId} — anyone can check it on the NEAR explorer</span></span></div>
+    </Shell>
+  );
+};

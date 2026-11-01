@@ -243,7 +243,8 @@ const app = createApp({
     const posts = (await cs.listPosts(handle, { status: ["published"], limit: 8 }));
     const fmt = (u: string) => `${formatUnits(u, config.token.decimals)} ${config.token.symbol}`;
     return {
-      handle, name: b.name, account: `${handle}.${accounts.root}`, summary: prof?.summary ?? b.description, orders: 0,
+      handle, name: b.name, account: `${handle}.${accounts.root}`, summary: prof?.summary ?? b.description,
+      orders: (await store.listOrders(handle, 500)).filter((o) => ["paid", "in_progress", "delivered", "released"].includes(o.state)).length,
       items: items.map((i) => ({ id: i.id, title: i.title, description: i.description, price: fmt(i.priceUnits), kind: i.kind, options: i.options as string[], img: i.photoMediaId ? `/files/${handle}/public/item-${i.id}.jpg` : null })),
       posts: posts.map((p) => ({ caption: p.caption ?? "", img: (p.idea as { publicImage?: string }).publicImage ? `/files/${(p.idea as { publicImage: string }).publicImage}` : null, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null })),
     };

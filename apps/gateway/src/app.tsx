@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Hono, type Context } from "hono";
-import { ItemPage, StorePage } from "./ui/store.js";
+import { ItemOrderPage, ItemPage, StorePage } from "./ui/store.js";
 import { secureHeaders } from "hono/secure-headers";
 import { handleFromHost, type HandleRecord, type PaymentRail, type DryQuote } from "@nearchant/near";
 import { formatUnits, type GatewayConfig } from "./config.js";
@@ -214,6 +214,8 @@ export function createApp(d: Deps) {
       stepsDone: p.stepsDone, files: p.files, stopped: p.stopped, item: row.serviceId.startsWith("i-"),
     };
     const base = c.req.path.startsWith("/h/") ? `/h/${h.handle}/` : "/";
+    const sf = o.item && d.storefront ? await d.storefront(h.handle).catch(() => null) : null;
+    if (sf) return c.html(<ItemOrderPage s={sf} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, network: d.client.network }} test={d.config.token.test} o={{ orderId: o.orderId, title: o.serviceTitle, amount: o.amountDisplay, chainStatus: o.chainStatus }} />);
     return c.html(<OrderPage o={o} base={base} cfg={d.client} testToken={d.config.token.test} />);
   });
 

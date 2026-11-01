@@ -21,7 +21,7 @@ log(`ship: ${ship.status}`);
 await page.reload(); await page.waitForSelector("button[data-order-action=accept]", { timeout: 300_000 });
 log("delivered on chain"); await page.screenshot({ path: `${shots}/delivered.png`, fullPage: true });
 await page.click("button[data-order-action=accept]");
-await page.waitForFunction(() => /Released/.test(document.body.innerText), null, { timeout: 180_000 });
+await page.waitForFunction(() => /Released|Done — thank you/.test(document.body.innerText), null, { timeout: 180_000 });
 log("accepted → Released"); await page.screenshot({ path: `${shots}/released.png`, fullPage: true });
 console.log("errors:", errors.length ? errors : "none");
 await browser.close();
