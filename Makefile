@@ -1,10 +1,16 @@
 CONTRACTS := nusd handles proof-log orders billing escrow-policy
 COMPOSE := docker compose -f deploy/local/compose.yaml
 
-.PHONY: help contracts test-contracts build test up down logs doctor
+.PHONY: help demo contracts test-contracts build test up down logs doctor
 
 help: ## list targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
+
+demo: ## full deck pipeline on recorded model answers (Docker only) → .media/demo-beanbox/deck.{pdf,pptx,html}
+	mkdir -p .media
+	NEARCHANT_SECRET_KEY=demo-not-used-0000000000000000000000 $(COMPOSE) --profile demo run --rm --build demo
+	$(COMPOSE) --profile demo stop demo-renderer >/dev/null
+	@ls -la .media/demo-beanbox/
 
 contracts: ## build every contract to contracts/target/near/<name>/<name>.wasm
 	@set -e; for c in $(CONTRACTS); do (cd contracts/$$c && cargo near build non-reproducible-wasm); done

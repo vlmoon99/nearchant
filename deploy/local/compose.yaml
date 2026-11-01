@@ -56,6 +56,25 @@ services:
     profiles: [tunnel]
     restart: unless-stopped
 
+  # `make demo`: the whole deck pipeline on recorded model answers (ADR 0013). No keys, no GPU, no chain writes.
+  demo:
+    image: nearchant/app:dev
+    build: { context: ../.., dockerfile: deploy/Dockerfile }
+    command: ["node", "apps/worker/dist/cli.js"]
+    environment:
+      REPLAY_DIR: /app/fixtures/replay/deck-demo
+      ORDER_ID: demo-beanbox
+      RENDERER_URL: http://demo-renderer:8080
+      MEDIA_DIR: /app/.media
+    volumes: ["../../fixtures:/app/fixtures:ro", "../../.media:/app/.media"]
+    depends_on: [demo-renderer]
+    profiles: [demo]
+  demo-renderer:
+    image: marpteam/marp-cli@sha256:3cf660df7b9737f875e57f7169dff0b08d1d3ab604ea2d655ab761102942fa42
+    command: ["--server", "--allow-local-files", "."]
+    volumes: ["../../.media:/home/marp/app"]
+    profiles: [demo]
+
 volumes:
   db: {}
   media: {}

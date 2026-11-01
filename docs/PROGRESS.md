@@ -82,9 +82,41 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   + in-browser signing); `onPaid` doesn't start the swarm yet.
 - **Next:** Postgres store (Drizzle, pgvector, compose), then the swarm engine and deck producer.
 
+## 2026-11-01 00:00–01:00 UTC — swarm live, delivery path, billing, compose; repo public
+
+- **Done:**
+  - `packages/db` (Postgres/Drizzle: store, artifacts, envelopes, outbox, sealed secrets), `packages/swarm`
+    (agent env loader, role asker with JSON repair + seat fallback, 8-step deck pipeline, deterministic deck
+    checks), `packages/billing` (usage records with integer math, Merkle batches + proofs).
+  - `envs/deck-seller`: roles + prompts as data. Second seat `z-ai/glm-5.3-flash` (ADR 0017).
+  - `apps/worker`: graphile-worker `deck_step` per step, `outbox_drain` (deliver = `proofs.record` +
+    `orders.mark_delivered` signed by the seller's sealed agent keys; `billing.settle`), `billing_settle` cron.
+    CLI for live runs and recordings; SearXNG search (recorded for replays); Marp server rendering.
+  - `apps/gateway`: Postgres store, swarm job on paid, sponsored buyer wallets (implicit accounts, rate-limited),
+    browser checkout bundle (buyer signs payment / accept / revision), order page with live progress + preview +
+    downloads, `/media`, A2A agent card.
+  - Testnet: **`alice.nearchant.testnet`** created via `claim_for` (owner key in Keychain `NC_SELLER_alice_OWNER`,
+    3 function-call agent keys sealed in Postgres), 100 nUSD, billing balance 20 nUSD.
+  - Router: live prices from the NEAR AI catalog; per-model attestation cache that no longer trips the endpoint
+    breaker.
+  - `deploy/Dockerfile`, `deploy/local/compose.yaml` (db, gateway, worker, renderer, optional tunnel, demo
+    profile), `Makefile` (`demo`, `up`, `test`, `test-contracts`, `doctor`). README draft.
+  - Repo made **public** after a full-history secret scan (no key values found).
+- **Verified:** tests — contracts 25, providers 9, near 4, db 6, swarm 9, billing 2, gateway 8. Live runs on real
+  models: full pipeline brief → research (live web) → council → write → FLUX cover → review in 2–9 minutes;
+  FLUX cover checked by eye. Found + fixed live: GLM token budget on long prompts; DeepSeek/Kimi have no NEAR AI
+  attestation (router correctly refused private data; ADR 0017); reviewer too strict on derived arithmetic.
+- **Not verified yet:** a deck passing review end to end + render + on-chain delivery through gateway + worker;
+  the browser checkout in a real browser; billing settlement on testnet; `make demo` from recordings; the Docker
+  stack running (image builds).
+- **Next:** finish the recorded demo run → `make demo`; full E2E (gateway + worker + browser) on alice; settle a
+  billing batch on testnet; then Telegram bots, market listing, flow 3, Phala.
+
 ### Owner actions
 - ~~`gx10-8695`: add `server` to the docker group~~ — done 2026-10-31; Docker 29.6 + GPU in containers verified.
 - Testnet NEAR: root has ~7.9 NEAR after deploying; each sponsored shop costs ~0.2 NEAR. I'll top up from the
   faucet as needed.
 - Phala Cloud account with credit, needed by ~8 Nov.
 - Cloudflare: a tunnel token for `*.nearchant.com` (or API token so I can create it), needed by ~6 Nov.
+- `gx10-c3c8` / inference_system: its own engines are off; its config still lists the reinstalled `dgx-spark-2`
+  (now `gx10-8695`) as node1. Nearchant doesn't depend on it; fix in that repo when convenient.
