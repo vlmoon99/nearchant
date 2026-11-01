@@ -48,7 +48,9 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
     (video model + Kokoro-style English TTS, no uk/ru). Needs a GPU decision: gx10-8695 can't hold LLM + image +
     video at once; options are the second Spark (`gx10-c3c8`, Boost Content's box — owner's call) or time-sharing.
 14. [ ] **NEAR AI TEE at the end**: switch text to NEAR AI TEE models (`providers.yaml`), attestation in proofs,
-    a short paid test within the ~$2 credit; Phala deploy if the owner provides the account.
+    a paid test (owner topped up +$20 on 1 Nov); Phala deploy if the owner provides the account. For the full-cloud
+    production profile, pick the model per task with NEAR AI's **Levanto Sage 1.4** router ("Decisions", private TEE,
+    $0.07 in / $2 out per M, 32K context) — production only; local/dev keeps one LLM.
 
 ## Status
 

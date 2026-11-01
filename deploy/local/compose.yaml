@@ -84,6 +84,14 @@ services:
     profiles: [gpu]
     restart: unless-stopped
 
+  image-cloud: # Mac / no-GPU hosts: the same image API rendering on Comfy Cloud (`COMPOSE_PROFILES=cloudimage`)
+    build: { context: ../image-engine/service }
+    image: nearchant/image:dev
+    environment: { IMAGE_BACKEND: comfy_cloud, COMFY_API_KEY: "${COMFY_API_KEY:-}", IMAGE_QUALITY: medium, MODEL_NAME: qwen-image-edit, API_KEY: "${IMAGE_API_KEY:-}" }
+    networks: { default: { aliases: [image] } }
+    profiles: [cloudimage]
+    restart: unless-stopped
+
   tailnet:    # optional: serve the gateway on a tailnet IP. `COMPOSE_PROFILES=tailnet TAILNET_IP=100.x.y.z`
     # Binding the gateway itself to the tailnet IP fails at boot when Docker starts before Tailscale, and Docker
     # never retries a failed bind. The gateway stays on 127.0.0.1; this forwarder restarts until the IP exists.

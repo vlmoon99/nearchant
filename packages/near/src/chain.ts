@@ -62,7 +62,10 @@ export class Chain {
       try {
         return await fn(this.relayerAccount);
       } catch (e) {
-        const msg = String((e as Error)?.message ?? e) + JSON.stringify(e ?? {});
+        // near-api-js errors carry BigInt fields: a plain JSON.stringify throws and would hide the real error.
+        let detail = "";
+        try { detail = JSON.stringify(e ?? {}, (_k, v) => (typeof v === "bigint" ? v.toString() : v)); } catch { /* keep the message */ }
+        const msg = String((e as Error)?.message ?? e) + detail;
         if (attempt >= 4 || !/nonce/i.test(msg)) throw e;
         this.relayerAccount = new Account(this.relayerAccount.accountId, this.provider, this.relayerSigner);
         await new Promise((r) => setTimeout(r, 300 + Math.random() * 700));

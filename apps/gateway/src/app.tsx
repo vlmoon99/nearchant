@@ -77,7 +77,7 @@ export function createApp(d: Deps) {
   const pageHeaders = secureHeaders({
     // connect-src: the buyer's browser signs and sends transactions to the configured NEAR RPCs only.
     contentSecurityPolicy: {
-      defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", "data:", "https:"], frameAncestors: ["'none'"],
+      defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", "data:", "blob:", "https:"], frameAncestors: ["'none'"],
       connectSrc: ["'self'", ...new Set([d.client.rpcUrl, ...d.config.rpc_urls].map((u) => new URL(u).origin))],
       frameSrc: ["'self'"],
     },

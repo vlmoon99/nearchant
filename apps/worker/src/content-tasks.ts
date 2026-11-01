@@ -120,7 +120,8 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
       try {
         const input: Record<string, unknown> = { prompt: dr.image_prompt || dr.angle, n: 1, size: "1024x1280" };
         if (src) input.image_b64 = (await photoDataUrl(join(d.mediaDir, src.key))).split(",", 2)[1];
-        const env = await d.router.call({ capability: "image.generate", dataClass: "private", input, timeoutMs: 240_000 });
+        // Product photos for posts that will be published: public data, so a cloud renderer (Comfy Cloud) may take them.
+        const env = await d.router.call({ capability: "image.generate", dataClass: "public", input, timeoutMs: 300_000 });
         await d.envelopes.add(`content:${handle}:render`, "render", d.accountOf(handle), env);
         const b64 = (env.output as { images?: { b64?: string }[] }).images?.[0]?.b64;
         if (b64) {

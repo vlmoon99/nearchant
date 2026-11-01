@@ -420,6 +420,25 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   that refuses to start when free memory is low. Video stays paused until that is verified.
 - Lesson: never run an uncapped LTX render on a machine that hosts other services.
 
+## 2026-11-01 ~19:10 UTC — Sparks offline → the Mac serves nearchant.com (NEAR AI TEE + Comfy Cloud)
+
+- Owner asked to switch while the Sparks are down. The Mac runs the same compose stack (`deploy/local`,
+  git-ignored `.env` written from the Keychain) with `PROVIDERS_FILE=providers.mac.yaml`: text + vision on NEAR AI
+  TEE (Qwen3.6-35B FP8), images on Comfy Cloud through our image service (`image-cloud` service,
+  `IMAGE_BACKEND=comfy_cloud`; key found in Boost Content's Mac config, now in the Keychain as `COMFY_API_KEY`).
+  The tunnel connects from the Mac. Image renders are sent as public data (photos for posts that get published);
+  private data still only goes to TEE/local endpoints.
+- Fixed on the way: shop creation failed — the root `nearchant.testnet` lacked storage balance (sent 1 NEAR from
+  the relayer), and our chain client's retry crashed stringifying BigInt errors, hiding the real error; Mac media
+  volume had the wrong owner; CSP now allows `blob:` images (photo previews before upload).
+- **Verified**: `e2e/onboard.mjs` on `https://nearchant.com` served from the Mac — store → NEAR AI analysis →
+  opportunities → 3 posts with Comfy Cloud pictures (Fair Isle sweater on a model in an autumn forest, linen dress
+  flat-lay) → scheduled → live, 230 s, no page errors.
+- Owner topped up NEAR AI (+$20) and pointed at Levanto Sage 1.4 (model router) for the production cloud profile
+  → noted in step 14.
+- **When the Sparks come back**: their tunnel container restarts too — two connectors with different databases
+  would split traffic. Stop one side first (keep the Mac until the Spark DB is reconciled, or move back).
+
 ### Owner actions
 - **URGENT (1 Nov ~18:00 UTC): all three Sparks offline** (no ping/SSH; nearchant.com 530) — likely power or
   network at the site. `gx10-c3c8` went silent first (~17:30, during a video render). Check power/network; power-
@@ -439,6 +458,6 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - ~~HF token~~ — given 1 Nov (Keychain `HF_TOKEN`).
 - ~~GPU for video~~ — decided 1 Nov: `gx10-c3c8` (own containers; inference_system untouched).
 - Third Spark: send its tailnet IP (and make sure `server` is in the docker group) to move the LLM or images there.
-- NEAR AI credit ~$2: top up before step 14 of `docs/m1-plan.md` (end of the build).
+- ~~NEAR AI credit~~ — topped up +$20 on 1 Nov.
 - `gx10-c3c8` / inference_system: its own engines are off; its config still lists the reinstalled `dgx-spark-2`
   (now `gx10-8695`) as node1. Nearchant doesn't depend on it; fix in that repo when convenient.
