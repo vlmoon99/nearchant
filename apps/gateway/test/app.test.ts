@@ -37,6 +37,26 @@ async function setup(chain: Record<string, OrderStatus | null> = {}) {
 
 const host = (h: string, extra: Record<string, string> = {}) => ({ headers: { host: h, ...extra } });
 
+describe("home page", () => {
+  it("serves the landing at the bare domain when one is configured, a store page on a store host", async () => {
+    const { store } = await setup();
+    const { LandingPage } = await import("../src/ui/landing.js");
+    const cfg = { base: "/", rpcUrl: "https://rpc", network: "testnet", token: "nUSD", decimals: 6, storeBase: "nearchant.com" };
+    const app = createApp({
+      config, store, rail: { id: "fake", instruction: () => ({}) as never, status: async () => null }, onPaid: async () => {}, client: { rpcUrl: "https://rpc", orders: "orders.nearchant.testnet", network: "testnet" },
+      handles: { get: async (h) => (h === "alice" ? alice : null) },
+      landing: async () => LandingPage({ cfg, test: true, d: { posts: [], stats: { proofs: 18, paidOrders: 6, stores: 4 }, verifyHref: null, limits: { free: { posts: 12, images: 12 }, pro: { posts: 150, images: 300 } } } }),
+    });
+    const home = await app.request("http://x/", host("nearchant.com"));
+    expect(home.status).toBe(200);
+    const html = await home.text();
+    expect(html).toContain("Posts that sell.");
+    expect(html).toContain("18 posts");           // real counts, not the mockup's
+    expect(html).not.toContain("See a verified post"); // no verified post yet → no button
+    expect((await app.request("http://x/", host("alice.nearchant.com"))).status).toBe(200);
+  });
+});
+
 describe("seller card", () => {
   it("renders the card for <handle>.<base> and /h/<handle>", async () => {
     const { app } = await setup();

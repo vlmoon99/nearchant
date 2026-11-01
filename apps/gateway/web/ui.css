@@ -121,3 +121,37 @@ label.field { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
 .onb-bottom { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 20px calc(20px + env(safe-area-inset-bottom)); background: var(--bg); display: grid; gap: 10px; justify-items: center; }
 .onb-bottom .btn { width: 100%; max-width: 440px; }
 .confetti { height: 80px; position: relative; } .confetti i { position: absolute; width: 8px; height: 14px; border-radius: 2px; }
+
+/* Landing (Figma "Landing", 21:674): 1440 desktop with 120 px gutters, one column on phones. */
+.land { min-height: 100vh; }
+.land-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px clamp(16px, 8.3vw, 120px); border-bottom: 1px solid var(--sep); }
+.land-logo { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; color: var(--label); }
+.land-links { display: flex; gap: 32px; } .land-links a { color: var(--label); }
+.land-hero { display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 88px clamp(16px, 8.3vw, 120px) 72px; text-align: center; }
+.land-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 600; }
+.land-h1 { font-size: 72px; font-weight: 700; letter-spacing: -2.4px; line-height: 1.12; margin: 0; }
+.land-lead { font-size: 20px; letter-spacing: -.2px; line-height: 1.3; color: var(--label-2); max-width: 860px; margin: 0; }
+.land-peek { display: flex; gap: 20px; padding: 24px; border-radius: 28px; background: var(--bg-2); text-align: left; flex-wrap: wrap; justify-content: center; }
+.land-post { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 18px; background: var(--bg); color: var(--label); width: 244px; align-items: flex-start; }
+.land-img { width: 220px; height: 220px; border-radius: 12px; background-size: cover; background-position: center; }
+.land-stats { display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 18px; background: var(--bg); width: 240px; }
+.land-insight { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 12px; background: var(--bg-2); }
+.land-sec { display: flex; flex-direction: column; align-items: center; gap: 32px; padding: 72px clamp(16px, 8.3vw, 120px); text-align: center; }
+.land-pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; width: 100%; text-align: left; }
+.land-pillar { display: flex; flex-direction: column; gap: 12px; padding: 28px; border-radius: 22px; background: var(--bg-2); }
+.land-ic { width: 44px; height: 44px; border-radius: 12px; background: var(--bg); display: grid; place-items: center; color: var(--accent); }
+.land-trust { display: flex; gap: 40px; align-items: center; padding: 48px clamp(16px, 8.3vw, 120px); background: var(--near-ink); color: #fff; }
+.land-plans { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; text-align: left; }
+.land-plan { display: flex; flex-direction: column; gap: 14px; padding: 28px; border-radius: 22px; background: var(--bg-2); width: 340px; max-width: 100%; }
+.land-plan.dark { background: #1d1d1f; color: #fff; }
+.land-item { display: flex; gap: 8px; align-items: center; font-size: 15px; letter-spacing: -.1px; }
+.land-foot { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 24px clamp(16px, 8.3vw, 120px); background: var(--bg-2); }
+@media (max-width: 899px) {
+  .land-links { display: none; }
+  .land-hero { padding-top: 48px; }
+  .land-h1 { font-size: 40px; letter-spacing: -1px; }
+  .land-lead { font-size: 17px; }
+  .land-peek { padding: 16px; } .land-post, .land-stats { width: 100%; } .land-img { width: 100%; height: auto; aspect-ratio: 1; }
+  .land-pillars { grid-template-columns: 1fr; }
+  .land-trust { flex-direction: column; align-items: flex-start; }
+}

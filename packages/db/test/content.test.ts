@@ -7,6 +7,21 @@ beforeAll(async () => { conn = await freshDb(); });
 afterAll(async () => { await conn?.drop(); });
 
 describe("ContentStore", () => {
+  it("showcase lists only published posts with a proof and a public picture, newest first", async () => {
+    const c = new ContentStore(conn.db);
+    await c.upsertBusiness({ handle: "show", name: "Show Shop" });
+    const { ids } = await c.createPosts("show", [{}, {}, {}]);
+    await c.updatePost(ids[0]!, { status: "published", caption: "Old", publishedAt: new Date(Date.now() - 60_000), proof: { proofId: "7" }, idea: { publicImage: "show/public/a.png" } });
+    await c.updatePost(ids[1]!, { status: "published", caption: "New", publishedAt: new Date(), proof: { proofId: "8" }, idea: { publicImage: "show/public/b.png" } });
+    await c.updatePost(ids[2]!, { status: "published", caption: "No proof", publishedAt: new Date(), idea: { publicImage: "show/public/c.png" } });
+    const sc = await c.showcase(3);
+    expect(sc.posts.filter((p) => p.handle === "show").map((p) => p.caption)).toEqual(["New", "Old"]);
+    expect(sc.posts.find((p) => p.caption === "New")).toMatchObject({ proofId: "8", publicImage: "show/public/b.png", storeName: "Show Shop" });
+    expect(sc.proofs).toBeGreaterThanOrEqual(2);
+    expect(sc.stores).toBeGreaterThanOrEqual(1);
+    expect(typeof sc.paidOrders).toBe("number");
+  });
+
   it("keeps a business, its profile and the facts found while analysing", async () => {
     const c = new ContentStore(conn.db);
     await c.upsertBusiness({ handle: "nova", name: "Nova Wear", kind: "products", description: "Relaxed clothes", links: ["instagram.com/novawear"] });

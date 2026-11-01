@@ -164,6 +164,22 @@ export class ContentStore {
   }
 
   /** Sales (count + summed amount in token units) since `days` ago, from `sale` events. */
+  /** The public home page: platform-wide counts and the latest published posts that have a proof on NEAR. */
+  async showcase(limit = 3): Promise<{ proofs: number; stores: number; paidOrders: number; posts: { id: string; handle: string; caption: string; publicImage: string | null; proofId: string | null; storeName: string }[] }> {
+    const [counts] = (await this.db.execute(sql`select
+      (select count(*) from posts where proof is not null)::int as proofs,
+      (select count(*) from businesses)::int as stores,
+      (select count(*) from orders where state in ('paid', 'in_progress', 'delivered', 'released'))::int as paid_orders`)) as unknown as { proofs: number; stores: number; paid_orders: number }[];
+    const rows = await this.db.select({ id: s.posts.id, handle: s.posts.handle, caption: s.posts.caption, idea: s.posts.idea, proof: s.posts.proof, name: s.businesses.name })
+      .from(s.posts).innerJoin(s.businesses, eq(s.businesses.handle, s.posts.handle))
+      .where(and(eq(s.posts.status, "published"), sql`${s.posts.proof} is not null`, sql`${s.posts.idea}->>'publicImage' is not null`))
+      .orderBy(desc(s.posts.publishedAt)).limit(limit);
+    return {
+      proofs: counts?.proofs ?? 0, stores: counts?.stores ?? 0, paidOrders: counts?.paid_orders ?? 0,
+      posts: rows.map((r) => ({ id: r.id, handle: r.handle, caption: r.caption ?? "", publicImage: (r.idea as { publicImage?: string }).publicImage ?? null, proofId: (r.proof as { proofId?: string } | null)?.proofId ?? null, storeName: r.name })),
+    };
+  }
+
   async salesSince(handle: string, days: number): Promise<{ count: number; units: bigint }> {
     const since = new Date(Date.now() - days * 86_400_000);
     const rows = await this.db.select({ data: s.events.data }).from(s.events).where(and(eq(s.events.handle, handle), eq(s.events.kind, "sale"), gte(s.events.createdAt, since)));

@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { makeWorkerUtils, type WorkerUtils } from "graphile-worker";
 import { parse } from "yaml";
-import { Artifacts, ContentStore, Envelopes, Outbox, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
+import { Artifacts, ContentStore, PLAN_LIMITS, Envelopes, Outbox, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
 import { TelegramApi, handleUpdate, type TgUpdate } from "./telegram.js";
 import { marketOrderId, type HireCreated } from "./market.js";
 import { formatUnits } from "./config.js";
@@ -14,6 +14,7 @@ import { loadAgentEnv, makeAsker, type AgentEnv } from "@nearchant/swarm";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
 import { createApp } from "./app.js";
 import { mountSellerApp } from "./seller-app.js";
+import { LandingPage } from "./ui/landing.js";
 import { mountUi } from "./ui/routes.js";
 import { labApp } from "./admin/lab.js";
 import { ComfyCloud, type LabVariant } from "@nearchant/providers";
@@ -143,7 +144,16 @@ const isOwnerKey = async (accountId: string, publicKey: string) => {
 };
 
 const mediaDir = process.env.MEDIA_DIR ?? join(configDir, "../.media");
+// The home page at nearchant.com: real counts and the latest posts with a proof on NEAR (ADR 0018, Figma Landing).
+const landingCfg = { base: "/", rpcUrl: config.rpc_urls[0] ?? "", network: config.network, token: config.token.symbol, decimals: config.token.decimals, storeBase: config.public_url.startsWith("https://") ? new URL(config.public_url).host : "" };
+const landing = conn ? async () => {
+  const sc = await new ContentStore(conn.db).showcase(3);
+  const posts = sc.posts.map((p) => ({ caption: p.caption, img: p.publicImage ? `/files/${p.publicImage}` : null, proofId: p.proofId, store: p.storeName, href: `/h/${p.handle}/`, line: `${p.storeName}${p.proofId ? ` · proof #${p.proofId}` : ""}` }));
+  return LandingPage({ cfg: landingCfg, test: config.token.test, d: { posts, stats: { proofs: sc.proofs, paidOrders: sc.paidOrders, stores: sc.stores }, verifyHref: posts[0]?.href ?? null, limits: { free: PLAN_LIMITS.free!, pro: PLAN_LIMITS.pro! } } });
+} : undefined;
+
 const app = createApp({
+  ...(landing ? { landing } : {}),
   config,
   handles,
   store,

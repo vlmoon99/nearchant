@@ -61,6 +61,8 @@ export interface Deps {
   /** Store the buyer's "what to change" note for a revision (read by the write step). */
   saveRevisionNote?: (orderId: string, note: string) => Promise<void>;
   /** Content stores (ADR 0018): the buyer storefront data, or null for a classic card. */
+  /** nearchant.com home page (no store in the host): rendered landing; unset → redirect to the dashboard. */
+  landing?: () => Promise<unknown>;
   storefront?: (handle: string, view?: { source: string | null; itemId?: string }) => Promise<import("./ui/store.js").StoreData | null>;
   /** Job progress + files of an order (from the artifacts table). */
   progress?: (orderId: string) => Promise<{ stepsDone: string[]; files: { kind: string; url: string }[]; stopped: string | null }>;
@@ -137,7 +139,7 @@ export function createApp(d: Deps) {
 
   seller.get("/", async (c) => {
     const h = c.get("handle");
-    if (!c.get("handleName")) return c.redirect(d.config.dashboard_origin, 302);
+    if (!c.get("handleName")) return d.landing ? c.html((await d.landing()) as string) : c.redirect(d.config.dashboard_origin, 302);
     if (!h) return c.html(<NotFoundPage testToken={d.config.token.test} />, 404);
     const base = c.req.path.startsWith("/h/") ? `/h/${h.handle}/` : "/";
     // A visit is counted for analytics; ?ref=telegram (from share links) says where it came from.
