@@ -38,6 +38,17 @@ Alice sells **"Pitch deck in 1 hour — 5 nUSD"** at `alice.nearchant.com`.
 
 ## Run it
 
+### 0. The one-command demo (Docker only — no accounts, no GPU, no keys)
+
+```bash
+make demo
+```
+
+Runs the whole agent pipeline (brief → research → council → fact-check → write → cover image → review → render)
+on **recorded answers from a real run** (Qwen3.6-35B on the seller's GPU + GLM-5.3 and FLUX.2 on NEAR AI Cloud
+TEE). It takes ~3 seconds after the image builds and writes `.media/demo-deck/deck.pdf`, `deck.pptx`, `deck.html`
+and `artifacts.json` (every step's output: dossier with sources, council debate, review rounds, proof entry).
+
 ### 1. Contracts only (no setup beyond Rust)
 
 ```bash
@@ -56,8 +67,15 @@ pnpm -r build
 pnpm -r test                                             # unit + integration tests (Postgres needed for packages/db)
 ```
 
-> The one-command `make demo` (full loop with recorded model answers, no accounts or GPU) is being finished —
-> see `docs/PROGRESS.md`.
+### 3. The live product on your machine
+
+`scripts/dev.sh gateway` and `scripts/dev.sh worker` run the real thing against testnet (they read keys from the
+macOS Keychain — see `deploy/local/.env.example` for what's needed). Then:
+
+- `http://alice.localhost:8787/` — Alice's shop: order a deck, pay with a free sponsored test wallet, watch the
+  agents work on the order page, accept to release the escrow.
+- `http://localhost:8787/new` — create your own shop in a minute.
+- `apps/gateway/e2e/buy-deck.mjs` and `create-shop.mjs` drive both flows in a real browser (installed Chrome).
 
 ## How it is built
 

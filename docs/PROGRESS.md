@@ -162,6 +162,18 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - **Not verified:** a real Telegram bot (needs a BotFather token — owner action); `make demo` (recording again
   after a reviewer JSON failure crashed the previous one).
 
+## 2026-11-01 ~02:00 UTC — make demo green, market integration, redaction
+
+- **Done:** deterministic redaction after the last review round (reviewer quotes offending text; those lines are
+  removed; ship only if hard checks pass). NEAR AI Agent Market integration (signed `hire.created` webhook →
+  same swarm; deliver = proof on NEAR + `submit` to the market). Curated recording `fixtures/replay/deck` and
+  `make demo`.
+- **Verified:** live recording run passed review 6 → 8 in 256 s (16 calls). `make demo` (Docker, no keys) replayed
+  all 16 calls in 3 s and produced the **identical** deck (output hash `13ee9e3e…`), PDF/PPTX/HTML. Tests: gateway 15,
+  swarm 13.
+- **Next:** run the stack on gx10-8695 in Docker (ADR 0007 primary), tunnel `*.nearchant.com` (needs Cloudflare
+  token), Phala standby (needs account), README polish + video script.
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
