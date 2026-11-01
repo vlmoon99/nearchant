@@ -239,6 +239,24 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   service (SearXNG pinned by digest, settings written at start so no mounted files are needed — works in a CVM) to
   both compose files; `SEARXNG_URL` defaults to it. Verified: the compose service returns 20 JSON results.
 
+## 2026-11-01 ~05:40 UTC — the Phala configuration works end to end (cloud models only)
+
+- Ran the full deck pipeline from the Mac with `PROVIDERS_FILE=providers.cloud.yaml` (every call on NEAR AI TEE
+  models) and the bundled SearXNG: **delivered in 973 s, 32 model calls**, 12 slides + cover, 7 of 18 findings
+  with live web sources, review 4 → 7 → 8 (one GLM reviewer timeout fell back to Qwen as designed). Order
+  `cloud-check` (CLI, no chain).
+- Two bugs that only show up on cloud Qwen (the Spark's Qwen never hit them), both fixed with tests:
+  - The judge spent its whole budget in `reasoning_content` and returned `content: null` with no `finish_reason`,
+    so the "more room" retry never fired → an empty answer next to reasoning now counts as out of room; up to two
+    doublings. JSON failures now report finish reason + the start of the last answer.
+  - The image designer (400 tokens) never got past thinking → new `reasoning: false` role setting (request hint,
+    mapped by the OpenAI-compatible adapter to `chat_template_kwargs.enable_thinking=false`; verified on NEAR AI:
+    47 tokens, clean JSON). Kept out of the replay key: `make demo` deck hash unchanged.
+- Verified: all package tests (providers 10, swarm 19, gateway 16, …), `make demo` same hash, CI green on `fd13885`.
+- Not verified: the Phala CVM itself (needs the account); a paid order through the gateway on cloud-only config.
+- Next: when the Sparks are back, redeploy there (`git pull` + rebuild) and run `buy-deck.mjs`; point the Spark's
+  `SEARXNG_URL` at the bundled service so it no longer depends on `gx10-c3c8`.
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
