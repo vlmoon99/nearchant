@@ -13,6 +13,10 @@ services:
     image: nearchant/comfy:dev
     gpus: all
     oom_score_adj: 800    # if memory runs out, the kernel takes this render, not the production stack
+    # Hard cap. 2026-11-01: the box froze (unreachable on tailnet and LAN) during the 2nd consecutive 704x1280x121
+    # render with no cap; the 1st peaked at 41 GB used + ~64 GB page cache (mmapped weights). A cgroup limit
+    # covers host RAM and page cache; whether GB10 CUDA allocations count is unverified — re-measure before raising.
+    mem_limit: ${COMFY_MEM_LIMIT:-72g}
     environment: { PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True" }
     volumes:
       - ${LTX_MODELS:-/home/server/ComfyUI/models}/diffusion_models:/opt/ComfyUI/models/diffusion_models:ro
