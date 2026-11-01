@@ -163,6 +163,9 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   after a reviewer JSON failure crashed the previous one).
 
 ### Owner actions
+- Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
+  agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
+  secret it shows (needs the public tunnel URL first).
 - Telegram: create a bot with @BotFather and paste the token at `/h/alice/manage` (owner key is in the Keychain
   as `NC_SELLER_alice_OWNER`), or send it to me and I'll connect it.
 - ~~`gx10-8695`: add `server` to the docker group~~ — done 2026-10-31; Docker 29.6 + GPU in containers verified.
