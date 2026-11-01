@@ -1,0 +1,36 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: wasm32-unknown-unknown }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: contracts }
+      - run: cargo install cargo-near --version 0.22.0 --locked
+      - run: make test-contracts
+
+  typescript:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env: { POSTGRES_USER: nearchant, POSTGRES_PASSWORD: nearchant-dev, POSTGRES_DB: nearchant }
+        ports: ["55432:5432"]
+        options: --health-cmd "pg_isready -U nearchant" --health-interval 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: corepack enable && pnpm install --frozen-lockfile
+      - run: pnpm -r --filter "./packages/*" build && pnpm --filter @nearchant/gateway --filter @nearchant/worker build
+      - run: pnpm test
+
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make demo
+      - run: test -s .media/demo-deck/deck.pdf && test -s .media/demo-deck/deck.pptx

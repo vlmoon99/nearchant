@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
-  "description": "Metering: usage records from envelopes, Merkle batches, settlement against the billing contract (architecture.md §4).",
+  "description": "Metering: usage records from envelopes, Merkle batches, settlement against the billing contract (architecture.md \u00a74).",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -13,7 +13,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@nearchant/contracts": "workspace:*",

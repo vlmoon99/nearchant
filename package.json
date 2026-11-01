@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "test": "turbo run test",
+    "test": "pnpm -r --workspace-concurrency=1 test",
     "typecheck": "turbo run typecheck",
     "gen": "pnpm --filter @nearchant/contracts gen"
   },

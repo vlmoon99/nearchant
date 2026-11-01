@@ -4,11 +4,11 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "description": "Control-plane API: public + admin surfaces, seller cards, CORS, webhooks (architecture.md §9).",
+  "description": "Control-plane API: public + admin surfaces, seller cards, CORS, webhooks (architecture.md \u00a79).",
   "scripts": {
     "build": "tsc -p tsconfig.json && pnpm build:web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "start": "node dist/main.js",
     "build:web": "esbuild ./web/checkout.ts --bundle --format=esm --target=es2022 --platform=browser --alias:util=./web/util-shim.js --minify --outfile=dist/web/checkout.js"
   },
