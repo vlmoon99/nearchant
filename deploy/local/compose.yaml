@@ -44,7 +44,8 @@ services:
 
   renderer:   # Marp CLI in server mode; sees the same media volume (docs/swarm.md render step)
     image: marpteam/marp-cli@sha256:3cf660df7b9737f875e57f7169dff0b08d1d3ab604ea2d655ab761102942fa42
-    command: ["--server", "--allow-local-files", "."]
+    # Marp's server mode refuses a folder with no Markdown: seed a placeholder so a fresh volume works.
+    entrypoint: ["sh", "-c", "[ -f _renderer.md ] || echo '# renderer' > _renderer.md; exec docker-entrypoint --server --allow-local-files ."]
     environment: { MARP_USER: "1000:1000" }
     volumes: ["media:/home/marp/app"]
     restart: unless-stopped
@@ -72,7 +73,7 @@ services:
     profiles: [demo]
   demo-renderer:
     image: marpteam/marp-cli@sha256:3cf660df7b9737f875e57f7169dff0b08d1d3ab604ea2d655ab761102942fa42
-    command: ["--server", "--allow-local-files", "."]
+    entrypoint: ["sh", "-c", "[ -f _renderer.md ] || echo '# renderer' > _renderer.md; exec docker-entrypoint --server --allow-local-files ."]
     volumes: ["../../.media:/home/marp/app"]
     profiles: [demo]
 
