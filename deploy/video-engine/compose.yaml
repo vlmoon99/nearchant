@@ -1,0 +1,76 @@
+# Nearchant video + English voiceover engine (docs/video-plan.md, NOTICE.md). Runs on the second Spark gx10-c3c8,
+# beside Boost Content's production `inf-*`/`bc-*` stack, which this project never touches.
+#
+#   cd ~/nearchant-video/src/deploy/video-engine && docker compose -p ncvideo up -d --build
+#
+# ComfyUI has no published port (internal network only). video :8104 and tts :8105 listen on 127.0.0.1 and a
+# host-network socat forwards them to the tailnet IP (binding a tailnet IP directly fails when Docker starts
+# before Tailscale and Docker never retries). `.env` next to this file (git-ignored) holds VIDEO_API_KEY.
+name: ncvideo
+
+services:
+  comfy:      # headless ComfyUI for GB10 (image nearchant/comfy:dev from deploy/image-engine/comfy.Dockerfile)
+    image: nearchant/comfy:dev
+    gpus: all
+    oom_score_adj: 800    # if memory runs out, the kernel takes this render, not the production stack
+    environment: { PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True" }
+    volumes:
+      - ${LTX_MODELS:-/home/server/ComfyUI/models}/diffusion_models:/opt/ComfyUI/models/diffusion_models:ro
+      - ${LTX_MODELS:-/home/server/ComfyUI/models}/text_encoders:/opt/ComfyUI/models/text_encoders:ro
+      - ${LTX_MODELS:-/home/server/ComfyUI/models}/vae:/opt/ComfyUI/models/vae:ro
+      - ${LTX_MODELS:-/home/server/ComfyUI/models}/latent_upscale_models:/opt/ComfyUI/models/latent_upscale_models:ro
+      - ${NCVIDEO_HOME:-/home/server/nearchant-video}/comfy/input:/opt/ComfyUI/input
+      - ${NCVIDEO_HOME:-/home/server/nearchant-video}/comfy/output:/opt/ComfyUI/output
+    networks: [internal]
+    restart: unless-stopped
+
+  video:      # LTX-2.5 /generate (copy of advertisment_system gen-video)
+    build: { context: ./video }
+    image: nearchant/video:dev
+    environment:
+      COMFY_URL: http://comfy:8188
+      COMFY_INPUT: /comfy/input
+      COMFY_OUTPUT: /comfy/output
+      ASSETS_DIR: /data/assets
+      LTX_TEXT_ENCODER_DEVICE: cpu
+      API_KEY: ${VIDEO_API_KEY:?set VIDEO_API_KEY in .env}
+      HOST_NAME: gx10-c3c8
+    volumes:
+      - ${NCVIDEO_HOME:-/home/server/nearchant-video}/comfy/input:/comfy/input
+      - ${NCVIDEO_HOME:-/home/server/nearchant-video}/comfy/output:/comfy/output:ro
+      - ${NCVIDEO_HOME:-/home/server/nearchant-video}/assets:/data/assets
+    ports: ["127.0.0.1:8104:8104"]
+    networks: [internal, edge]
+    depends_on: [comfy]
+    restart: unless-stopped
+
+  tts:        # English Kokoro-82M + polish + faster-whisper /transcribe, CPU (copy of advertisment_system gen-tts)
+    build: { context: ./tts }
+    image: nearchant/tts:dev
+    environment:
+      ASSETS_DIR: /data/assets
+      KOKORO_ONNX: /weights/kokoro/kokoro-v1.0.onnx
+      KOKORO_VOICES: /weights/kokoro/voices-v1.0.bin
+      WHISPER_MODEL_DIR: /weights/whisper/base.en
+      API_KEY: ${VIDEO_API_KEY:?set VIDEO_API_KEY in .env}
+      HOST_NAME: gx10-c3c8
+    volumes:
+      - ${NCVIDEO_HOME:-/home/server/nearchant-video}/weights:/weights:ro
+      - ${NCVIDEO_HOME:-/home/server/nearchant-video}/assets:/data/assets
+    ports: ["127.0.0.1:8105:8105"]
+    networks: [edge]
+    restart: unless-stopped
+
+  tailnet:    # forwards TAILNET_IP:8104/8105 -> 127.0.0.1; restarts until the tailnet IP exists
+    image: alpine/socat@sha256:beb4a68d9e4fe6b0f21ea774a0fde6c31f580dde6368939ed70100c5385b015e
+    network_mode: host
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        socat TCP-LISTEN:8104,bind=${TAILNET_IP:-100.64.0.1},fork,reuseaddr TCP:127.0.0.1:8104 &
+        exec socat TCP-LISTEN:8105,bind=${TAILNET_IP:-100.64.0.1},fork,reuseaddr TCP:127.0.0.1:8105
+    restart: unless-stopped
+
+networks:
+  internal: { internal: true }
+  edge: {}

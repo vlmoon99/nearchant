@@ -1,0 +1,8 @@
+fastapi==0.115.12
+uvicorn==0.34.2
+kokoro-onnx==0.4.9
+faster-whisper==1.1.1
+av==18.0.0  # faster-whisper passes metadata_errors=, which PyAV 19 removed
+requests==2.32.3  # faster_whisper.utils imports it; the new huggingface-hub no longer pulls it in
+soundfile==0.13.1
+scipy==1.15.3
