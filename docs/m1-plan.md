@@ -44,6 +44,7 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
     numbers), first-week goal + checklist, first-sale celebration, Monday report; wallet from chain views.
 13. [x] **Public URL + polish**: tunnel routes live (owner adds hostnames), end-to-end browser test of onboarding →
     post → buy → release; `make demo` replay updated to the new story; README + demo script.
+13a. [x] **Landing at nearchant.com** (Figma "Landing", missed in the first build order; done 1 Nov).
 13b. [x] **Stretch: video posts + English voiceover** (owner request 1 Nov): port from `advertisment_system` (details: `docs/video-plan.md`)
     (video model + Kokoro-style English TTS, no uk/ru). Needs a GPU decision: gx10-8695 can't hold LLM + image +
     video at once; options are the second Spark (`gx10-c3c8`, Boost Content's box — owner's call) or time-sharing.

@@ -672,6 +672,22 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Not done: a side-by-side quality review of Qwen3.8 vs Qwen3.6 posts with the owner; the first download stalled
   (HF client), finished with curl resume.
 
+## 2026-11-01 19:30 UTC — the nearchant.com home page (Figma "Landing") was missing
+
+- Owner: "I can't see my Figma design on nearchant.com". Cause: `/` on the platform host redirected to
+  `app.nearchant.com`, which resolves as a store called "app" → "No shop here". The build order had no line for
+  the Landing frame (21:674), only onboarding (`/start`) — a gap in m1-plan, not a cut.
+- Built `src/ui/landing.tsx` + `.land-*` styles from the Figma frame (nav, hero, peek, three pillars, trust band,
+  pricing, footer; responsive). Shown honestly: numbers are real (`ContentStore.showcase`: posts with a proof,
+  paid orders, stores); peek shows the latest published posts with a proof, empty slots are labelled
+  "Example"; "we create your NEAR account for you" (no email sign-up exists); Pro "Coming soon" with the real
+  150/300 limits; no fee figure; no Privacy/Terms links until those pages exist.
+- Found on the way: Cloudflare cached `/assets/ui.css` for up to 4 h, so style changes reached users late → all
+  asset links now carry a content hash (`?v=`).
+- **Verified** on nearchant.com in Chrome at 1440 and 393 px: layout matches the Figma frame, no horizontal scroll,
+  no page errors; `/`, `/start`, store page load the new CSS. Tests: gateway 33 (landing at the bare domain, store
+  host unaffected, labelled examples, word-safe captions), db 14 (showcase).
+
 ### Owner actions
 - Optional: a Brave Search API key (free tier) for reliable trend opportunities — self-hosted search is blocked
   from the home network right now.
