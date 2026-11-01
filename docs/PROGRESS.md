@@ -783,6 +783,21 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   Receive/Withdraw buttons yet (not built), the app keeps its own top bar (the Figma frame shows the browser's).
 - Next: "Connect a NEAR wallet" (Figma onboarding 1).
 
+## 2026-11-02 00:30 UTC — store grid in Safari; onboarding sizes; onboarding polling fix
+
+- Owner (screenshot, Safari): store "Latest posts" overlapped — a tall video card stretched the row and Safari
+  sized the aspect-ratio pictures from that height; badges stretched; "Safe to buy" text overflowed. Fixed:
+  grid items start-aligned, pictures take the column width, all post cards 4:5 (video too), badges keep their
+  size, flex text can shrink, captions clamp to 3 lines. **Verified** with WebKit (Safari's engine, now
+  installed for playwright) and Chrome at 1000 and 393 px: no overlap, badges 23 px, no horizontal scroll.
+- Onboarding sizes per Figma: 72 px photo tiles in one row with "+", compact opportunity cards (2-line why, check
+  circle), first-post rows with 2-line titles and an "Edit first" link. **Verified** in Chrome desktop (card
+  layout) and WebKit at phone size.
+- Found while verifying: the first-posts watch stopped on any failed request (here: my gateway redeploys during
+  the test) and "Schedule all" stayed disabled forever. The watch and the opportunities load now retry. A clean
+  run: posts ready ~90 s after "make my posts", button enabled, onboarding completed.
+- Seen: Cloudflare injects its Web Analytics beacon, which our CSP blocks (console error only).
+
 ### Owner actions
 - Email sign-up (Figma onboarding 1): say if you want it, and give an email provider key (e.g. Resend or Postmark)
   — I'll add "Continue with email" login links. "Connect a NEAR wallet" I can build without anything from you.
