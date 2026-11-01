@@ -61,7 +61,7 @@ export interface Deps {
   /** Store the buyer's "what to change" note for a revision (read by the write step). */
   saveRevisionNote?: (orderId: string, note: string) => Promise<void>;
   /** Content stores (ADR 0018): the buyer storefront data, or null for a classic card. */
-  storefront?: (handle: string) => Promise<import("./ui/store.js").StoreData | null>;
+  storefront?: (handle: string, view?: { source: string | null; itemId?: string }) => Promise<import("./ui/store.js").StoreData | null>;
   /** Job progress + files of an order (from the artifacts table). */
   progress?: (orderId: string) => Promise<{ stepsDone: string[]; files: { kind: string; url: string }[]; stopped: string | null }>;
 }
@@ -140,7 +140,9 @@ export function createApp(d: Deps) {
     if (!c.get("handleName")) return c.redirect(d.config.dashboard_origin, 302);
     if (!h) return c.html(<NotFoundPage testToken={d.config.token.test} />, 404);
     const base = c.req.path.startsWith("/h/") ? `/h/${h.handle}/` : "/";
-    const sf = d.storefront ? await d.storefront(h.handle).catch(() => null) : null;
+    // A visit is counted for analytics; ?ref=telegram (from share links) says where it came from.
+    const ref = (c.req.query("ref") ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20) || null;
+    const sf = d.storefront ? await d.storefront(h.handle, { source: ref }).catch(() => null) : null;
     if (sf) return c.html(<StorePage s={sf} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, network: d.client.network }} test={d.config.token.test} />);
     const services = await d.store.listServices(h.handle);
     return c.html(<CardPage handle={h} services={services} price={price} testToken={d.config.token.test} base={base} cfg={d.client} />);
@@ -149,7 +151,7 @@ export function createApp(d: Deps) {
   seller.get("/i/:id", async (c) => {
     const h = c.get("handle");
     if (!h || !d.storefront) return c.notFound();
-    const sf = await d.storefront(h.handle).catch(() => null);
+    const sf = await d.storefront(h.handle, { source: (c.req.query("ref") ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20) || null, itemId: c.req.param("id") }).catch(() => null);
     const item = sf?.items.find((i) => i.id === c.req.param("id"));
     if (!sf || !item) return c.html(<NotFoundPage testToken={d.config.token.test} />, 404);
     const base = c.req.path.startsWith("/h/") ? `/h/${h.handle}/` : "/";

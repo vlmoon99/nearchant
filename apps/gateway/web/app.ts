@@ -257,6 +257,27 @@ function sellerApp() {
     try { await api(`/api/app/orders/${id}/ship`, { note: document.querySelector<HTMLInputElement>(`[data-ship-note="${id}"]`)?.value ?? "" }); location.reload(); } catch (e) { alert((e as Error).message); }
   }));
 
+  // Analytics / settings / celebration.
+  document.querySelector("#refresh-insights")?.addEventListener("click", async () => {
+    $("#insights-out").textContent = "AI is reading your numbers…";
+    await api("/api/app/insights", {}).catch((e) => { $("#insights-out").textContent = (e as Error).message; });
+    setTimeout(() => location.reload(), 15000);
+  });
+  document.querySelector("#dismiss-celebration")?.addEventListener("click", async () => { await api("/api/app/celebrated", {}).catch(() => {}); $("#celebration").remove(); });
+  document.querySelector<HTMLFormElement>("#settings-store")?.addEventListener("submit", async (e) => {
+    e.preventDefault(); const f = e.target as HTMLFormElement; const v = (n: string) => (f.elements.namedItem(n) as HTMLInputElement).value.trim();
+    try { await api("/api/app/business", { name: v("name"), kind: v("kind"), description: v("description"), links: v("link") ? [v("link")] : [] }); f.querySelector("output")!.textContent = "Saved ✓"; } catch (err) { f.querySelector("output")!.textContent = (err as Error).message; }
+  });
+  document.querySelector<HTMLFormElement>("#settings-brand")?.addEventListener("submit", async (e) => {
+    e.preventDefault(); const f = e.target as HTMLFormElement;
+    try { await api("/api/app/profile/wishes", { wishes: (f.elements.namedItem("wishes") as HTMLTextAreaElement).value }); f.querySelector("output")!.textContent = "Saved ✓ — the next posts follow it"; } catch (err) { f.querySelector("output")!.textContent = (err as Error).message; }
+  });
+  document.querySelector("#export-key")?.addEventListener("click", (e) => {
+    e.preventDefault(); const h = store.get(CUR); const k = h ? store.get(keyOf(h)) : null;
+    if (!k) { alert("The store key is not in this browser."); return; }
+    const a = document.createElement("a"); a.href = `data:text/plain;charset=utf-8,${encodeURIComponent(`${h}\n${k}\n`)}`; a.download = `${h}-near-key.txt`; a.click();
+  });
+
   // Post detail: save caption, schedule.
   document.querySelector("#save-caption")?.addEventListener("click", async (e) => {
     const id = (e.currentTarget as HTMLElement).dataset.post!;

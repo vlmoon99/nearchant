@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { Task } from "graphile-worker";
 import sharp from "sharp";
 import type { ContentStore, Envelopes } from "@nearchant/db";
-import { analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type StyleProfile } from "@nearchant/swarm";
+import { block, analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type StyleProfile } from "@nearchant/swarm";
 
 export interface ContentTaskDeps {
   content: ContentStore;
@@ -178,5 +178,18 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     d.log(`published ${p.id}`);
   };
 
-  return { publish_post: publishPostTask, analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
+  // "What AI noticed": the insight writer reads the store's numbers (never invents any) — Analytics page.
+  const writeInsightsTask: Task = async (payload) => {
+    const { handle } = payload as { handle: string };
+    const [events, sales, posts] = await Promise.all([d.content.eventCounts(handle, 30), d.content.salesSince(handle, 30), d.content.listPosts(handle, { limit: 60 })]);
+    const numbers = {
+      days: events, sales_30d: { count: sales.count, usdc: Number(sales.units) / 10 ** d.decimals },
+      posts: posts.filter((p) => p.publishedAt).map((p) => ({ angle: (p.idea as { angle?: string }).angle ?? "", published: p.publishedAt, has_proof: !!p.proof })),
+    };
+    const raw = await askFor(handle, "insights")<{ insights?: { text: string; action: string; kind: string }[]; best_time?: string | null; headline?: string }>("insight-writer", block("numbers", numbers));
+    await d.content.setSetting(`insights:${handle}`, { insights: (raw.insights ?? []).slice(0, 3), best_time: raw.best_time ?? null, headline: raw.headline ?? "", at: new Date().toISOString() });
+    d.log(`insights ${handle}`);
+  };
+
+  return { write_insights: writeInsightsTask, publish_post: publishPostTask, analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
 }

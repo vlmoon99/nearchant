@@ -233,10 +233,11 @@ const app = createApp({
         return { stepsDone: Object.keys(all).filter((k) => k !== "revision_note"), files, stopped: all.stopped ? `${all.stopped.kind}: ${all.stopped.reason}`.slice(0, 400) : null };
       }
     : undefined,
-  ...(conn ? { storefront: async (handle: string) => {
+  ...(conn ? { storefront: async (handle: string, view?: { source: string | null; itemId?: string }) => {
     const cs = new ContentStore(conn!.db);
     const b = await cs.getBusiness(handle);
     if (!b) return null;
+    if (view) await cs.addEvent({ handle, kind: "view", source: view.source, itemId: view.itemId ?? null }).catch(() => {});
     const prof = (await cs.getProfile(handle))?.data as { summary?: string } | undefined;
     const items = await cs.listItems(handle);
     const posts = (await cs.listPosts(handle, { status: ["published"], limit: 8 }));
@@ -290,6 +291,13 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     ...(conn ? { content: new ContentStore(conn.db) } : {}),
     accountOf: (h) => `${h}.${accounts.root}`,
     orders: (h) => store.listOrders(h, 50),
+    balances: async (a) => {
+      const [wallet, billing] = await Promise.all([
+        chain.view<string>(accounts.nusd, "ft_balance_of", { account_id: a }),
+        chain.view<{ balance: string; spent_month: string } | null>(accounts.billing, "get_account", { account_id: a }).catch(() => null),
+      ]);
+      return { wallet, billing };
+    },
     explorer: (a) => `https://${config.network === "mainnet" ? "" : "testnet."}nearblocks.io/address/${a}`,
   });
 }

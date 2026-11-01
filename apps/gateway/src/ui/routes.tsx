@@ -5,6 +5,7 @@ import { PLAN_LIMITS, type ContentStore } from "@nearchant/db";
 import { OnboardingPage } from "./onboarding.js";
 import { CreatePage, HomePage, PostPage, PostsPage, SignInPage, checklistFor, type StoreView } from "./app-pages.js";
 import type { UiConfig } from "./kit.js";
+import { AnalyticsPage, Celebration, ReportPage, SettingsPage, WalletPage, type Insights } from "./more-pages.js";
 import { readSession } from "../seller-app.js";
 
 export interface UiDeps {
@@ -12,7 +13,9 @@ export interface UiDeps {
   content?: ContentStore;
   accountOf: (handle: string) => string;
   explorer: (accountId: string) => string;
-  orders?: (handle: string) => Promise<{ orderId: string; serviceId: string; amount: string; brief: string; state: string }[]>;
+  orders?: (handle: string) => Promise<{ orderId: string; serviceId: string; amount: string; brief: string; state: string; createdAt: string }[]>;
+  /** Chain views for the wallet: nUSD balance + prepaid AI billing (null when the chain is unreachable). */
+  balances?: (accountId: string) => Promise<{ wallet: string; billing: { balance: string; spent_month: string } | null } | null>;
 }
 
 export function mountUi(app: Hono<any>, d: UiDeps): void {
@@ -48,8 +51,10 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const fmt = (u: string) => `${(Number(u) / 10 ** d.cfg.decimals).toLocaleString("en", { maximumFractionDigits: 2 })} ${d.cfg.token}`;
     const titles = new Map(items.map((i) => [i.id, i.title]));
     const orders = d.orders ? (await d.orders(s.handle)).filter((o) => o.serviceId.startsWith("i-") && ["paid", "in_progress", "delivered"].includes(o.state)).map((o) => ({ orderId: o.orderId, title: titles.get(o.serviceId) ?? "Item", amount: fmt(o.amount), brief: o.brief, state: o.state })) : [];
+    const firstSale = d.orders ? (await d.orders(s.handle)).filter((o) => o.serviceId.startsWith("i-") && o.state !== "awaiting_payment").at(-1) : undefined;
     return c.html(<HomePage cfg={d.cfg} test={d.test} store={s} posts={shown} img={img} opps={opps} suggestions={suggestions} orders={orders} items={items.map((i) => ({ title: i.title, price: fmt(i.priceUnits) }))}
-      stats={{ views: sum("view"), sales: sum("sale"), salesUnits: 0, proofs: posts.filter((p) => p.proof).length, postsMonth: usage.posts, postsLimit: PLAN_LIMITS[b?.plan ?? "free"]!.posts }}
+      top={firstSale && !(await content.getSetting(`celebrated:${s.handle}`)) ? <Celebration amount={fmt(firstSale.amount)} item={titles.get(firstSale.serviceId) ?? "an item"} store={s} /> : null}
+      stats={{ views: sum("view"), sales: sum("sale"), salesUnits: Number((await content.salesSince(s.handle, 7)).units), proofs: posts.filter((p) => p.proof).length, postsMonth: usage.posts, postsLimit: PLAN_LIMITS[b?.plan ?? "free"]!.posts }}
       checklist={checklistFor(b, posts, sum("sale"))} />);
   }));
   app.get("/app/create", (c) => withStore(c, async (s) => {
@@ -64,5 +69,47 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const p = await content.getPost(c.req.param("id"));
     if (!p || p.handle !== s.handle) return c.notFound();
     return c.html(<PostPage cfg={d.cfg} test={d.test} store={s} p={p} img={img} explorer={d.explorer(s.account)} />);
+  }));
+
+  const fmtU = (u: string | bigint) => `${(Number(u) / 10 ** d.cfg.decimals).toLocaleString("en", { maximumFractionDigits: 2 })} ${d.cfg.token}`;
+
+  app.get("/app/analytics", (c) => withStore(c, async (s) => {
+    const range = [7, 30, 90].includes(Number(c.req.query("d"))) ? Number(c.req.query("d")) : 30;
+    const [events, sales, posts, insights] = await Promise.all([content.eventCounts(s.handle, range), content.salesSince(s.handle, range), content.listPosts(s.handle, { limit: 200 }), content.getSetting<Insights>(`insights:${s.handle}`)]);
+    const daysN = Math.min(range, 30), days = [];
+    for (let i = daysN - 1; i >= 0; i--) {
+      const day = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+      days.push({ day, views: events.filter((e) => e.day === day && e.kind === "view").reduce((a, e) => a + e.n, 0), sales: events.filter((e) => e.day === day && e.kind === "sale").reduce((a, e) => a + e.n, 0) });
+    }
+    const since = Date.now() - range * 86_400_000;
+    const published = posts.filter((p) => p.publishedAt && p.publishedAt.getTime() > since);
+    const sources = await content.viewSources(s.handle, range);
+    return c.html(<AnalyticsPage cfg={d.cfg} test={d.test} store={s} range={range} days={days} sources={sources} insights={insights}
+      totals={{ views: events.filter((e) => e.kind === "view").reduce((a, e) => a + e.n, 0), sales: sales.count, revenue: fmtU(sales.units), posts: published.length, proofs: published.filter((p) => p.proof).length }} />);
+  }));
+
+  app.get("/app/wallet", (c) => withStore(c, async (s) => {
+    const [bal, orders, items] = await Promise.all([d.balances ? d.balances(s.account).catch(() => null) : null, d.orders ? d.orders(s.handle) : [], content.listItems(s.handle, false)]);
+    const titles = new Map(items.map((i) => [i.id, i.title]));
+    const held = orders.filter((o) => ["paid", "in_progress", "delivered"].includes(o.state));
+    const rows = orders.filter((o) => o.state !== "awaiting_payment").slice(0, 20).map((o) => ({ when: o.createdAt.slice(0, 16).replace("T", " "), what: titles.get(o.serviceId) ?? "Order", state: o.state === "released" ? "paid out" : o.state === "delivered" ? "shipped, in escrow" : o.state === "refunded" ? "refunded" : "in escrow", amount: fmtU(o.amount), sign: o.state === "refunded" ? "" : "+" }));
+    return c.html(<WalletPage cfg={d.cfg} test={d.test} store={s} balance={bal ? fmtU(bal.wallet) : "—"} escrow={fmtU(held.reduce((a, o) => a + BigInt(o.amount), 0n))} escrowCount={held.length}
+      aiMonth={bal?.billing ? fmtU(bal.billing.spent_month) : "—"} aiBalance={bal?.billing ? fmtU(bal.billing.balance) : "—"} rows={rows} explorer={d.explorer(s.account)} />);
+  }));
+
+  app.get("/app/settings", (c) => withStore(c, async (s) => {
+    const [b, prof, usage] = await Promise.all([content.getBusiness(s.handle), content.getProfile(s.handle), content.usage(s.handle)]);
+    const data = (prof?.data ?? {}) as { tone?: string; brand_colors?: string[]; wishes?: string };
+    return c.html(<SettingsPage cfg={d.cfg} test={d.test} store={s} b={{ name: b!.name, kind: b!.kind, description: b!.description, links: (b!.links as string[]) ?? [] }}
+      tone={data.tone ?? ""} colors={data.brand_colors ?? []} wishes={data.wishes ?? ""} usage={{ posts: usage.posts, limit: PLAN_LIMITS[b?.plan ?? "free"]!.posts }} />);
+  }));
+
+  app.get("/app/report", (c) => withStore(c, async (s) => {
+    const [sales, total, events, posts, opps] = await Promise.all([content.salesSince(s.handle, 7), content.salesSince(s.handle, 3650), content.eventCounts(s.handle, 7), content.listPosts(s.handle, { limit: 200 }), content.listOpportunities(s.handle)]);
+    const weekPosts = posts.filter((p) => p.publishedAt && p.publishedAt.getTime() > Date.now() - 7 * 86_400_000).length;
+    return c.html(<ReportPage cfg={d.cfg} test={d.test} store={s} earned={fmtU(sales.units)} sales={sales.count} posts={weekPosts}
+      views={events.filter((e) => e.kind === "view").reduce((a, e) => a + e.n, 0)}
+      badges={[["star", "First sale", total.count > 0], ["shield", "Verified seller", posts.some((p) => p.proof)], ["calendar", "3 posts in a week", weekPosts >= 3], ["chart", `10 sales · ${Math.min(total.count, 10)}/10`, total.count >= 10]]}
+      next={opps.slice(0, 3).map((o) => o.title).concat(opps.length ? [] : ["Post 3 times this week — consistency grows reach"])} />);
   }));
 }

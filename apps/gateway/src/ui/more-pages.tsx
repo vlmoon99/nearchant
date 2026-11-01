@@ -1,0 +1,129 @@
+// Step 12 pages (Figma web app + mobile web rows): Analytics, Wallet, Settings, weekly report, first-sale celebration.
+import type { FC } from "hono/jsx";
+import { Badge, Icon, PageHead, Shell, Stat, UiPage, type UiConfig } from "./kit.js";
+import type { StoreView } from "./app-pages.js";
+
+export interface Insight { text: string; action: string; kind: string }
+export interface Insights { insights: Insight[]; best_time: string | null; headline: string; at?: string }
+export interface DayRow { day: string; views: number; sales: number }
+
+const Page: FC<{ cfg: UiConfig; test: boolean; title: string; active: string; store: StoreView; children?: unknown }> = ({ cfg, test, title, active, store, children }) => (
+  <UiPage title={`${title} · ${store.name}`} cfg={cfg} page="app" test={test}><Shell active={active} store={store}>{children as never}</Shell></UiPage>
+);
+
+const Bars: FC<{ days: DayRow[] }> = ({ days }) => {
+  const max = Math.max(1, ...days.map((d) => d.views));
+  return (
+    <div class="row" style="gap:6px;align-items:flex-end;height:160px">
+      {days.map((d) => (
+        <div class="stack" style="flex:1;gap:4px;align-items:center;justify-content:flex-end;height:100%" title={`${d.day}: ${d.views} views, ${d.sales} sales`}>
+          <div class="row" style="gap:2px;align-items:flex-end;height:130px;width:100%;justify-content:center">
+            <i style={`display:block;width:45%;max-width:14px;border-radius:4px;background:var(--accent);height:${Math.max(2, (d.views / max) * 100)}%`}></i>
+            <i style={`display:block;width:45%;max-width:14px;border-radius:4px;background:var(--ok);height:${d.sales ? Math.max(6, (d.sales / max) * 100) : 0}%`}></i>
+          </div>
+          <span class="cap muted">{d.day.slice(8)}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; range: number; totals: { views: number; sales: number; revenue: string; posts: number; proofs: number }; days: DayRow[]; sources: [string, number][]; insights: Insights | null }> = ({ cfg, test, store, range, totals, days, sources, insights }) => (
+  <Page cfg={cfg} test={test} title="Analytics" active="Analytics" store={store}>
+    <PageHead kicker={`Last ${range} days`} title="Analytics">
+      {[7, 30, 90].map((r) => <a class={`chip ${r === range ? "on" : ""}`} href={`/app/analytics?d=${r}`}>{r} days</a>)}
+    </PageHead>
+    <div class="grid4">
+      <Stat label="Store views" value={String(totals.views)} />
+      <Stat label="Sales" value={totals.revenue} delta={`${totals.sales} order${totals.sales === 1 ? "" : "s"}`} />
+      <Stat label="Posts published" value={String(totals.posts)} />
+      <Stat label="Proofs on NEAR" value={String(totals.proofs)} delta={totals.proofs ? "all verified" : undefined} />
+    </div>
+    <div class="cols">
+      <div class="card"><div class="spread"><span class="headline">Views and sales by day</span><span class="foot"><span style="color:var(--accent)">●</span> views <span style="color:var(--ok)">●</span> sales</span></div>
+        {days.some((d) => d.views || d.sales) ? <Bars days={days} /> : <p class="sub muted">No visits yet. Share your store link — the first visitors start the chart.</p>}
+        {sources.length ? <div class="row" style="gap:8px;flex-wrap:wrap">{sources.map(([s, n]) => <span class="tag">{s} · {n}</span>)}</div> : null}
+      </div>
+      <div class="card"><div class="spread"><div class="row" style="align-items:center;gap:8px"><Icon n="sparkles" c="#AF52DE" /><span class="headline">What AI noticed</span></div><button class="chip" id="refresh-insights">Refresh</button></div>
+        {insights ? <>
+          <span class="sub b">{insights.headline}</span>
+          {insights.insights.map((i) => <div class="card white" style="gap:4px;padding:12px;border:0"><span class="foot">{i.text}</span><span class="foot b" style="color:var(--accent)">{i.action} →</span></div>)}
+          {insights.best_time ? <span class="foot muted">Best time to post: <b>{insights.best_time}</b></span> : null}
+        </> : <span class="foot muted">Click Refresh — AI reads your numbers and says what to do next.</span>}
+        <output class="foot" id="insights-out"></output>
+      </div>
+    </div>
+  </Page>
+);
+
+export const WalletPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; balance: string; escrow: string; escrowCount: number; aiMonth: string; aiBalance: string; rows: { when: string; what: string; state: string; amount: string; sign: string }[]; explorer: string }> = ({ cfg, test, store, balance, escrow, escrowCount, aiMonth, aiBalance, rows, explorer }) => (
+  <Page cfg={cfg} test={test} title="Wallet" active="Wallet" store={store}>
+    <PageHead kicker={`${store.account} · NEAR account`} title="Wallet"><a class="btn secondary" href={explorer} target="_blank" rel="noopener"><Icon n="globe" />Explorer</a></PageHead>
+    <div class="grid3">
+      <div class="card dark" style="gap:8px"><span class="foot">Available balance</span><span class="t1" style="font-size:40px">{balance}</span><span class="tag" style="background:var(--near);color:var(--near-ink)">{store.account}</span><span class="cap">Your own NEAR account — Nearchant can’t move your money.</span></div>
+      <div class="stat"><span class="foot muted">Held in escrow</span><span class="metric">{escrow}</span><span class="foot muted">{escrowCount} order{escrowCount === 1 ? "" : "s"} wait for the buyer to confirm</span></div>
+      <div class="stat"><span class="foot muted">AI usage this month</span><span class="metric">{aiMonth}</span><span class="foot muted">Prepaid AI balance: {aiBalance} · settled on NEAR</span></div>
+    </div>
+    <div class="cols">
+      <div class="card"><span class="headline">Transactions</span>
+        {rows.length ? rows.map((r) => <div class="spread card white" style="padding:10px 12px;border:0;flex-direction:row"><span class="stack" style="gap:2px"><span class="foot b">{r.what}</span><span class="cap proof-t">{r.when} · {r.state} · on NEAR</span></span><span class={`sub b ${r.sign === "+" ? "okt" : ""}`}>{r.sign}{r.amount}</span></div>) : <span class="foot muted">No payments yet.</span>}
+      </div>
+      <div class="card"><span class="headline">How you get paid</span>
+        {[["lock", "Buyer pays in USDC on NEAR", "Money goes into escrow, not to a middleman."], ["check", "You ship, the buyer confirms", "Or it confirms itself after the timeout."], ["wallet", "Released to you automatically", `Straight to ${store.account}.`]].map(([ic, t, d]) => <div class="row" style="gap:12px"><span class="dot" style="background:var(--bg);border-radius:10px;width:32px;height:32px"><Icon n={ic!} s={16} c="#007AFF" /></span><span class="stack" style="gap:2px"><span class="foot b">{t}</span><span class="foot muted">{d}</span></span></div>)}
+      </div>
+    </div>
+  </Page>
+);
+
+export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; b: { name: string; kind: string; description: string; links: string[] }; tone: string; colors: string[]; wishes: string; usage: { posts: number; limit: number } }> = ({ cfg, test, store, b, tone, colors, wishes, usage }) => (
+  <Page cfg={cfg} test={test} title="Settings" active="Settings" store={store}>
+    <PageHead kicker={store.name} title="Settings" />
+    <div class="cols">
+      <div class="stack">
+        <form class="card" id="settings-store"><span class="headline">Store profile</span>
+          <label class="field">Store name<input class="input" name="name" value={b.name} maxlength={80} /></label>
+          <label class="field">What you sell<textarea class="input" name="description" maxlength={600}>{b.description}</textarea></label>
+          <label class="field">Link<input class="input" name="link" value={b.links[0] ?? ""} /></label>
+          <input type="hidden" name="kind" value={b.kind} />
+          <button class="btn" type="submit">Save</button><output class="foot"></output>
+        </form>
+        <form class="card" id="settings-brand"><span class="headline">Brand — AI writes like you</span>
+          <span class="foot muted">Tone AI found: <b>{tone || "—"}</b></span>
+          {colors.length ? <div class="row" style="gap:8px">{colors.map((c) => <span style={`width:24px;height:24px;border-radius:999px;border:1px solid var(--sep);background:${c}`}></span>)}</div> : null}
+          <label class="field">Your wishes for posts and pictures<textarea class="input" name="wishes" maxlength={500} placeholder="e.g. show the clothes on a person, outdoors, warm light; no discounts">{wishes}</textarea></label>
+          <button class="btn" type="submit">Save</button><output class="foot"></output>
+        </form>
+      </div>
+      <div class="stack">
+        <div class="card dark" style="gap:10px"><div class="row" style="align-items:center;gap:8px"><span class="mark" style="background:var(--near);color:var(--near-ink)">N</span><span class="headline">NEAR account</span></div>
+          <span class="t2" style="color:var(--near)">{store.account}</span><span class="foot">Created for you — no seed phrase. Posts, proofs and payments live here.</span>
+          <a class="btn secondary" id="export-key" href="#" style="color:var(--label)"><Icon n="copy" />Export my key</a><Badge label="Store verified on NEAR" /></div>
+        <div class="card"><span class="headline">Plan</span><div class="spread"><span class="foot">Free · {usage.posts} of {usage.limit} posts this month</span></div>
+          <div class="progress"><i style={`width:${Math.min(100, (usage.posts / usage.limit) * 100)}%`}></i></div>
+          <span class="foot muted">Pro — 150 posts a month, paid from your balance on NEAR (coming soon).</span></div>
+      </div>
+    </div>
+  </Page>
+);
+
+export const ReportPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; earned: string; sales: number; views: number; posts: number; badges: [string, string, boolean][]; next: string[] }> = ({ cfg, test, store, earned, sales, views, posts, badges, next }) => (
+  <Page cfg={cfg} test={test} title="Your week" active="Analytics" store={store}>
+    <PageHead kicker="Weekly report · last 7 days" title={sales ? "Great week 👏" : "Your week"} />
+    <div class="card dark" style="gap:6px"><span class="foot">You earned</span><span class="t1" style="color:var(--near)">{earned}</span><span class="foot">{sales} sale{sales === 1 ? "" : "s"} · all paid on NEAR</span></div>
+    <div class="grid3"><Stat label="Store views" value={String(views)} /><Stat label="Posts published" value={String(posts)} /><Stat label="Sales" value={String(sales)} /></div>
+    <div class="card"><span class="headline">Badges</span><div class="row" style="gap:10px;flex-wrap:wrap">{badges.map(([ic, l, on]) => <span class="card white" style={`gap:6px;padding:12px 16px;align-items:center;${on ? "" : "opacity:.45"}`}><Icon n={ic} s={22} c={on ? "#FF9500" : "#8E8E93"} /><span class="cap b">{l}</span></span>)}</div></div>
+    <div class="card soft"><div class="row" style="align-items:center;gap:8px"><Icon n="sparkles" c="#AF52DE" /><span class="headline">For next week</span></div>{next.map((n) => <span class="foot">• {n}</span>)}<a class="btn" href="/app/create">Plan next week’s posts</a></div>
+  </Page>
+);
+
+/** First-sale celebration on Home (Figma onboarding 9): shown once, dismissed by the owner. */
+export const Celebration: FC<{ amount: string; item: string; store: StoreView }> = ({ amount, item, store }) => (
+  <div class="card" id="celebration" style="align-items:center;text-align:center;gap:10px;background:linear-gradient(135deg,#e6f1ff,#e3faf0)">
+    <div class="confetti" style="width:100%">{Array.from({ length: 18 }, (_, k) => <i style={`left:${(k * 53) % 96}%;top:${(k * 37) % 70}px;transform:rotate(${(k * 47) % 90 - 45}deg);background:${["#007AFF", "#FF9500", "#34C759", "#FF2D55", "#AF52DE", "#00EC97"][k % 6]}`}></i>)}</div>
+    <h2 class="tl">Your first sale! 🎉</h2>
+    <span class="sub muted">Someone bought <b>{item}</b>.</span>
+    <span class="t1 okt" style="font-size:40px">+{amount}</span>
+    <span class="foot muted">Safe in escrow on NEAR — yours as soon as the buyer confirms.</span>
+    <div class="row" style="gap:10px;flex-wrap:wrap;justify-content:center"><a class="btn" href={`https://t.me/share/url?url=${encodeURIComponent(`https://nearchant.com/h/${store.handle}/`)}`} target="_blank" rel="noopener"><Icon n="send" />Share your verified store</a><button class="btn secondary" id="dismiss-celebration">Thanks!</button></div>
+  </div>
+);

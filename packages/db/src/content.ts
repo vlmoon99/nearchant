@@ -159,6 +159,17 @@ export class ContentStore {
     return ((await this.db.select().from(s.settings).where(eq(s.settings.key, key)))[0]?.value as T) ?? null;
   }
 
+  async setSetting(key: string, value: unknown): Promise<void> {
+    await this.db.insert(s.settings).values({ key, value }).onConflictDoUpdate({ target: s.settings.key, set: { value, updatedAt: new Date() } });
+  }
+
+  /** Sales (count + summed amount in token units) since `days` ago, from `sale` events. */
+  async salesSince(handle: string, days: number): Promise<{ count: number; units: bigint }> {
+    const since = new Date(Date.now() - days * 86_400_000);
+    const rows = await this.db.select({ data: s.events.data }).from(s.events).where(and(eq(s.events.handle, handle), eq(s.events.kind, "sale"), gte(s.events.createdAt, since)));
+    return { count: rows.length, units: rows.reduce((a, r) => a + BigInt((r.data as { amount?: string }).amount ?? "0"), 0n) };
+  }
+
   // --- signals + events ---
   async addSignal(handle: string, postId: string | null, kind: string, data: unknown = {}): Promise<void> {
     await this.db.insert(s.signals).values({ handle, postId, kind, data });
@@ -169,6 +180,14 @@ export class ContentStore {
   async addEvent(e: { handle: string; kind: string; postId?: string | null; itemId?: string | null; orderId?: string | null; source?: string | null; data?: unknown }): Promise<void> {
     await this.db.insert(s.events).values({ handle: e.handle, kind: e.kind, postId: e.postId ?? null, itemId: e.itemId ?? null, orderId: e.orderId ?? null, source: e.source ?? null, data: e.data ?? {} });
   }
+  /** Store views by source (telegram, instagram, direct, …) since `days` ago, most first. */
+  async viewSources(handle: string, days: number): Promise<[string, number][]> {
+    const since = new Date(Date.now() - days * 86_400_000);
+    const rows = await this.db.select({ src: sql<string>`coalesce(${s.events.source}, 'direct')`, n: sql<number>`count(*)::int` }).from(s.events)
+      .where(and(eq(s.events.handle, handle), eq(s.events.kind, "view"), gte(s.events.createdAt, since))).groupBy(sql`1`).orderBy(sql`2 desc`).limit(6);
+    return rows.map((r) => [r.src, r.n]);
+  }
+
   /** Counts per day and kind since `days` ago (UTC days), for the analytics charts. */
   async eventCounts(handle: string, days: number): Promise<{ day: string; kind: string; n: number }[]> {
     const since = new Date(Date.now() - days * 86_400_000);

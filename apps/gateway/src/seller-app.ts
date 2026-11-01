@@ -14,7 +14,7 @@ import { verifySellerSignature } from "./telegram.js";
 export type SellerContent = Pick<ContentStore,
   "upsertBusiness" | "getBusiness" | "completeOnboarding" | "getProfile" | "setProfile" | "addMedia" | "listMedia" | "getMedia" |
   "upsertItem" | "listItems" | "getItem" | "listOpportunities" | "chooseOpportunities" | "createPosts" | "listPosts" | "getPost" | "updatePost" |
-  "choosePosts" | "addSignal" | "usage">;
+  "choosePosts" | "addSignal" | "usage" | "setSetting">;
 
 export interface SellerAppDeps {
   content: SellerContent;
@@ -196,6 +196,17 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     await d.orders.ship(handle, o.orderId, String((await json(c)).note ?? "").slice(0, 300));
     return c.json({ status: "shipping" }, 202);
   }));
+
+  // Settings: the owner's wishes for posts and pictures (kept across a new analysis), first-sale dismissal, insights.
+  app.post("/api/app/profile/wishes", (c) => authed(c, async (handle) => {
+    const wishes = String((await json(c)).wishes ?? "").slice(0, 500).trim();
+    const prof = await d.content.getProfile(handle);
+    await d.content.setProfile(handle, { data: { ...((prof?.data ?? {}) as object), wishes } });
+    await d.content.addSignal(handle, null, "wishes", { wishes });
+    return c.json({ ok: true });
+  }));
+  app.post("/api/app/celebrated", (c) => authed(c, async (handle) => { await d.content.setSetting(`celebrated:${handle}`, true); return c.json({ ok: true }); }));
+  app.post("/api/app/insights", (c) => authed(c, async (handle) => { await d.enqueue("write_insights", { handle }, `insights:${handle}`); return c.json({ status: "writing" }, 202); }));
 
   // Items the store sells (products or services).
   app.get("/api/app/items", (c) => authed(c, async (handle) => c.json({ items: await d.content.listItems(handle, false) })));

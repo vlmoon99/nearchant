@@ -63,6 +63,18 @@ describe("ContentStore", () => {
   });
 });
 
+describe("sales and settings", () => {
+  it("sums sale amounts and keeps settings", async () => {
+    const c = new ContentStore(conn.db);
+    await c.addEvent({ handle: "sl", kind: "sale", data: { amount: "45000000" } });
+    await c.addEvent({ handle: "sl", kind: "sale", data: { amount: "22000000" } });
+    await c.addEvent({ handle: "sl", kind: "view" });
+    expect(await c.salesSince("sl", 7)).toEqual({ count: 2, units: 67000000n });
+    await c.setSetting("celebrated:sl", true);
+    expect(await c.getSetting("celebrated:sl")).toBe(true);
+  });
+});
+
 describe("migrations", () => {
   it("two processes migrating a fresh database at once both succeed (advisory lock)", async () => {
     const { connect, runMigrations } = await import("../src/index.js");

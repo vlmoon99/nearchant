@@ -27,9 +27,10 @@ const Page: FC<{ cfg: UiConfig; test: boolean; title: string; active: string; st
 export interface Suggestion { title: string; description: string; photoMediaId: string | null; img: string | null }
 export interface ShipOrder { orderId: string; title: string; amount: string; brief: string; state: string }
 
-export const HomePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; posts: Post[]; img: Img; opps: Opportunity[]; suggestions?: Suggestion[]; items?: { title: string; price: string }[]; orders?: ShipOrder[]; stats: { views: number; sales: number; salesUnits: number; proofs: number; postsMonth: number; postsLimit: number }; checklist: [string, boolean][] }> = ({ cfg, test, store, posts, img, opps, suggestions = [], items = [], orders = [], stats, checklist }) => (
+export const HomePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; posts: Post[]; img: Img; opps: Opportunity[]; suggestions?: Suggestion[]; items?: { title: string; price: string }[]; orders?: ShipOrder[]; stats: { views: number; sales: number; salesUnits: number; proofs: number; postsMonth: number; postsLimit: number }; checklist: [string, boolean][]; top?: unknown }> = ({ cfg, test, store, posts, img, opps, suggestions = [], items = [], orders = [], stats, checklist, top }) => (
   <Page cfg={cfg} test={test} title="Home" active="Home" store={store}>
     <PageHead kicker={`Hello, ${store.name}`} title="Home"><a class="btn" href="/app/create"><Icon n="plus" />Create post</a></PageHead>
+    {(top as never) ?? null}
     <a class="dropzone" href="/app/create" style="grid-template-columns:auto 1fr auto;text-align:left;align-items:center;color:inherit">
       <span class="dot" style="width:56px;height:56px;background:var(--bg)"><Icon n="image" s={26} c="#007AFF" /></span>
       <span class="stack s8"><span class="t4">New post from photos</span><span class="sub muted">Pick photos of your item. AI writes the caption, designs the post and picks the best time — every post gets a proof on NEAR.</span></span>
