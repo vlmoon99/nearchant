@@ -15,6 +15,7 @@ x-app: &app
     NC_LOCAL_LLM_KEY: ${NC_LOCAL_LLM_KEY:-}
     SEARXNG_URL: ${SEARXNG_URL:-http://search:8080}
     PROVIDERS_FILE: ${PROVIDERS_FILE:-providers.yaml}
+    IMAGE_API_KEY: ${IMAGE_API_KEY:-}
     REPLAY_DIR: ${REPLAY_DIR:-}
     PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8787}
     TRUST_PROXY: ${TRUST_PROXY:-}
@@ -61,6 +62,25 @@ services:
     entrypoint: ["sh", "-c", "[ -f _renderer.md ] || echo '# renderer' > _renderer.md; exec docker-entrypoint --server --allow-local-files ."]
     environment: { MARP_USER: "1000:1000" }
     volumes: ["media:/home/marp/app"]
+    restart: unless-stopped
+
+  comfy:      # GPU node only (`COMPOSE_PROFILES=gpu`): headless ComfyUI for Qwen-Image-Edit (deploy/image-engine)
+    build: { context: ../image-engine, dockerfile: comfy.Dockerfile }
+    image: nearchant/comfy:dev
+    gpus: all
+    volumes:
+      - ${COMFY_MODELS:-/home/server/nearchant-node/comfy/models}/diffusion_models:/opt/ComfyUI/models/diffusion_models:ro
+      - ${COMFY_MODELS:-/home/server/nearchant-node/comfy/models}/text_encoders:/opt/ComfyUI/models/text_encoders:ro
+      - ${COMFY_MODELS:-/home/server/nearchant-node/comfy/models}/vae:/opt/ComfyUI/models/vae:ro
+    profiles: [gpu]
+    restart: unless-stopped
+
+  image:      # OpenAI-shaped images API over ComfyUI (copy of inference_system/services/image)
+    build: { context: ../image-engine/service }
+    image: nearchant/image:dev
+    environment: { COMFY_URL: "http://comfy:8188", MODEL_NAME: qwen-image-edit, KEEP_WARM_S: "0", API_KEY: "${IMAGE_API_KEY:-}" }
+    depends_on: [comfy]
+    profiles: [gpu]
     restart: unless-stopped
 
   tailnet:    # optional: serve the gateway on a tailnet IP. `COMPOSE_PROFILES=tailnet TAILNET_IP=100.x.y.z`
