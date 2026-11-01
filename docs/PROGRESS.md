@@ -798,7 +798,28 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   run: posts ready ~90 s after "make my posts", button enabled, onboarding completed.
 - Seen: Cloudflare injects its Web Analytics beacon, which our CSP blocks (console error only).
 
+## 2026-11-02 01:30 UTC — night: Sparks run LLMs only; "Connect a NEAR wallet"
+
+- **Sparks (owner: pictures + video only on Comfy)**: gx10-8695 — local ComfyUI + image engine stopped (restart=no),
+  image service now in Comfy Cloud mode (`COMPOSE_PROFILES=tailnet,tunnel,cloudimage,video`); available memory
+  13 → 43 GB. gx10-c3c8 — 13 unused containers stopped (ncvideo stack, Boost Content inf-*/bc-*), only `nc-llm2`
+  runs. **Verified**: a new 2-post batch with headline pictures and an 8.5 s short after the change.
+- **Connect a NEAR wallet** (Figma onboarding 1): NEP-413 signed message via MyNearWallet's sign-message page —
+  no transaction, no fee. `src/nep413.ts` rebuilds the signed bytes (tag 2^31+413, borsh message/nonce/recipient/
+  callbackUrl) and checks ed25519; `/api/wallet/verify` requires a ≤10-min message, our host as recipient, a
+  single-use nonce, and a full-access key of the wallet account (checked on chain). "link" (signed in) remembers
+  the wallet for the store; "signin" sets the session. UI: Sign in page "Sign in with NEAR wallet", Settings →
+  NEAR wallet, onboarding's last step "Connect your NEAR wallet (optional)", callback `/app/wallet-connect`.
+- **Verified**: unit tests (payload tag, tampering, replay, expiry, wrong site, link→signin; gateway 37); live on
+  nearchant.com with a real testnet key (relayer.nearchant.testnet): signin before link → 404, link → 200,
+  signin → 200 + session, a key not on the account → 403 (on-chain check). The button redirects to
+  `testnet.mynearwallet.com/sign-message` with our message and recipient. Test link removed afterwards.
+- Not verified: the round trip through MyNearWallet's own UI (needs a person with a wallet). The callback page
+  reads the result from the URL hash or query.
+
 ### Owner actions
+- Try "Connect a NEAR wallet": Settings → NEAR wallet in your store (testnet MyNearWallet account), then sign in
+  with it from another browser. Tell me if MyNearWallet shows an error.
 - Email sign-up (Figma onboarding 1): say if you want it, and give an email provider key (e.g. Resend or Postmark)
   — I'll add "Continue with email" login links. "Connect a NEAR wallet" I can build without anything from you.
 - Optional: a Brave Search API key (free tier) for reliable trend opportunities — self-hosted search is blocked

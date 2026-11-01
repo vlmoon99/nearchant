@@ -307,7 +307,8 @@ function sellerApp() {
 async function signinPage() {
   const h = store.get(CUR);
   if (h && (await signIn(h).catch(() => false))) { location.reload(); return; }
-  $("#signin-msg").textContent = "No store key in this browser. Create a store, or open Nearchant in the browser where you made it.";
+  const h1 = document.querySelector("h1"); if (h1) h1.textContent = "Sign in";
+  $("#signin-msg").textContent = "No store key in this browser. Sign in with the NEAR wallet you linked, create a store, or open Nearchant in the browser where you made it.";
 }
 
 // ── NEAR wallet (NEP-413 sign message via MyNearWallet) ───────────────────────────────────────────────────────────
