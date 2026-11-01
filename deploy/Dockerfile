@@ -10,11 +10,14 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm -r --filter "./packages/*" build && pnpm --filter @nearchant/gateway build && pnpm --filter @nearchant/worker build
 
 FROM node:24-bookworm-slim
+# ffmpeg (with libass) puts the post videos together: clip + voice + burned captions.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app /app
 COPY config config
 COPY envs envs
+COPY assets assets
 RUN mkdir -p /app/.media && chown -R node:node /app/.media
 USER node
 EXPOSE 8787

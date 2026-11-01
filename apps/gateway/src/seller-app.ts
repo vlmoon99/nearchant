@@ -14,7 +14,7 @@ import { verifySellerSignature } from "./telegram.js";
 export type SellerContent = Pick<ContentStore,
   "upsertBusiness" | "getBusiness" | "completeOnboarding" | "getProfile" | "setProfile" | "addMedia" | "listMedia" | "getMedia" |
   "upsertItem" | "listItems" | "getItem" | "listOpportunities" | "chooseOpportunities" | "createPosts" | "listPosts" | "getPost" | "updatePost" |
-  "choosePosts" | "addSignal" | "usage" | "setSetting">;
+  "choosePosts" | "addSignal" | "usage" | "setSetting" | "reserve">;
 
 export interface SellerAppDeps {
   content: SellerContent;
@@ -30,6 +30,8 @@ export interface SellerAppDeps {
   mirrorService?: (s: { id: string; handle: string; title: string; description: string; priceUnits: string }) => Promise<void>;
   /** Paid item orders of a store + queue "shipped" (proof + mark_delivered via the outbox). */
   orders?: { list: (handle: string) => Promise<{ orderId: string; serviceId: string; amount: string; brief: string; state: string; createdAt: string }[]>; ship: (handle: string, orderId: string, note: string) => Promise<void> };
+  /** Short videos can be made here (voice service + video renderer configured on the worker). */
+  videoEnabled?: boolean;
   /** Token decimals for prices (nUSD: 6). */
   decimals: number;
   now?: () => number;
@@ -78,13 +80,22 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
   // Files: `<handle>/public/…` (published images) for everyone, anything else only for that store's owner.
   app.get("/files/*", async (c) => {
     const key = normalize(decodeURIComponent(c.req.path.slice("/files/".length)));
-    const m = key.match(/^([a-z0-9_-]+)\/(photos|gen|public)\/[\w.-]+\.(jpg|png|webp)$/);
+    const m = key.match(/^([a-z0-9_-]+)\/(photos|gen|public)\/[\w.-]+\.(jpg|png|webp|mp4)$/);
     if (!m) return c.notFound();
     if (m[2] !== "public" && seller(c) !== m[1]) return c.json({ error: "private" }, 403);
     const bytes = await readFile(join(d.mediaDir, key)).catch(() => null);
     if (!bytes) return c.notFound();
-    const type = m[3] === "jpg" ? "image/jpeg" : `image/${m[3]}`;
-    return c.body(bytes, 200, { "content-type": type, "cache-control": m[2] === "public" ? "public, max-age=86400" : "private, max-age=3600", "x-content-type-options": "nosniff" });
+    const type = m[3] === "jpg" ? "image/jpeg" : m[3] === "mp4" ? "video/mp4" : `image/${m[3]}`;
+    const headers: Record<string, string> = { "content-type": type, "cache-control": m[2] === "public" ? "public, max-age=86400" : "private, max-age=3600", "x-content-type-options": "nosniff", "accept-ranges": "bytes" };
+    // Video players (Safari above all) fetch byte ranges.
+    const range = /^bytes=(\d*)-(\d*)$/.exec(c.req.header("range") ?? "");
+    if (range && (range[1] || range[2])) {
+      const start = range[1] ? Number(range[1]) : Math.max(0, bytes.length - Number(range[2]));
+      const end = range[1] && range[2] ? Math.min(Number(range[2]), bytes.length - 1) : bytes.length - 1;
+      if (start >= bytes.length || start > end) return c.body(null, 416, { "content-range": `bytes */${bytes.length}` });
+      return c.body(bytes.subarray(start, end + 1), 206, { ...headers, "content-range": `bytes ${start}-${end}/${bytes.length}` });
+    }
+    return c.body(bytes, 200, headers);
   });
 
   app.get("/api/app/me", (c) => authed(c, async (handle) => {
@@ -174,6 +185,20 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     await d.content.updatePost(p.id, { caption });
     await d.content.addSignal(handle, p.id, "edited", { before: p.caption, after: caption });
     return c.json({ ok: true });
+  }));
+  // A 10–15 s video of a post (step 13b): 3 picture credits; the worker writes, renders, voices and cuts it.
+  app.post("/api/app/posts/:id/video", (c) => authed(c, async (handle) => {
+    const p = await d.content.getPost(c.req.param("id"));
+    if (!p || p.handle !== handle) return c.json({ error: "not found" }, 404);
+    if (!d.videoEnabled) return c.json({ error: "Videos are not available on this server yet" }, 503);
+    if (!["ready", "scheduled", "published"].includes(p.status) || !(p.imageMediaId ?? p.sourceMediaId)) return c.json({ error: "the post needs a picture first" }, 409);
+    const v = ((p.idea ?? {}) as { video?: { status?: string } }).video;
+    if (v && ["writing", "rendering"].includes(v.status ?? "")) return c.json({ status: v.status }, 202);
+    try { await d.content.reserve(handle, 0, 3); }
+    catch (e) { if (e instanceof QuotaExceeded) return c.json({ error: e.message, code: "quota_exceeded" }, 402); throw e; }
+    await d.content.updatePost(p.id, { idea: { ...(p.idea as object), video: { status: "writing" } } });
+    await d.enqueue("make_video", { postId: p.id }, `video:${p.id}:${now()}`);
+    return c.json({ status: "writing" }, 202);
   }));
   app.post("/api/app/posts/:id/schedule", (c) => authed(c, async (handle) => {
     const p = await d.content.getPost(c.req.param("id"));

@@ -12,7 +12,7 @@ requires:
 seats:
   main: {}
   second: {}
-roles: [profiler, opportunity-analyst, idea-writer, localizer, learner, insight-writer]
+roles: [profiler, opportunity-analyst, idea-writer, localizer, learner, insight-writer, video-director]
 pipeline: [analyze, opportunities, ideas, render, publish]
 research:
   scouts: []

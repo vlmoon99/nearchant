@@ -5,7 +5,9 @@ import { join } from "node:path";
 import type { Task } from "graphile-worker";
 import sharp from "sharp";
 import type { ContentStore, Envelopes } from "@nearchant/db";
-import { block, analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type StyleProfile } from "@nearchant/swarm";
+import { assSubtitles, compose } from "./video-compose.js";
+import type { Tts } from "./tts.js";
+import { block, writeVideoScript, analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type StyleProfile } from "@nearchant/swarm";
 
 export interface ContentTaskDeps {
   content: ContentStore;
@@ -20,6 +22,8 @@ export interface ContentTaskDeps {
   log: (m: string) => void;
   /** The lab's chosen image model on Comfy Cloud (admin "Use in production"); null = the router's image route. */
   labRender?: (prompt: string, photo: Buffer | null) => Promise<Buffer | null>;
+  /** Short videos (step 13b): a clip from a picture (Comfy Cloud Wan 2.2), an English voice, fonts for captions. */
+  video?: { render: (prompt: string, picture: Buffer) => Promise<Buffer>; tts: Tts; fontsDir: string };
   /** Side effects sent once per key (chain calls). */
   outbox: { enqueue(key: string, kind: string, payload: unknown): Promise<unknown> };
 }
@@ -157,6 +161,14 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     await d.content.setProfile(handle, { learned });
   };
 
+  /** A post's video on the public store (a copy; the private original stays). */
+  async function publishVideo(handle: string, postId: string, key: string): Promise<string> {
+    const pub = `${handle}/public/${postId}.mp4`;
+    await mkdir(join(d.mediaDir, handle, "public"), { recursive: true });
+    await copyFile(join(d.mediaDir, key), join(d.mediaDir, pub));
+    return pub;
+  }
+
   // Publishing at the scheduled time: the image becomes public on the store. The proof on NEAR is step 7.
   const publishPostTask: Task = async (payload, helpers) => {
     const { postId } = payload as { postId: string };
@@ -173,7 +185,9 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
       await mkdir(join(d.mediaDir, p.handle, "public"), { recursive: true });
       await copyFile(join(d.mediaDir, m.key), join(d.mediaDir, publicKey));
     }
-    await d.content.updatePost(p.id, { status: "published", publishedAt: new Date(), idea: { ...(p.idea as object), publicImage: publicKey } });
+    const vid = (p.idea as { video?: { status?: string; key?: string } }).video;
+    const publicVideo = vid?.status === "ready" && vid.key ? await publishVideo(p.handle, p.id, vid.key) : null;
+    await d.content.updatePost(p.id, { status: "published", publishedAt: new Date(), idea: { ...(p.idea as object), publicImage: publicKey, ...(publicVideo ? { publicVideo } : {}) } });
     await d.outbox.enqueue(`proof:post:${p.id}`, "post.proof", { postId: p.id, handle: p.handle, entry: postProofEntry({ id: p.id, caption: p.caption ?? "", imageSha256: m?.sha256 ?? null, idea: p.idea }) });
     d.log(`published ${p.id}`);
   };
@@ -191,5 +205,39 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     d.log(`insights ${handle}`);
   };
 
-  return { write_insights: writeInsightsTask, publish_post: publishPostTask, analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
+  // A post's short video: script → (clip ‖ voice) → ffmpeg. 3 picture credits, refunded on failure.
+  const makeVideoTask: Task = async (payload) => {
+    const { postId } = payload as { postId: string };
+    const p = await d.content.getPost(postId);
+    if (!p || !d.video) return;
+    const idea = (p.idea ?? {}) as Record<string, unknown>;
+    const setVideo = (v: Record<string, unknown>) => d.content.updatePost(p.id, { idea: { ...idea, video: v } });
+    try {
+      const mid = p.imageMediaId ?? p.sourceMediaId;
+      const m = mid ? await d.content.getMedia(mid) : null;
+      if (!m) throw new Error("the post has no picture to animate");
+      const profile = (await d.content.getProfile(p.handle))?.data as StyleProfile;
+      const script = await writeVideoScript(askFor(p.handle, "video"), { profile, caption: p.caption ?? "", angle: String(idea.angle ?? "") });
+      await setVideo({ status: "rendering", script });
+      const picture = await sharp(await readFile(join(d.mediaDir, m.key))).rotate().resize(704, 1280, { fit: "cover" }).png().toBuffer();
+      const [clip, voice] = await Promise.all([d.video.render(script.video_prompt, picture), d.video.tts.speak(script.voiceover, p.handle)]);
+      const dir = join(d.mediaDir, p.handle, "gen", `v-${p.id}`);
+      await mkdir(dir, { recursive: true });
+      await Promise.all([writeFile(join(dir, "clip.webm"), clip), writeFile(join(dir, "voice.wav"), voice.wav), writeFile(join(dir, "subs.ass"), assSubtitles(script.hook, voice.words))]);
+      const key = `${p.handle}/gen/${p.id}.mp4`;
+      await compose({ clip: join(dir, "clip.webm"), voice: join(dir, "voice.wav"), ass: join(dir, "subs.ass"), fontsDir: d.video.fontsDir, out: join(d.mediaDir, key), seconds: voice.seconds });
+      const bytes = await readFile(join(d.mediaDir, key));
+      const mediaId = await d.content.addMedia({ handle: p.handle, kind: "video", key, contentType: "video/mp4", sha256: createHash("sha256").update(bytes).digest("hex") });
+      const now = await d.content.getPost(p.id); // published while the video was made → show it on the store too
+      const publicVideo = now?.status === "published" ? await publishVideo(p.handle, p.id, key) : undefined;
+      await d.content.updatePost(p.id, { idea: { ...((now?.idea ?? idea) as object), video: { status: "ready", mediaId, key, script, seconds: voice.seconds }, ...(publicVideo ? { publicVideo } : {}) } });
+      d.log(`video ${p.id}: ${voice.seconds}s, ${Math.round(bytes.length / 1024)} KB`);
+    } catch (e) {
+      await d.content.refund(p.handle, 0, 3);
+      await setVideo({ status: "failed", error: (e as Error).message.slice(0, 300) });
+      d.log(`video ${p.id} failed: ${(e as Error).message.slice(0, 200)}`);
+    }
+  };
+
+  return { make_video: makeVideoTask, write_insights: writeInsightsTask, publish_post: publishPostTask, analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
 }

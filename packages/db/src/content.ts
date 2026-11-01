@@ -52,7 +52,7 @@ export class ContentStore {
   }
 
   // --- media + items ---
-  async addMedia(m: { handle: string; kind: "photo" | "generated"; key: string; contentType: string; sha256: string; itemId?: string | null }): Promise<string> {
+  async addMedia(m: { handle: string; kind: "photo" | "generated" | "video"; key: string; contentType: string; sha256: string; itemId?: string | null }): Promise<string> {
     const id = `m-${randomUUID()}`;
     await this.db.insert(s.media).values({ id, ...m, itemId: m.itemId ?? null });
     return id;

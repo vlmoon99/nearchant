@@ -246,7 +246,7 @@ const app = createApp({
       handle, name: b.name, account: `${handle}.${accounts.root}`, summary: prof?.summary ?? b.description,
       orders: (await store.listOrders(handle, 500)).filter((o) => ["paid", "in_progress", "delivered", "released"].includes(o.state)).length,
       items: items.map((i) => ({ id: i.id, title: i.title, description: i.description, price: fmt(i.priceUnits), kind: i.kind, options: i.options as string[], img: i.photoMediaId ? `/files/${handle}/public/item-${i.id}.jpg` : null })),
-      posts: posts.map((p) => ({ caption: p.caption ?? "", img: (p.idea as { publicImage?: string }).publicImage ? `/files/${(p.idea as { publicImage: string }).publicImage}` : null, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null })),
+      posts: posts.map((p) => ({ caption: p.caption ?? "", img: (p.idea as { publicImage?: string }).publicImage ? `/files/${(p.idea as { publicImage: string }).publicImage}` : null, video: (p.idea as { publicVideo?: string }).publicVideo ? `/files/${(p.idea as { publicVideo: string }).publicVideo}?v=${((p.idea as { video?: { mediaId?: string } }).video?.mediaId ?? "").slice(-8)}` : null, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null })),
     };
   } } : {}),
   onPaid: async (id) => {
@@ -279,6 +279,7 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     sessionKey: createHash("sha256").update(`nearchant-session:${process.env.NEARCHANT_SECRET_KEY}`).digest(),
     secureCookies: config.public_url.startsWith("https://"),
     decimals: config.token.decimals,
+    videoEnabled: !!(process.env.TTS_URL && process.env.COMFY_API_KEY),
   });
 }
 {

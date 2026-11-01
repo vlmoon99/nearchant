@@ -283,6 +283,10 @@ function sellerApp() {
     const id = (e.currentTarget as HTMLElement).dataset.post!;
     try { await api(`/api/app/posts/${id}/caption`, { caption: $<HTMLTextAreaElement>("#caption").value }); $("#post-out").textContent = "Saved ✓"; } catch (err) { $("#post-out").textContent = (err as Error).message; }
   });
+  $$("[data-make-video]").forEach((b) => b.addEventListener("click", async () => {
+    (b as HTMLButtonElement).disabled = true;
+    try { await api(`/api/app/posts/${b.dataset.makeVideo}/video`, {}); location.reload(); } catch (err) { alert((err as Error).message); (b as HTMLButtonElement).disabled = false; }
+  }));
   $$("[data-schedule]").forEach((b) => b.addEventListener("click", async () => {
     const at = b.dataset.when === "now" ? new Date() : nextSlot(0);
     try { await api(`/api/app/posts/${b.dataset.schedule}/schedule`, { at: at.toISOString() }); location.reload(); } catch (err) { alert((err as Error).message); }

@@ -112,12 +112,15 @@ export const PostsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; pos
 
 export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: Post; img: Img; explorer: string }> = ({ cfg, test, store, p, img, explorer }) => {
   const proof = p.proof as { proofId?: string; outputHash?: string; contract?: string } | null;
+  const video = (p.idea as { video?: { status?: string; key?: string; mediaId?: string; error?: string; script?: { hook?: string } } } | null)?.video;
+  const making = video && ["writing", "rendering"].includes(video.status ?? "");
   return (
     <Page cfg={cfg} test={test} title="Post" active="Posts" store={store}>
       <PageHead kicker={`Posts › ${clip(p.caption ?? "Post", 40)}`} title="Post details" />
       <div class="cols post-cols">
         <div class="stack s12">
           <div class="post"><div class="img" style={img(p.imageMediaId) ? `background-image:url('${img(p.imageMediaId)}');aspect-ratio:4/5` : "aspect-ratio:4/5"}></div></div>
+          {video?.status === "ready" && video.key ? <video src={`/files/${video.key}?v=${(video.mediaId ?? "").slice(-8)}`} controls playsinline preload="metadata" style="width:100%;max-width:360px;aspect-ratio:9/16;border-radius:16px;background:#000"></video> : null}
           <textarea class="input" id="caption" data-post={p.id} rows={6}>{p.caption ?? ""}</textarea>
           <span class="sub accent">{((p.hashtags as string[]) ?? []).map((h) => `#${h}`).join(" ")}</span>
           <div class="row" style="gap:8px"><button class="btn secondary" id="save-caption" data-post={p.id}>Save caption</button><output class="foot" id="post-out"></output></div>
@@ -126,6 +129,13 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
           <div class="card"><span class="headline">Status</span><span class="sub">{when(p)}</span>
             {["ready", "scheduled"].includes(p.status) ? <div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn" data-schedule={p.id} data-when="best"><Icon n="calendar" />Best time</button><button class="btn secondary" data-schedule={p.id} data-when="now"><Icon n="send" />Post now</button></div> : null}
           </div>
+          {["ready", "scheduled", "published"].includes(p.status) ? <div class="card" {...(making ? { "data-refresh": "6000" } : {})}><span class="headline">Video</span>
+            {making ? <span class="sub">AI is making a 15-second video with an English voiceover and captions — about 3 minutes. This page refreshes by itself.</span>
+              : video?.status === "ready" ? <span class="sub">Ready{video.script?.hook ? ` · “${video.script.hook}”` : ""}. It goes on your store with the post.</span>
+              : <>{video?.status === "failed" ? <span class="foot" style="color:#c0392b">The last try failed: {video.error ?? "unknown error"}</span> : null}
+                <span class="sub muted">Turn this post into a 10–15 s vertical video: the picture comes alive, a voice tells the story, captions on screen. Uses 3 picture credits.</span>
+                <button class="btn secondary" data-make-video={p.id}><Icon n="sparkle" />Make a video</button></>}
+          </div> : null}
           <div class="card proof">
             <div class="spread"><div class="row" style="align-items:center;gap:8px"><Icon n="shield" c="#007A4F" s={20} /><span class="headline proof-t">Proof on NEAR</span></div>{proof?.proofId ? <Badge label="Verified · unchanged" /> : null}</div>
             {proof?.proofId ? <>

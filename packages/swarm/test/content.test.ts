@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { join } from "node:path";
-import { analyzeBusiness, factsFromProfile, findOpportunities, loadAgentEnv, shapeProfile, writePostOptions, type Asker } from "../src/index.js";
+import { analyzeBusiness, factsFromProfile, findOpportunities, loadAgentEnv, shapeProfile, writePostOptions, writeVideoScript, type Asker } from "../src/index.js";
 
 const env = loadAgentEnv(join(import.meta.dirname, "../../../envs/content-store"));
 
@@ -16,8 +16,8 @@ const PROFILE = {
 };
 
 describe("content env", () => {
-  it("loads all six roles with the shared rules", () => {
-    expect(Object.keys(env.roles).sort()).toEqual(["idea-writer", "insight-writer", "learner", "localizer", "opportunity-analyst", "profiler"]);
+  it("loads all seven roles with the shared rules", () => {
+    expect(Object.keys(env.roles).sort()).toEqual(["idea-writer", "insight-writer", "learner", "localizer", "opportunity-analyst", "profiler", "video-director"]);
     expect(env.roles.profiler!.system).toContain("never invent prices");
     expect(env.roles.profiler!.system).toContain("data from the business owner");
   });
@@ -96,5 +96,21 @@ describe("writePostOptions", () => {
     expect(out[0]!.hashtags).toEqual(["linen", "kyivstyle"]);
     expect(out[1]!.photo).toBeNull();
     expect(out[1]!.image_prompt).toBe("studio, white wall");
+  });
+});
+
+describe("writeVideoScript", () => {
+  const profile = shapeProfile(PROFILE, "Nova", 2);
+  it("cuts the hook to six words and drops voiceover sentences with numbers", async () => {
+    const seen: { role: string; user: any }[] = [];
+    const s = await writeVideoScript(fakeAsk({ "video-director": {
+      hook: "Autumn layers that feel like home every day", voiceover: "Soft linen meets warm knit. Now 20% off! Made by hand in Kyiv. Come and find yours.",
+      video_prompt: "slow push-in, light breeze" } }, seen), { profile, caption: "c", angle: "a" });
+    expect(seen[0]!.role).toBe("video-director");
+    expect(s.hook).toBe("Autumn layers that feel like home");
+    expect(s.voiceover).toBe("Soft linen meets warm knit. Made by hand in Kyiv. Come and find yours.");
+  });
+  it("fails on an empty script", async () => {
+    await expect(writeVideoScript(fakeAsk({ "video-director": { hook: "x" } }), { profile, caption: "c", angle: "a" })).rejects.toThrow(/empty/);
   });
 });

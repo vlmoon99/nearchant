@@ -44,9 +44,11 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
     numbers), first-week goal + checklist, first-sale celebration, Monday report; wallet from chain views.
 13. [x] **Public URL + polish**: tunnel routes live (owner adds hostnames), end-to-end browser test of onboarding →
     post → buy → release; `make demo` replay updated to the new story; README + demo script.
-13b. [ ] **Stretch: video posts + English voiceover** (owner request 1 Nov): port from `advertisment_system` (details: `docs/video-plan.md`)
+13b. [x] **Stretch: video posts + English voiceover** (owner request 1 Nov): port from `advertisment_system` (details: `docs/video-plan.md`)
     (video model + Kokoro-style English TTS, no uk/ru). Needs a GPU decision: gx10-8695 can't hold LLM + image +
     video at once; options are the second Spark (`gx10-c3c8`, Boost Content's box — owner's call) or time-sharing.
+    **Done 1 Nov** on Comfy Cloud (Wan 2.2 TI2V 5B clip) + Kokoro voice on CPU + ffmpeg captions — "Make a video"
+    on a post. LTX-2.5 on `gx10-c3c8` stays built but unused until its memory cap is tested.
 14. [ ] **NEAR AI TEE at the end**: switch text to NEAR AI TEE models (`providers.yaml`), attestation in proofs,
     a paid test (owner topped up +$20 on 1 Nov); Phala deploy if the owner provides the account. For the full-cloud
     production profile, pick the model per task with NEAR AI's **Levanto Sage 1.4** router ("Decisions", private TEE,

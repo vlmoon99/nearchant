@@ -158,6 +158,18 @@ export async function writePostOptions(ask: Asker, a: {
   }).filter((p) => p.caption).slice(0, a.n);
 }
 
+export interface VideoScript { hook: string; voiceover: string; video_prompt: string }
+
+/** A short video's script for one post (advertisment_system short-form director, ported): hook, voiceover, motion. */
+export async function writeVideoScript(ask: Asker, a: { profile: StyleProfile; caption: string; angle: string }): Promise<VideoScript> {
+  const raw = await ask<Record<string, unknown>>("video-director", [block("style_profile", a.profile), block("post", { angle: a.angle, caption: a.caption })].join("\n\n"));
+  // The voice must not read numbers (TTS reads them badly and they are the claims most often made up).
+  const voiceover = str(raw.voiceover, 400).replace(/\s*[^.!?]*\d[^.!?]*[.!?]?/g, "").trim();
+  const s = { hook: str(raw.hook, 60).split(/\s+/).slice(0, 6).join(" "), voiceover, video_prompt: str(raw.video_prompt, 600) };
+  if (!s.voiceover || !s.video_prompt) throw new Error("video-director: empty voiceover or video prompt");
+  return s;
+}
+
 /** Updates the owner's taste memory from their signals (Boost Content `learn` k1). */
 export async function learnTaste(ask: Asker, memory: OwnerMemory, events: { kind: string; data: unknown }[]): Promise<OwnerMemory> {
   const raw = await ask<Record<string, unknown>>("learner", [block("current_memory", memory), block("events", events.slice(-60))].join("\n\n"));

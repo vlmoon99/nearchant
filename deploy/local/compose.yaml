@@ -20,6 +20,8 @@ x-app: &app
     REPLAY_DIR: ${REPLAY_DIR:-}
     PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8787}
     TRUST_PROXY: ${TRUST_PROXY:-}
+    TTS_URL: ${TTS_URL:-}
+    TTS_API_KEY: ${TTS_API_KEY:-}
   volumes: ["media:/app/.media"]
   depends_on: { db: { condition: service_healthy } }
 
@@ -94,6 +96,15 @@ services:
     profiles: [cloudimage]
     restart: unless-stopped
 
+  tts:        # English voice for post videos (`COMPOSE_PROFILES=video`, worker TTS_URL=http://tts:8105): Kokoro-82M +
+    # faster-whisper word timings, CPU only (deploy/video-engine/tts). Weights from deploy/video-engine/NOTICE.md.
+    build: { context: ../video-engine/tts }
+    image: nearchant/tts:dev
+    environment: { ASSETS_DIR: /data/assets, KOKORO_ONNX: /weights/kokoro/kokoro-v1.0.onnx, KOKORO_VOICES: /weights/kokoro/voices-v1.0.bin, WHISPER_MODEL_DIR: /weights/whisper/base.en, API_KEY: "${TTS_API_KEY:-}", OMP_NUM_THREADS: "4" }
+    volumes: ["${TTS_WEIGHTS:-/home/server/nearchant-node/tts-weights}:/weights:ro", "tts:/data/assets"]
+    profiles: [video]
+    restart: unless-stopped
+
   tailnet:    # optional: serve the gateway on a tailnet IP. `COMPOSE_PROFILES=tailnet TAILNET_IP=100.x.y.z`
     # Binding the gateway itself to the tailnet IP fails at boot when Docker starts before Tailscale, and Docker
     # never retries a failed bind. The gateway stays on 127.0.0.1; this forwarder restarts until the IP exists.
@@ -142,3 +153,4 @@ services:
 volumes:
   db: {}
   media: {}
+  tts: {}

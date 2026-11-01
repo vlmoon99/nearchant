@@ -16,6 +16,7 @@ import { KeyPair, type KeyPairString } from "near-api-js";
 import type { ResultEnvelope } from "@nearchant/contracts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { makeRouter } from "./router.js";
+import { makeTts } from "./tts.js";
 import { makeContentTasks } from "./content-tasks.js";
 import { ComfyCloud, fillWorkflow, type LabVariant } from "@nearchant/providers";
 import { localMedia, marpServerRender, searxng } from "./tools.js";
@@ -180,8 +181,22 @@ const labRender = comfy ? async (prompt: string, photo: Buffer | null): Promise<
   return Buffer.from(await comfy.run(wf));
 } : undefined;
 
+// Short videos: the lab's video variant on Comfy Cloud + the English voice service (TTS_URL).
+const videoVariant = lab.variants.find((x) => x.id === (process.env.VIDEO_VARIANT ?? "wan22-ti2v5b"));
+const video = comfy && videoVariant && process.env.TTS_URL ? {
+  tts: makeTts(process.env.TTS_URL, process.env.TTS_API_KEY ?? ""),
+  fontsDir: process.env.FONTS_DIR ?? join(root, "assets/fonts"),
+  render: async (prompt: string, picture: Buffer) => {
+    const template = JSON.parse(readFileSync(join(root, "config/image-lab", videoVariant.workflow), "utf8"));
+    const ref = await comfy.upload(picture, `video-${Date.now()}.png`);
+    console.info(`[content] video with ${videoVariant.id}`);
+    return Buffer.from(await comfy.run(fillWorkflow(template, { prompt, ref, seed: Math.floor(Math.random() * 2 ** 31), width: 704, height: 1280, set: videoVariant.set })));
+  },
+} : undefined;
+
 const contentTasks = makeContentTasks({
   ...(labRender ? { labRender } : {}),
+  ...(video ? { video } : {}),
   content: contentStore, envelopes, router, outbox, env: loadAgentEnv(join(root, "envs/content-store")), mediaDir,
   accountOf: (h) => `${h}.${accounts.root}`, decimals: Number(gw.token?.decimals ?? 6),
   ...(process.env.SEARXNG_URL ? { search: searxng(process.env.SEARXNG_URL) } : {}),

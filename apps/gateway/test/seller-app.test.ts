@@ -25,11 +25,12 @@ function fakeContent() {
     getPost: async (id) => db.posts.find((p) => p.id === id) ?? null,
     updatePost: async (id, p) => { Object.assign(db.posts.find((x) => x.id === id), p); },
     addSignal: async (h, postId, kind) => { db.signals.push({ h, postId, kind }); },
+    reserve: async (_h, _p, images) => { if (images > db.quota) throw new QuotaExceeded("images", 12); db.quota -= images; },
   };
   return { c: c as SellerContent, db };
 }
 
-function setup(ownerKeys: string[] = []) {
+function setup(ownerKeys: string[] = [], videoEnabled = false) {
   const app = new Hono();
   const { c, db } = fakeContent();
   const jobs: { task: string; payload: unknown }[] = [];
@@ -37,7 +38,7 @@ function setup(ownerKeys: string[] = []) {
   const key = Buffer.alloc(32, 7);
   mountSellerApp(app, {
     content: c, handles: { get: async (h) => (h === "nova" ? nova : null) }, isOwnerKey: async (_a, pk) => ownerKeys.includes(pk),
-    enqueue: async (task, payload) => { jobs.push({ task, payload }); }, mediaDir, sessionKey: key, secureCookies: false, decimals: 6,
+    enqueue: async (task, payload) => { jobs.push({ task, payload }); }, mediaDir, sessionKey: key, secureCookies: false, decimals: 6, videoEnabled,
   });
   const cookie = `nc_session=${signSession(key, "nova", Date.now() + 60_000)}`;
   return { app, db, jobs, mediaDir, cookie, key };
@@ -141,5 +142,36 @@ describe("seller API", () => {
     expect(r.status).toBe(200);
     expect(db.posts[0].status).toBe("scheduled");
     expect(jobs.at(-1)?.task).toBe("publish_post");
+  });
+
+  it("makes a video of a post with a picture: 3 credits, one job, no double start", async () => {
+    const off = setup();
+    off.db.posts.push({ id: "v0", handle: "nova", status: "ready", imageMediaId: "m1", idea: {} });
+    expect((await off.app.request("http://x/api/app/posts/v0/video", post({}, off.cookie))).status).toBe(503);
+    const { app, cookie, db, jobs } = setup([], true);
+    db.posts.push({ id: "v0", handle: "nova", status: "ready", imageMediaId: "m1", idea: { angle: "a" } }, { id: "v1", handle: "nova", status: "ready", imageMediaId: null, idea: {} });
+    expect((await app.request("http://x/api/app/posts/v1/video", post({}, cookie))).status).toBe(409);
+    expect((await app.request("http://x/api/app/posts/v0/video", post({}, cookie))).status).toBe(202);
+    expect(db.quota).toBe(9);
+    expect(db.posts[0].idea).toEqual({ angle: "a", video: { status: "writing" } });
+    expect(jobs.filter((j) => j.task === "make_video")).toHaveLength(1);
+    expect((await app.request("http://x/api/app/posts/v0/video", post({}, cookie))).status).toBe(202);
+    expect(db.quota).toBe(9); // already making: no second job, no second charge
+    expect(jobs.filter((j) => j.task === "make_video")).toHaveLength(1);
+  });
+
+  it("serves a store's video with byte ranges, privately until published", async () => {
+    const { app, cookie, mediaDir } = setup();
+    const { mkdirSync, writeFileSync } = await import("node:fs");
+    mkdirSync(join(mediaDir, "nova", "gen"), { recursive: true });
+    writeFileSync(join(mediaDir, "nova", "gen", "p1.mp4"), Buffer.from("0123456789"));
+    expect((await app.request("http://x/files/nova/gen/p1.mp4")).status).toBe(403);
+    const full = await app.request("http://x/files/nova/gen/p1.mp4", { headers: { cookie } });
+    expect(full.headers.get("content-type")).toBe("video/mp4");
+    const part = await app.request("http://x/files/nova/gen/p1.mp4", { headers: { cookie, range: "bytes=2-5" } });
+    expect(part.status).toBe(206);
+    expect(part.headers.get("content-range")).toBe("bytes 2-5/10");
+    expect(await part.text()).toBe("2345");
+    expect((await app.request("http://x/files/nova/gen/p1.mp4", { headers: { cookie, range: "bytes=20-" } })).status).toBe(416);
   });
 });

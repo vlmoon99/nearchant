@@ -558,6 +558,28 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   schedule) — check after the first scheduled publish.
 - Next: 13b video shorts (Comfy Cloud first; the Sparks are still offline).
 
+## 2026-11-01 17:00 UTC — step 13b: post videos with an English voiceover
+
+- "Make a video" on a post (Post detail): the `video-director` role (port of advertisment_system's short-form
+  director) writes a hook ≤6 words, a 25–40 word voiceover with no numbers, and a motion prompt → Comfy Cloud
+  Wan 2.2 TI2V 5B animates the post picture (704×1280, 5 s) ‖ Kokoro-82M speaks it, faster-whisper gives word
+  timings → ffmpeg (`apps/worker/src/video-compose.ts`): forward+reverse loop under the voice, light grade,
+  Montserrat hook on top + word-timed captions (ASS/libass), loudness-normalised, H.264 720×1280. Costs 3 picture
+  credits, refunded on failure. Published posts carry the video to the store page.
+- Merged the video-engine branch (`deploy/video-engine`: TTS service + LTX-2.5 adapter). The TTS service runs in
+  local compose (`COMPOSE_PROFILES=…,video`, weights outside the repo under `TTS_WEIGHTS`); the LTX adapter is not
+  used yet. App image now includes ffmpeg; `/files/` serves mp4 with byte ranges (Safari).
+- **Verified live on nearchant.com** (Mac stack): one video in 143 s (13 s voiceover, 2.7 MB); frames checked
+  (hook, captions, smooth loop after the ping-pong fix); post page in Chrome plays it (duration 13.6 s, no page
+  errors). Tests: swarm 31, gateway 29 (video route, quota, no double start, mp4 ranges), worker 9 (captions,
+  ASS escaping, ffmpeg args, TTS retry/4xx, make_video failure refund).
+- Found: Wan 2.2 **5B changes the product** (jacket lying flat → darker jacket on a hanger). Next: try Wan 2.2
+  14B I2V / other i2v models in the image lab against product fidelity (Comfy credits until 11 Nov). Cloudflare
+  caches a 404 for `.mp4` URLs: video URLs now carry `?v=`.
+- Not verified: video on the Sparks (offline); the store page showing a published post's video (needs a post to
+  publish — next scheduled 6 Nov).
+- Next: step 14 (NEAR AI TEE + attestation in proofs), video model comparison in the lab.
+
 ### Owner actions
 - Optional: a Brave Search API key (free tier) for reliable trend opportunities — self-hosted search is blocked
   from the home network right now.

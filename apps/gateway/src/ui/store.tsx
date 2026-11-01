@@ -4,7 +4,7 @@ import type { FC, PropsWithChildren } from "hono/jsx";
 import { Badge, Icon } from "./kit.js";
 
 export interface StoreItem { id: string; title: string; description: string; price: string; img: string | null; kind: string; options: string[] }
-export interface StorePost { caption: string; img: string | null; proofId: string | null }
+export interface StorePost { caption: string; img: string | null; video?: string | null; proofId: string | null }
 export interface StoreData { handle: string; name: string; account: string; summary: string; items: StoreItem[]; posts: StorePost[]; orders: number }
 export interface CheckoutCfg { base: string; rpcUrl: string; orders: string; network: string }
 
@@ -40,7 +40,7 @@ export const StorePage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean }> = 
         {i.options.length ? <span class="foot muted">{i.options.join(" · ")}</span> : null}
       </a>))}</div> : <p class="sub muted">Nothing for sale yet — check back soon.</p>}
     {s.posts.length ? <><h2 class="t4">Latest posts</h2><div class="grid4">{s.posts.map((p) => (
-      <div class="post"><div class="img" style={p.img ? `background-image:url('${p.img}')` : ""}></div><span class="foot">{p.caption.slice(0, 120)}</span>{p.proofId ? <Badge label={`Proof #${p.proofId} on NEAR`} /> : null}</div>))}</div></> : null}
+      <div class="post">{p.video ? <video class="img" src={p.video} poster={p.img ?? undefined} controls playsinline preload="none" style="aspect-ratio:9/16;object-fit:cover;width:100%"></video> : <div class="img" style={p.img ? `background-image:url('${p.img}')` : ""}></div>}<span class="foot">{p.caption.slice(0, 120)}</span>{p.proofId ? <Badge label={`Proof #${p.proofId} on NEAR`} /> : null}</div>))}</div></> : null}
     <div class="card proof" style="flex-direction:row;gap:14px;align-items:center"><Icon n="shield" s={24} c="#007A4F" />
       <span class="stack s8" style="gap:4px"><span class="headline proof-t">Safe to buy</span><span class="foot">Pay in test USDC (nUSD). Your money waits in escrow on NEAR and goes to {s.name} only when you confirm you got your order. Not delivered in time? You get it back automatically.</span></span></div>
   </Shell>
