@@ -111,11 +111,11 @@ export const PostsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; pos
   const shown = inBatch.length ? inBatch : filter === "all" ? posts : posts.filter((p) => p.status === filter);
   const pending = (inBatch.length ? inBatch : posts).some((p) => ["queued", "writing", "rendering"].includes(p.status));
   return (
-    <Page cfg={cfg} test={test} title="Posts" active="Posts" store={store}>
+    <Page cfg={cfg} test={test} title="Posts" active={inBatch.length ? "Create" : "Posts"} store={store}>
       {inBatch.length ? <><PageHead kicker="New post" title={pending ? "AI is making your posts" : "Review & publish"} /><CreateSteps step={pending ? 2 : 3} />
         <p class="sub muted" style="margin:0">{pending ? "Writing captions and making pictures — usually under two minutes." : "Open the ones you like, edit if you want, then post now or at the best time."}</p></>
       : <PageHead kicker={`Library · ${posts.length} posts`} title="Posts"><a class="btn" href="/app/create"><Icon n="plus" />Create post</a></PageHead>}
-      <div class="row" style="gap:8px;flex-wrap:wrap">{[["all", "All"], ["ready", "Ready"], ["scheduled", "Scheduled"], ["published", "Posted"]].map(([k, l]) => <a class={`chip ${filter === k ? "on" : ""}`} href={`/app/posts?f=${k}`}>{l}</a>)}</div>
+      {inBatch.length ? null : <div class="row" style="gap:8px;flex-wrap:wrap">{[["all", "All"], ["ready", "Ready"], ["scheduled", "Scheduled"], ["published", "Posted"]].map(([k, l]) => <a class={`chip ${filter === k ? "on" : ""}`} href={`/app/posts?f=${k}`}>{l}</a>)}</div>}
       {pending ? <p class="foot muted" data-refresh="4000">AI is still making some posts — this page refreshes by itself.</p> : null}
       {shown.length ? <div class="grid4">{shown.map((p) => <PostCard p={p} img={img} />)}</div> : <p class="sub muted">Nothing here yet.</p>}
     </Page>
