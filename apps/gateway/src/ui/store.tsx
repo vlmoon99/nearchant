@@ -40,7 +40,7 @@ export const StorePage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean }> = 
         {i.options.length ? <span class="foot muted">{i.options.join(" · ")}</span> : null}
       </a>))}</div> : <p class="sub muted">Nothing for sale yet — check back soon.</p>}
     {s.posts.length ? <><h2 class="t4">Latest posts</h2><div class="grid4">{s.posts.map((p) => (
-      <div class="post">{p.video ? <video class="img" src={p.video} poster={p.img ?? undefined} controls playsinline preload="none" style="aspect-ratio:4/5;object-fit:cover"></video> : <div class="img" style={`aspect-ratio:4/5;${p.img ? `background-image:url('${p.img}')` : ""}`}></div>}<span class="foot">{p.caption.slice(0, 120)}</span>{p.proofId ? <Badge label={`Proof #${p.proofId} on NEAR`} /> : null}</div>))}</div></> : null}
+      <div class="post">{p.video ? <video class="img" src={p.video} poster={p.img ?? undefined} controls playsinline preload="none" style="aspect-ratio:4/5;object-fit:cover"></video> : <div class="img" style={`aspect-ratio:4/5;${p.img ? `background-image:url('${p.img}')` : ""}`}></div>}<span class="foot clamp3">{p.caption}</span>{p.proofId ? <Badge label={`Proof #${p.proofId} on NEAR`} /> : null}</div>))}</div></> : null}
     <div class="card proof" style="flex-direction:row;gap:14px;align-items:center"><Icon n="shield" s={24} c="#007A4F" />
       <span class="stack s8" style="gap:4px;flex:1;min-width:0"><span class="headline proof-t">Safe to buy</span><span class="foot">Pay in test USDC (nUSD). Your money waits in escrow on NEAR and goes to {s.name} only when you confirm you got your order. Not delivered in time? You get it back automatically.</span></span></div>
   </Shell>
