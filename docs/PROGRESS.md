@@ -221,6 +221,13 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Observation: the rewrite needed 6 lines redacted (the second pass had no buyer note to work from). Next
   improvement: let the buyer type what to change, and feed it to the copywriter.
 
+## 2026-11-01 ~04:40 UTC — revision with a buyer note, verified live
+
+- Order page: a "what should change?" note is saved with the revision request and passed to the copywriter.
+- Verified on the Spark (`buy-deck.mjs --revise`, order `o-61aa40b5-…`): delivered 467 s → revision with note
+  ("add a retention plan slide, make the ask more concrete") → redelivered 1171 s → accepted → `Released`. The rewrite
+  addressed retention only as an "Assumption:" line (no retention data exists — honest), kept "The Ask".
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
