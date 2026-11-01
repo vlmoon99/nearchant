@@ -153,7 +153,7 @@ describe("deck pipeline", () => {
     expect(delivered).toHaveLength(0);
   });
 
-  it("reworks once after a failed review, and stops after a second failure", async () => {
+  it("reworks after a failed review, and stops after three failed rounds", async () => {
     const pass2 = fakeRouter({ reviewer: (n) => ({ passed: n > 1, score: n > 1 ? 8 : 4, issues: n > 1 ? [] : [{ slide: 2, problem: "vague", fix: "cite" }], untraced_claims: [] }) });
     const a = deps(pass2);
     expect((await runPipeline(a.d, "o3", "seed deck please, coffee")).status).toBe("done");
@@ -162,8 +162,14 @@ describe("deck pipeline", () => {
 
     const never = fakeRouter({ reviewer: () => ({ passed: false, score: 3, issues: [], untraced_claims: ["x"] }) });
     const b = deps(never);
+    // 3 reviews, 2 edits
     expect(await runPipeline(b.d, "o4", "seed deck please, coffee")).toMatchObject({ status: "stopped", kind: "failed_review" });
     expect(b.delivered).toHaveLength(0);
+    expect(never.calls.filter((c) => c.role === "reviewer")).toHaveLength(3);
+    expect(never.calls.filter((c) => c.role === "copywriter")).toHaveLength(3);
+
+    const lenient = fakeRouter({ reviewer: () => ({ passed: false, score: 8, issues: [{ slide: 2, problem: "minor", fix: "x" }], untraced_claims: [] }) });
+    expect((await runPipeline(deps(lenient).d, "o7", "seed deck please, coffee")).status).toBe("done");
   });
 
   it("deterministic checks catch what a lenient reviewer misses", async () => {

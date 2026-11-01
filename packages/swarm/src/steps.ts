@@ -168,13 +168,16 @@ export const STEPS: Record<Step, (c: StepContext) => Promise<unknown>> = {
     const { strategy } = c.done.council as { strategy: Strategy };
     let md = (c.done.design as { markdown: string }).markdown;
     const rounds: { review: Review; problems: string[] }[] = [];
-    for (let round = 0; round < 2; round++) {
+    const ROUNDS = 3; // first review + up to two edits
+    for (let round = 0; round < ROUNDS; round++) {
       const problems = checkDeck(md, dossier);
       const review = await c.ask<Review>("reviewer", [block("brief", brief), block("dossier", dossier), block("draft", md)].join("\n\n"));
-      const passed = review.passed === true && problems.length === 0;
+      // Hard rules decide: deterministic checks clean, nothing untraced, and the reviewer passes it or scores it >= 7.
+      const untraced = (review.untraced_claims ?? []).length;
+      const passed = problems.length === 0 && untraced === 0 && (review.passed === true || Number(review.score) >= 7);
       rounds.push({ review: { ...review, passed }, problems });
       if (passed) return { markdown: md, passed: true, rounds };
-      if (round === 1) break;
+      if (round === ROUNDS - 1) break;
       // One rework: the copywriter gets the issues and rewrites (the cover image line is kept).
       const cover = md.match(/!\[bg right:40%\]\([^)]+\)\n\n/)?.[0] ?? "";
       const fix = { reviewer_issues: review.issues, untraced_claims: review.untraced_claims, checks: problems };
@@ -183,7 +186,7 @@ export const STEPS: Record<Step, (c: StepContext) => Promise<unknown>> = {
       if (cover) next = next.replace(/(^---\n[\s\S]*?\n---\n\s*\n?)(#)/, `$1${cover}$2`);
       md = next;
     }
-    throw new JobStop(`deck failed review twice: ${JSON.stringify(rounds.at(-1))}`.slice(0, 1000), "failed_review");
+    throw new JobStop(`deck failed review after ${ROUNDS} rounds: ${JSON.stringify(rounds.at(-1))}`.slice(0, 1000), "failed_review");
   },
 
   async render(c) {

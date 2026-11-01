@@ -2,7 +2,7 @@
 //   node dist/cli.js "<brief>"     env: NEARAI_API_KEY, NC_LOCAL_LLM_KEY, SEARXNG_URL, RENDERER_URL, MEDIA_DIR, RECORD_DIR
 import { join, resolve } from "node:path";
 import { loadAgentEnv, runPipeline, type JobDeps } from "@nearchant/swarm";
-import { localMedia, marpServerRender, searxng } from "./tools.js";
+import { localMedia, marpServerRender, recordedSearch, searxng } from "./tools.js";
 import { makeRouter } from "./router.js";
 
 const root = resolve(import.meta.dirname, "../../..");
@@ -29,7 +29,9 @@ const deps: JobDeps = {
   media,
   render: process.env.RENDERER_URL ? marpServerRender(process.env.RENDERER_URL, media) : async (o, md) => ({ files: [{ kind: "md", name: "deck.md", sha256: "", url: await media.put(o, "deck.md", Buffer.from(md)) }] }),
   deliver: async (_o, proof) => console.log("  · deliver (dry run) proof:", JSON.stringify(proof)),
-  search: process.env.SEARXNG_URL ? searxng(process.env.SEARXNG_URL) : undefined,
+  search: process.env.RECORD_DIR && process.env.SEARXNG_URL ? recordedSearch(process.env.RECORD_DIR, searxng(process.env.SEARXNG_URL))
+    : process.env.REPLAY_DIR && !process.env.NEARAI_API_KEY ? recordedSearch(process.env.REPLAY_DIR)
+    : process.env.SEARXNG_URL ? searxng(process.env.SEARXNG_URL) : undefined,
   log: (m) => console.log(`  ${m}`),
 };
 

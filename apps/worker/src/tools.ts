@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import type { Rendered, SearchResult } from "@nearchant/swarm";
@@ -47,5 +47,22 @@ export function marpServerRender(rendererUrl: string, media: ReturnType<typeof l
       files.push({ kind, name, sha256: sha(bytes), url: await media.put(orderId, name, bytes) });
     }
     return { files };
+  };
+}
+
+/**
+ * Records web-search results next to the model recordings (live), or serves them back (replay), so a replayed job
+ * sends exactly the same inputs as the recorded one (ADR 0013).
+ */
+export function recordedSearch(dir: string, live?: (q: string) => Promise<SearchResult[]>) {
+  const file = (q: string) => join(dir, `search-${createHash("sha256").update(q).digest("hex").slice(0, 32)}.json`);
+  return async (q: string): Promise<SearchResult[]> => {
+    if (live) {
+      const r = await live(q);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(file(q), JSON.stringify(r));
+      return r;
+    }
+    return existsSync(file(q)) ? (JSON.parse(readFileSync(file(q), "utf8")) as SearchResult[]) : [];
   };
 }
