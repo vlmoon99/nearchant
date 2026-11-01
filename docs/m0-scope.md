@@ -95,15 +95,15 @@ Every feature is judged by whether it serves this story.
 
 ## Timeline
 
-| Days | Deliverable |
-|---|---|
-| 1–2 Nov | Repo skeleton, schemas, contracts + sandbox tests, deployed to testnet |
-| 3–5 Nov | Gateway + router (nearai, local cluster, replay) + minimal swarm + deck producer |
-| 6–7 Nov | Card/storefront via tunnel, checkout, billing metering |
-| 8 Nov | Phala deploy (same compose) + Agent Market listing + A2A card |
-| 9–10 Nov | Flow 3 (budget subaccount, x402 to our second agent), Telegram bots |
-| 11–12 Nov | Buffer → feature freeze |
-| 13–14 Nov | Owner testing, README, `make demo`, video, X post, submit |
+| Days | Deliverable | Status (2026-11-01 03:00 UTC) |
+|---|---|---|
+| 1–2 Nov | Repo skeleton, schemas, contracts + sandbox tests, deployed to testnet | **done** (6 contracts, 25 sandbox tests, live) |
+| 3–5 Nov | Gateway + router (nearai, local cluster, replay) + minimal swarm + deck producer | **done** (full council pipeline, review gate) |
+| 6–7 Nov | Card/storefront via tunnel, checkout, billing metering | **done** except the tunnel (needs Cloudflare token) |
+| 8 Nov | Phala deploy (same compose) + Agent Market listing + A2A card | groundwork done (compose, runbook, market webhook, A2A card); needs Phala account + market listing decision |
+| 9–10 Nov | Flow 3 (budget, x402 to our second agent), Telegram bots | **done** (verity hired live; bots need a BotFather token) |
+| 11–12 Nov | Buffer → feature freeze | — |
+| 13–14 Nov | Owner testing, README, `make demo`, video, X post, submit | `make demo` + README + video script done; CI green |
 
 ## Cut from M0
 
