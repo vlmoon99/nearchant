@@ -1,0 +1,31 @@
+{
+ "capability": "chat",
+ "output": {
+  "message": {
+   "role": "assistant",
+   "content": "```json\n{\n \"wants\": [\n  \"Retention numbers: churn rate and subscriber cohort behavior after month six\",\n  \"CAC figures to back the growth marketer founder's claim of efficient acquisition\",\n  \"Gross margin per 18 EUR box after coffee, packaging and shipping\",\n  \"Capacity math: kg per month the current roastery handles vs. 400 subs need\",\n  \"Runway and milestones the 300k EUR actually buys\"\n ],\n \"turn_offs\": [\n  \"Capacity bottleneck claim at only 400 subscribers strains credulity without production numbers\",\n  \"No churn or margin data anywhere in ten slides for a subscription business\",\n  \"Competitor names dropped with no differentiation story beyond 'market is validated'\",\n  \"'Home-brewing boom' asserted with no source or sizing\",\n  \"Deck ends on 'why now' rhetoric instead of a concrete post-funding plan\"\n ],\n \"questions\": [\n  \"What is your monthly churn and how does it trend by cohort?\",\n  \"What is your blended CAC and payback period per subscriber?\",\n  \"What gross margin do you make on each 18 EUR subscription?\",\n  \"Why does a second roastery make sense at 400 subscribers — show the capacity math\",\n  \"What subscriber count and revenue does 300k EUR unlock, and over what timeline?\"\n ]\n}\n```",
+   "reasoning_content": "I'm a seed investor reviewing this deck draft for BeanBox, a specialty coffee subscription in Kyiv raising 300k EUR.\n\nKey things I'd react to as a seed investor:\n\nWhat would make me keep reading:\n- The MRR calculation shown (400 × 18 = 7,200 EUR) is honest arithmetic — good.\n- Clear capacity constraint story framing the ask as necessity.\n- Complementary founders (roaster + growth marketer).\n- Specific use of funds.\n\nTurn-offs:\n- Missing churn rate — retention is everything for subscriptions.\n- Missing CAC — the growth marketer founder claims efficient acquisition but no numbers.\n- Missing gross margin — 18 EUR/month with coffee costs, what's left?\n- Slide 5 claims \"operating at capacity\" with only one evidence item — is this verified? Also, wait — a subscription with 400 subs needing a second roastery? 400 subs × maybe 250g-1kg/month = 100-400kg/month. That's tiny for a roastery. Why is a second roastery needed for 400 subscribers? That's a big question. Capacity constraint at 400 subs seems odd — I'd question that hard.\n- Slide 7 names competitors \"Kyiv City Roastery and Kolo Coffee\" — are these real findings? As an investor, unverified competitor claims or vague market claims would bother me. Actually the brief says avoid fake market size data; the draft mentions competitive landscape with named players — I'd want to know how BeanBox differentiates.\n- No runway projection with the 300k.\n- No growth projection is good (avoid unsubstantiated), but investors want at least a scenario-based plan — what does the second roastery unlock in subscriber capacity?\n- \"Home-brewing boom\" claim — is that substantiated?\n\nQuestions I'd ask in the meeting:\n- What's your churn and CAC?\n- Gross margin per subscription?\n- Why does 400 subscribers max out your current roastery — what's the capacity in kg/month?\n- What's the runway with 300k and what milestones does it buy?\n- How do you differentiate from existing Kyiv roasters with subscriptions?\n\nFormat: JSON with three lists, max 5 items each, under 20 words each."
+  },
+  "finish_reason": "stop"
+ },
+ "model": "z-ai/glm-5.3-flash",
+ "endpointId": "nearai",
+ "privacyTier": "tee",
+ "usage": {
+  "inputTokens": 1480,
+  "outputTokens": 737
+ },
+ "costUsd": 0.0004869,
+ "attestation": {
+  "kind": "nearai",
+  "reportHash": "0466eac57c275995026f7bf975450ce20eb74572f22b7e5df43391de3fd79926",
+  "signingAddress": "40599fb284f43953bb356b09080fd803c960fc10285ad90eca462ca711ad4acb",
+  "nonce": "e9c4a2d1bb84f4e7d380d93375af8fc1ec7995eefc053b648696d919e449f896",
+  "fetchedAt": "2026-11-01T08:53:03.706Z",
+  "verified": false
+ },
+ "requestHash": "fee408af1237bbf65328ba77ea64eb34d64dc9a79a48241e503549e1b835a4fd",
+ "outputHash": "1285a86d9fe34a5f393003d6a9544522896fd863f0be23bc1f22683eb8ec2086",
+ "latencyMs": 8578,
+ "createdAt": "2026-11-01T08:53:12.284Z"
+}

@@ -1,0 +1,27 @@
+{
+ "capability": "chat",
+ "output": {
+  "message": {
+   "role": "assistant",
+   "content": "{\n \"findings\": [\n  {\n   \"claim\": \"BeanBox's current Monthly Recurring Revenue (MRR) is approximately 7,200 EUR, calculated from 400 subscribers paying 18 EUR per month.\",\n   \"source_url\": null,\n   \"source_title\": \"model knowledge\",\n   \"confidence\": \"high\"\n  },\n  {\n   \"claim\": \"The specialty coffee market in Ukraine has seen significant growth since 2022, with Kyiv-based roasters like Idealist Coffee and Kyiv City Roastery expanding their direct-to-consumer and subscription offerings to capture home-brewing demand.\",\n   \"source_url\": \"https://www.worldcoffeeportal.com/feature/on-the-front-line-of-europes-coffee-industry/\",\n   \"source_title\": \"How Ukraine's coffee industry is standing firm in the shadow of war\",\n   \"confidence\": \"medium\"\n  },\n  {\n   \"claim\": \"Competitor Kyiv City Roastery offers a coffee subscription service, indicating an existing customer expectation for recurring specialty coffee delivery in Kyiv.\",\n   \"source_url\": \"https://kyivcityroast.com.ua/en/subscribe-to-coffee/\",\n   \"source_title\": \"Coffee subscription - Київська Міська Ростерія\",\n   \"confidence\": \"high\"\n  },\n  {\n   \"claim\": \"The Ukrainian specialty coffee sector is characterized by a strong local roasting culture, with major players like Hipsters Coffee Roastery and Trevi dominating the wholesale and retail landscape, creating a competitive environment for new entrants.\",\n   \"source_url\": \"https://hipsters.ua/en/\",\n   \"source_title\": \"Coffee beans roasting in Ukraine. - Hipsters Coffee Roastery\",\n   \"confidence\": \"medium\"\n  },\n  {\n   \"claim\": \"BeanBox is raising 300,000 EUR specifically to open a second roastery, suggesting that current production capacity is a bottleneck for scaling beyond the initial 400 subscribers.\",\n   \"source_url\": null,\n   \"source_title\": \"model knowledge\",\n   \"confidence\": \"high\"\n  },\n  {\n   \"claim\": \"The founding team combines technical expertise (roaster) with commercial growth skills (growth marketer), a structure often cited as critical for early-stage DTC brands to balance product quality with customer acquisition efficiency.\",\n   \"source_url\": null,\n   \"source_title\": \"model knowledge\",\n   \"confidence\": \"high\"\n  }\n ]\n}",
+   "refusal": null,
+   "annotations": null,
+   "audio": null,
+   "function_call": null,
+   "reasoning": null
+  },
+  "finish_reason": "stop"
+ },
+ "model": "qwen3.6-35b-a3b",
+ "endpointId": "spark-8695",
+ "privacyTier": "local",
+ "usage": {
+  "inputTokens": 1495,
+  "outputTokens": 548
+ },
+ "costUsd": 0,
+ "requestHash": "e93dccac1f7064c75a8af39ee5545bf2c4a43035929c04aff5d88a8589b4bd1d",
+ "outputHash": "1b4717fa1ab7b4599659a67012eb77332124cf769ba9b120b1b057aae547e782",
+ "latencyMs": 11814,
+ "createdAt": "2026-11-01T08:52:18.039Z"
+}

@@ -1,0 +1,27 @@
+{
+ "capability": "chat",
+ "output": {
+  "message": {
+   "role": "assistant",
+   "content": "{\n \"arc\": [\n  {\n   \"slide\": 1,\n   \"title\": \"BeanBox: The Roastery Behind the Subscription\",\n   \"point\": \"BeanBox is a high-velocity specialty coffee subscription in Kyiv, combining artisanal roasting with data-driven growth to capture the home-brewing boom.\",\n   \"evidence\": [\n    \"f1\",\n    \"f5\",\n    \"f8\"\n   ]\n  },\n  {\n   \"slide\": 2,\n   \"title\": \"Traction: 400 Subscribers in 6 Months\",\n   \"point\": \"We have validated product-market fit with rapid early adoption, generating 7,200 EUR in monthly recurring revenue (MRR) with 400 paying subscribers.\",\n   \"evidence\": [\n    \"f2\",\n    \"f3\",\n    \"f4\",\n    \"f5\"\n   ]\n  },\n  {\n   \"slide\": 3,\n   \"title\": \"The Team: Quality Meets Growth\",\n   \"point\": \"Our founders cover the two critical pillars of a successful DTC brand: a master roaster ensuring product excellence and a growth marketer driving efficient acquisition.\",\n   \"evidence\": [\n    \"f8\",\n    \"f23\"\n   ]\n  },\n  {\n   \"slide\": 4,\n   \"title\": \"Market Opportunity: Kyiv’s Specialty Shift\",\n   \"point\": \"Kyiv’s coffee culture has shifted towards premium home brewing, creating a dense competitive landscape that validates demand for curated subscription models.\",\n   \"evidence\": [\n    \"f11\",\n    \"f13\",\n    \"f19\"\n   ]\n  },\n  {\n   \"slide\": 5,\n   \"title\": \"The Bottleneck: Capacity Constraint\",\n   \"point\": \"Our current roastery is operating at capacity; we cannot fulfill existing demand or scale further without additional production infrastructure.\",\n   \"evidence\": [\n    \"f22\"\n   ]\n  },\n  {\n   \"slide\": 6,\n   \"title\": \"The Solution: A Second Roastery\",\n   \"point\": \"Opening a second roastery is the specific, necessary step to unlock scale, remove production bottlenecks, and support a larger subscriber base.\",\n   \"evidence\": [\n    \"f7\",\n    \"f22\"\n   ]\n  },\n  {\n   \"slide\": 7,\n   \"title\": \"Competitive Landscape\",\n   \"point\": \"We operate in a mature market with established players like Kyiv City Roastery and Kolo Coffee, proving the viability of the subscription model in Kyiv.\",\n   \"evidence\": [\n    \"f11\",\n    \"f15\",\n    \"f20\"\n   ]\n  },\n  {\n   \"slide\": 8,\n   \"title\": \"Business Model: Recurring Revenue\",\n   \"point\": \"Our unit economics are built on a simple, recurring 18 EUR/month subscription, creating predictable revenue streams from day one.\",\n   \"evidence\": [\n    \"f3\",\n    \"f4\"\n   ]\n  },\n  {\n   \"slide\": 9,\n   \"title\": \"The Ask: 300k EUR\",\n   \"point\": \"We are raising 300,000 EUR to fund the construction and equipment of our second roastery, enabling us to scale beyond our current 400-subscriber limit.\",\n   \"evidence\": [\n    \"f6\",\n    \"f7\"\n   ]\n  },\n  {\n   \"slide\": 10,\n   \"title\": \"Why Now?\",\n   \"point\": \"With proven traction, a strong team, and a clear capacity bottleneck, this is the optimal moment to invest in infrastructure that directly enables growth.\",\n   \"evidence\": [\n    \"f5\",\n    \"f22\",\n    \"f23\"\n   ]\n  }\n ],\n \"why\": \"This order persuades by leading with the strongest proof of concept: rapid traction (400 subs in 6 months). By establishing the team's complementary skills early, it builds confidence in execution. The narrative then pivots to the 'why now'—the capacity constraint—making the need for a second roastery a logical necessity rather than just an expansion plan. This frames the 300k EUR ask not as a risk, but as a solution to a verified bottleneck.\"\n}",
+   "refusal": null,
+   "annotations": null,
+   "audio": null,
+   "function_call": null,
+   "reasoning": null
+  },
+  "finish_reason": "stop"
+ },
+ "model": "qwen3.6-35b-a3b",
+ "endpointId": "spark-8695",
+ "privacyTier": "local",
+ "usage": {
+  "inputTokens": 3003,
+  "outputTokens": 1010
+ },
+ "costUsd": 0,
+ "requestHash": "7e0b8d11c54e7b505b682a4b0d44743b2f9fd6d63081d8cf914147e7ee6f5ca1",
+ "outputHash": "1bf20721cee599dd091202fed8bd80d3789fc1a03679eb2c667382b71d1b3996",
+ "latencyMs": 13977,
+ "createdAt": "2026-11-01T08:53:02.722Z"
+}

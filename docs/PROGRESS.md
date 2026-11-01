@@ -288,6 +288,18 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Verified after the fix: browser order on the Spark `o-3c3d20b4-…`: paid → hire verity (escrow payment 9) →
   review passed → delivered on chain (776 s) → accepted → `Released`.
 
+## 2026-11-01 ~09:30 UTC — reviewer rule + new demo recording
+
+- Reviewer prompt: a fix never asks for numbers that aren't in the brief or the dossier (budget splits, dates,
+  targets); it asks for an open question or a "to be confirmed with the founders" line instead. This is the loop
+  that stopped order `o-89e773ba-…` (reviewer asked for a split → copywriter invented one → reviewer blocked it).
+- Re-recorded `fixtures/replay/deck` live (Qwen3.6 on `gx10-8695`, GLM-5.3 + FLUX.2 on NEAR AI, SearXNG):
+  21 calls, review 5 → 8 → 8, one unsupported line removed by the gate, 12 slides, 9 of 23 findings from the web.
+  The Ask now reads "Use of funds: open a second roastery … Runway: to be projected with founders" — no invented
+  split. A trial recording under another order id gave the same behaviour ("allocation to be confirmed").
+- Verified: `make demo` replays all 21 calls in 3 s with the identical deck hash (`19be6ef7…`); fixture scanned for
+  the real key values (none); all package tests green.
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +

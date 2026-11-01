@@ -3,7 +3,7 @@
  "output": {
   "message": {
    "role": "assistant",
-   "content": "{\n  \"prompt\": \"A confident, high-end corporate presentation cover featuring a sleek ceramic cup of specialty coffee on a minimalist wooden table in a modern Kyiv café. Warm morning sunlight streams through large windows, highlighting the rich aroma and texture of the espresso. Professional photography style, sharp focus, inviting atmosphere, clean composition, premium aesthetic, neutral background, no text, no logos, no people.\"\n}",
+   "content": "{\n  \"prompt\": \"A sleek, premium coffee subscription box resting on a minimalist dark wooden table in a modern Kyiv loft. The box features clean, matte black packaging with subtle gold embossing, accompanied by a ceramic cup of steaming espresso and fresh roasted beans. Warm, directional lighting highlights the rich textures of the coffee and wood, creating a confident, high-end aesthetic. Photorealistic, 8k resolution, commercial product photography style, shallow depth of field, no text, no logos.\"\n}",
    "refusal": null,
    "annotations": null,
    "audio": null,
@@ -17,11 +17,11 @@
  "privacyTier": "local",
  "usage": {
   "inputTokens": 295,
-  "outputTokens": 84
+  "outputTokens": 107
  },
  "costUsd": 0,
  "requestHash": "a8dca3fd4af01ce2bcb13fce3f3a2288457e8a42c26997e2c3bc79d0f0eab557",
- "outputHash": "8a5619aabbbc455f0ecc240765898cc956dc928bfb4b18d6a770016d0119077d",
- "latencyMs": 1770,
- "createdAt": "2026-11-01T00:57:25.689Z"
+ "outputHash": "9abb67ac342b1d14725e0917f301c8baa912778cea968ab34bc16f27961f6d5d",
+ "latencyMs": 1553,
+ "createdAt": "2026-11-01T08:54:18.638Z"
 }

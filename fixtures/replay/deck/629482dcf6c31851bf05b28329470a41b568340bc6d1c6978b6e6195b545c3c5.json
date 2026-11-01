@@ -1,0 +1,27 @@
+{
+ "capability": "chat",
+ "output": {
+  "message": {
+   "role": "assistant",
+   "content": "{\n  \"findings\": [\n    {\n      \"claim\": \"Kyiv City Roast is a direct competitor in the Kyiv specialty coffee market, offering both retail and B2B services.\",\n      \"source_url\": \"https://ensun.io/search/coffee-service/ukraine\",\n      \"source_title\": \"Top 7 Coffee Service Companies in Ukraine (2026) | ensun\",\n      \"confidence\": \"high\"\n    },\n    {\n      \"claim\": \"Kolo Coffee is a prominent Kyiv-based specialty brand founded by winners of the 2022 Coffee in Good Spirits competition, positioning itself in the premium local segment.\",\n      \"source_url\": \"https://visitukraine.today/blog/3763/chocolate-flavored-or-even-alcoholic-flavors-9-best-ukrainian-coffee-brands\",\n      \"source_title\": \"Chocolate-flavored or even alcoholic flavors: 9 best Ukrainian coffee ...\",\n      \"confidence\": \"high\"\n    },\n    {\n      \"claim\": \"Specialty coffee drinks in Kyiv restaurants typically price between 80–200 UAH (approx. 2–5 EUR), indicating that BeanBox’s 18 EUR/month subscription offers a significant volume discount compared to single-cup cafe pricing.\",\n      \"source_url\": \"https://business-broker.com.ua/blog/kliuchovi-trendy-restorannoho-biznesu-v-ukraini-tendentsii-suchasnoho-restorannoho-biznesu/\",\n      \"source_title\": \"Ключові тренди ресторанного бізнесу в Україні 2026: тенденції ...\",\n      \"confidence\": \"medium\"\n    },\n    {\n      \"claim\": \"The Ukrainian specialty coffee market has grown significantly since 2019, with founders like Volodymr Yefremov (Idealist Coffee) noting that specialty coffee has transitioned from a niche trend to a established market segment despite the war.\",\n      \"source_url\": \"https://www.worldcoffeeportal.com/feature/on-the-front-line-of-europes-coffee-industry/\",\n      \"source_title\": \"How Ukraine's coffee industry is standing firm in the shadow of war\",\n      \"confidence\": \"medium\"\n    },\n    {\n      \"claim\": \"JDE Professional Ukraine and Vending Service Kiev are major competitors in the broader coffee service sector in Ukraine, primarily targeting B2B and vending channels rather than direct-to-consumer subscriptions.\",\n      \"source_url\": \"https://ensun.io/search/coffee-service/ukraine\",\n      \"source_title\": \"Top 7 Coffee Service Companies in Ukraine (2026) | ensun\",\n      \"confidence\": \"high\"\n    }\n  ]\n}",
+   "refusal": null,
+   "annotations": null,
+   "audio": null,
+   "function_call": null,
+   "reasoning": null
+  },
+  "finish_reason": "stop"
+ },
+ "model": "qwen3.6-35b-a3b",
+ "endpointId": "spark-8695",
+ "privacyTier": "local",
+ "usage": {
+  "inputTokens": 1589,
+  "outputTokens": 601
+ },
+ "costUsd": 0,
+ "requestHash": "629482dcf6c31851bf05b28329470a41b568340bc6d1c6978b6e6195b545c3c5",
+ "outputHash": "02448f968b1e4906b2d997df3407048780cbbe6bb7d43795e41fc87bb5818e0b",
+ "latencyMs": 12549,
+ "createdAt": "2026-11-01T08:52:18.699Z"
+}

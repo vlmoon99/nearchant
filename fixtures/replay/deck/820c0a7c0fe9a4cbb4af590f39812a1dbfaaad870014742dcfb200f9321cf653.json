@@ -1,0 +1,27 @@
+{
+ "capability": "chat",
+ "output": {
+  "message": {
+   "role": "assistant",
+   "content": "---\nmarp: true\npaginate: true\ntheme: default\n---\n\n# BeanBox\nKyiv’s Specialty Coffee Subscription\n\n---\n\n## The Problem & Solution\n- Specialty coffee subscription service based in Kyiv [f1].\n- Founded by a roaster and a growth marketer [f8].\n- Rapid traction: 400 paying subscribers in 6 months [f5].\n- Combines artisanal roasting with growth marketing.\n\n---\n\n## Traction & Unit Economics\n- 400 paying subscribers acquired in 6 months [f2].\n- Monthly Recurring Revenue (MRR) ≈ 7,200 EUR [f4].\n- Calculation: 400 subscribers × 18 EUR/month [f3].\n- Subscription price: 18 EUR/month [f3].\n- CAC and churn not yet measured — open questions for founders.\n\n---\n\n## The Team: Complementary Expertise\n- Co-founder 1: Roaster (Technical/Product Quality).\n- Co-founder 2: Growth Marketer (Acquisition/Retention).\n- Structure balances artisanal quality with scalable growth [f23].\n- Critical for early-stage DTC brands [f23].\n\n---\n\n## Market Opportunity: Kyiv’s Specialty Shift\n- Ukraine's coffee market estimated at USD 300–400 million [f10].\n- Strong post-2022 shift towards home brewing [f10].\n- Kyiv hosts dense landscape of specialty roasters [f11].\n- Competitors: Kyiv City Roastery, Kolo Coffee, Idealist [f15].\n- Validates high consumer demand for premium local coffee.\n\n---\n\n## The Bottleneck: Capacity Constraint\n- Assumption: Second roastery required to unlock scale [f22].\n- Current capacity status is an open question for founders.\n- Why a second roastery now is an open question.\n- Capacity utilization data to be confirmed in diligence.\n\n---\n\n## The Solution: Second Roastery\n- Direct investment in production infrastructure.\n- Specific use of funds: Open a second roastery [f7].\n- Assumption: Mitigates risk of contract roasting.\n- Assumption: Enables scaling beyond current limits.\n\n---\n\n## Competitive Landscape\n- Competitors: Kyiv City Roastery, Kolo Coffee, Idealist [f11].\n- Kyiv City Roastery also offers a subscription [f20].\n- 18 EUR/month offers volume discount vs. cafe pricing [f16].\n- Cafe pricing: 80–200 UAH (approx. 2–5 EUR) per cup [f16].\n- Existing expectation for recurring delivery in Kyiv [f20].\n\n---\n\n## Business Model: Recurring Revenue\n- Price: 18 EUR/month [f3].\n- Recurring revenue stream from day one.\n- Gross margin per subscription: Open question.\n- Simple, predictable unit economics.\n\n---\n\n## The Ask: 300k EUR\n- Raising 300,000 EUR [f6].\n- Use of Funds: Second roastery construction & equipment [f7].\n- Goal: Unlock capacity to scale subscriber base.\n- Runway: To be projected with founders.\n\n---\n\n## Why Now?\n- Validated demand (400 subs in 6 months) [f5].\n- Team ready to scale (Roaster + Marketer) [f23].\n- Infrastructure is the next step for growth.\n- Optimal moment to invest in production capacity.\n\n---\n\n## Sources\n- [f1] BeanBox is a specialty coffee subscription service based in Kyiv. — from the brief\n- [f2] BeanBox has 400 paying subscribers. — from the brief\n- [f3] BeanBox charges 18 EUR per month. — from the brief\n- [f4] BeanBox's Monthly Recurring Revenue (MRR) is approximately 7,200 EUR (400 × 18 EUR). — from the brief\n- [f5] BeanBox achieved traction with 400 subscribers in 6 months. — from the brief\n- [f6] BeanBox is raising 300,000 EUR. — from the brief\n- [f7] The use of funds is to open a second roastery. — from the brief\n- [f8] BeanBox has two founders: a roaster and a growth marketer. — from the brief\n- [f10] Ukraine's coffee market is estimated to be worth between USD 300–400 million annually... — model knowledge\n- [f11] Kyiv hosts a dense competitive landscape of specialty roasters... — Coffee subscription - Київська Міська Ростерія\n- [f13] Ukraine's coffee consumption per capita has increased significantly... — model knowledge\n- [f15] Kolo Coffee is a prominent Kyiv-based specialty brand... — Chocolate-flavored or even alcoholic flavors: 9 best Ukrainian coffee brands ...\n- [f16] Specialty coffee drinks in Kyiv restaurants typically price between 80–200 UAH... — Ключові тренди ресторанного бізнесу в Україні 2026: тенденції ...\n- [f20] Competitor Kyiv City Roastery offers a coffee subscription service... — Coffee subscription - Київська Міська Ростерія\n- [f22] BeanBox is raising 300,000 EUR specifically to open a second roastery... — model knowledge\n- [f23] The founding team combines technical expertise... — model knowledge\n\nOpen question: What is the customer acquisition cost (CAC)?\nOpen question: What is the monthly churn rate?\nOpen question: What is the gross margin per subscription?\nOpen question: Why is a second roastery necessary now (capacity constraint vs. growth)?\nOpen question: What is the competitive landscape in Kyiv?\nOpen question: What is the projected runway with the 300k EUR raise?",
+   "refusal": null,
+   "annotations": null,
+   "audio": null,
+   "function_call": null,
+   "reasoning": null
+  },
+  "finish_reason": "stop"
+ },
+ "model": "qwen3.6-35b-a3b",
+ "endpointId": "spark-8695",
+ "privacyTier": "local",
+ "usage": {
+  "inputTokens": 5427,
+  "outputTokens": 1314
+ },
+ "costUsd": 0,
+ "requestHash": "820c0a7c0fe9a4cbb4af590f39812a1dbfaaad870014742dcfb200f9321cf653",
+ "outputHash": "765a8104c756a66b087f34da5b0e2edc9a6b8cb264e349b7f9beab1ffef87595",
+ "latencyMs": 18268,
+ "createdAt": "2026-11-01T08:57:45.971Z"
+}

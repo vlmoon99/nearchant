@@ -3,7 +3,7 @@
  "output": {
   "message": {
    "role": "assistant",
-   "content": "{\n  \"refuse\": null,\n  \"language\": \"en\",\n  \"company\": \"BeanBox\",\n  \"product\": \"A specialty coffee subscription service based in Kyiv.\",\n  \"audience\": \"Seed investors\",\n  \"goal\": \"Raise 300k EUR to open a second roastery.\",\n  \"tone\": \"confident\",\n  \"facts_from_buyer\": [\n    \"Location: Kyiv\",\n    \"Price: 18 EUR per month\",\n    \"Subscribers: 400 paying subscribers\",\n    \"Traction timeline: Achieved 400 subscribers after 6 months\",\n    \"Team: Two founders (a roaster and a growth marketer)\",\n    \"Funding ask: 300k EUR\",\n    \"Use of funds: Open a second roastery\"\n  ],\n  \"must_include\": [\n    \"Monthly Recurring Revenue (MRR) calculation: 18 EUR * 400 = 7,200 EUR\",\n    \"Growth rate context (6 months to 400 subs)\",\n    \"Founder backgrounds (roaster and growth marketer)\",\n    \"Specific use of the 300k EUR for the second roastery\"\n  ],\n  \"avoid\": [\n    \"Invented customer testimonials\",\n    \"Fake competitor data\",\n    \"Unsubstantiated market size claims\"\n  ],\n  \"open_questions\": [\n    \"What is the churn rate?\",\n    \"What is the Customer Acquisition Cost (CAC)?\",\n    \"What is the Lifetime Value (LTV)?\",\n    \"What is the current burn rate?\",\n    \"What is the total addressable market (TAM) in Ukraine/Kyiv?\",\n    \"What is the competitive landscape in Kyiv's specialty coffee market?\",\n    \"What are the specific operational milestones the second roastery will enable?\",\n    \"What is the equity offered for the 300k EUR?\",\n    \"Are there any existing debts or liabilities?\"\n  ]\n}",
+   "content": "{\n  \"refuse\": null,\n  \"language\": \"en\",\n  \"company\": \"BeanBox\",\n  \"product\": \"A specialty coffee subscription service based in Kyiv.\",\n  \"audience\": \"Seed investors\",\n  \"goal\": \"Raise 300k EUR to open a second roastery.\",\n  \"tone\": \"confident\",\n  \"facts_from_buyer\": [\n    \"Specialty coffee subscription\",\n    \"Based in Kyiv\",\n    \"Price: 18 EUR per month\",\n    \"400 paying subscribers\",\n    \"Traction achieved after 6 months\",\n    \"Two founders: a roaster and a growth marketer\",\n    \"Raising 300k EUR\",\n    \"Use of funds: open a second roastery\"\n  ],\n  \"must_include\": [\n    \"Team background (roaster and growth marketer)\",\n    \"Current traction (400 subs in 6 months)\",\n    \"Unit economics (18 EUR/month)\",\n    \"Funding amount and specific use of funds (second roastery)\"\n  ],\n  \"avoid\": [\n    \"Invented customer testimonials\",\n    \"Fake market size data\",\n    \"Unsubstantiated growth projections\"\n  ],\n  \"open_questions\": [\n    \"What is the customer acquisition cost (CAC)?\",\n    \"What is the monthly churn rate?\",\n    \"What is the current Monthly Recurring Revenue (MRR)?\",\n    \"What is the gross margin per subscription?\",\n    \"Why is a second roastery necessary now (capacity constraint vs. growth)?\",\n    \"What is the competitive landscape in Kyiv?\",\n    \"What is the projected runway with the 300k EUR raise?\"\n  ]\n}",
    "refusal": null,
    "annotations": null,
    "audio": null,
@@ -17,11 +17,11 @@
  "privacyTier": "local",
  "usage": {
   "inputTokens": 468,
-  "outputTokens": 450
+  "outputTokens": 391
  },
  "costUsd": 0,
  "requestHash": "04b7f591b3c77dc02f7b10fe36a4b2d14dfdc44da4aa1c2b7cbe2a49520c34c9",
- "outputHash": "a391e9f51bcafa0255595765aa6c21b74ec3bba94e22dd183566de2a28c07adf",
- "latencyMs": 6193,
- "createdAt": "2026-11-01T00:55:28.885Z"
+ "outputHash": "fa129ce02c70ff8f1e9a3767665ef4c47d4b2f65f8dc3a1062417efd9b5ed2ae",
+ "latencyMs": 5091,
+ "createdAt": "2026-11-01T08:52:05.428Z"
 }

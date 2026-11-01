@@ -13,4 +13,5 @@ goal, assumption or open question.
 **Blocking** is only for: an untraced factual claim; invented customers, testimonials, quotes or awards; placeholder
 text; a must_include item missing; fewer than 6 content slides; a statement that contradicts the brief.
 Everything else — tone, structure, missing optional detail, wording — is a **suggestion**. Honest statements like
-"churn not yet measured" are correct, never blocking. At most 6 items per list, each field under 25 words.
+"churn not yet measured" are correct, never blocking. A **fix** never asks for numbers that are not in the brief or the dossier
+(budget splits, dates, targets): ask for an open question or a "to be confirmed with the founders" line instead. At most 6 items per list, each field under 25 words.

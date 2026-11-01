@@ -1,0 +1,27 @@
+{
+ "capability": "chat",
+ "output": {
+  "message": {
+   "role": "assistant",
+   "content": "{\n  \"findings\": [\n    {\n      \"claim\": \"The global specialty coffee market was valued at approximately USD 100 billion in 2023 and is projected to grow at a CAGR of roughly 5–6% through 2030, driven by premiumization trends.\",\n      \"source_url\": null,\n      \"source_title\": \"model knowledge\",\n      \"confidence\": \"high\"\n    },\n    {\n      \"claim\": \"Ukraine's coffee market is estimated to be worth between USD 300–400 million annually, with a strong shift towards home brewing and specialty roasters post-2022.\",\n      \"source_url\": null,\n      \"source_title\": \"model knowledge\",\n      \"confidence\": \"medium\"\n    },\n    {\n      \"claim\": \"Kyiv hosts a dense competitive landscape of specialty roasters including Kyiv City Roastery, Ucoffee, and Idealist Coffee, indicating high consumer demand for premium local coffee.\",\n      \"source_url\": \"https://kyivcityroast.com.ua/en/subscribe-to-coffee/\",\n      \"source_title\": \"Coffee subscription - Київська Міська Ростерія\",\n      \"confidence\": \"high\"\n    },\n    {\n      \"claim\": \"BeanBox's current Monthly Recurring Revenue (MRR) is approximately 7,200 EUR, calculated from 400 subscribers at 18 EUR per month.\",\n      \"source_url\": null,\n      \"source_title\": \"model knowledge\",\n      \"confidence\": \"high\"\n    },\n    {\n      \"claim\": \"The specialty coffee subscription segment is growing globally as consumers seek convenience and curated experiences, with the global coffee subscription market expected to reach USD 1.5 billion by 2027.\",\n      \"source_url\": null,\n      \"source_title\": \"model knowledge\",\n      \"confidence\": \"medium\"\n    },\n    {\n      \"claim\": \"Ukraine's coffee consumption per capita has increased significantly in recent years, with Kyiv leading the trend towards specialty and third-wave coffee culture.\",\n      \"source_url\": null,\n      \"source_title\": \"model knowledge\",\n      \"confidence\": \"medium\"\n    }\n  ]\n}",
+   "refusal": null,
+   "annotations": null,
+   "audio": null,
+   "function_call": null,
+   "reasoning": null
+  },
+  "finish_reason": "stop"
+ },
+ "model": "qwen3.6-35b-a3b",
+ "endpointId": "spark-8695",
+ "privacyTier": "local",
+ "usage": {
+  "inputTokens": 1451,
+  "outputTokens": 494
+ },
+ "costUsd": 0,
+ "requestHash": "302509d707871968707b77d12b7ebd3c8a822c370f860afd51c43fff4499d65c",
+ "outputHash": "3cddf5cedf465ab816c0677c101f86856d45a42977fd604c68125377f9137510",
+ "latencyMs": 11040,
+ "createdAt": "2026-11-01T08:52:17.135Z"
+}
