@@ -68,6 +68,7 @@ services:
     build: { context: ../image-engine, dockerfile: comfy.Dockerfile }
     image: nearchant/comfy:dev
     gpus: all
+    mem_limit: ${COMFY_MEM_LIMIT:-48g}   # unified memory is shared with the LLM: never let a render starve the box
     volumes:
       - ${COMFY_MODELS:-/home/server/nearchant-node/comfy/models}/diffusion_models:/opt/ComfyUI/models/diffusion_models:ro
       - ${COMFY_MODELS:-/home/server/nearchant-node/comfy/models}/text_encoders:/opt/ComfyUI/models/text_encoders:ro
