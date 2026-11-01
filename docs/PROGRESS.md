@@ -213,6 +213,14 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - **Known:** an order interrupted by a worker restart mid-step (`o-43187251-…`) stays locked until graphile releases
   it (4 h); if not delivered, the escrow timer refunds the buyer after the 7-day deadline.
 
+## 2026-11-01 ~04:10 UTC — revision path verified live
+
+- `buy-deck.mjs --revise` on the Spark: delivered (538 s) → buyer `request_revision` → escrow timer picked it up →
+  write/design/review/render again → redelivered on chain with a **new proof** → accepted → `Released` (1130 s
+  total). Order `o-320cfe3f-…`. The order page now shows "revision requested — reworking" and keeps refreshing.
+- Observation: the rewrite needed 6 lines redacted (the second pass had no buyer note to work from). Next
+  improvement: let the buyer type what to change, and feed it to the copywriter.
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
