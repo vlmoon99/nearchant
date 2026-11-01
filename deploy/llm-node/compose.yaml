@@ -1,0 +1,25 @@
+# Nearchant's second LLM node (gx10-c3c8, owner's decision 1 Nov): Qwen3.8-27B NVFP4 (Apache-2.0, text + vision)
+# for the writing roles; gx10-8695 keeps Qwen3.6-35B-A3B. One model per Spark — see docs/PROGRESS.md (1 Nov).
+#   weights: hf download unsloth/Qwen3.8-27B-NVFP4 --local-dir $MODELS/Qwen3.8-27B-NVFP4
+#   key:     engine.env (git-ignored) with VLLM_API_KEY=<same value as NC_LOCAL_LLM_KEY>
+#   run:     docker compose -f deploy/llm-node/compose.yaml up -d
+name: ncllm
+services:
+  llm:
+    image: nvcr.io/nvidia/vllm:26.10-py3      # vLLM 0.31 (Qwen3.8 needs >= 0.25.1; vllm-node on the Sparks is 0.23)
+    container_name: nc-llm2
+    network_mode: host
+    gpus: all
+    ipc: host
+    env_file: [engine.env]
+    environment: { HF_HUB_OFFLINE: "1" }
+    volumes: ["${MODELS:-/home/server/nearchant-node/models}:/models:ro"]
+    # Unified memory is shared with the video engine and TTS on this box: vLLM takes 55% (~66 GB: 23 GB weights + KV).
+    command: >-
+      vllm serve /models/Qwen3.8-27B-NVFP4 --served-model-name qwen3.8-27b
+      --host ${BIND:-100.64.0.1} --port 8010
+      --kv-cache-dtype fp8 --gpu-memory-utilization 0.55 --max-model-len 32768
+      --max-num-seqs 8 --enable-prefix-caching --enable-chunked-prefill
+      --reasoning-parser qwen3
+      --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+    restart: unless-stopped

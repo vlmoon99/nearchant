@@ -10,8 +10,8 @@ requires:
     image.generate: { optional: true }
   data_class: private
 seats:
-  main: {}
-  second: {}
+  main: {}                                   # router default (Qwen3.6-35B-A3B on gx10-8695; NEAR AI on the Mac)
+  second: { model: Qwen/Qwen3.8-27B }        # the writing roles (gx10-c3c8); unreachable → the main seat answers
 roles: [profiler, opportunity-analyst, idea-writer, localizer, learner, insight-writer, video-director]
 pipeline: [analyze, opportunities, ideas, render, publish]
 research:

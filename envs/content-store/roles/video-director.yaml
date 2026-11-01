@@ -1,5 +1,5 @@
 prompt: prompts/video-director.md
-seat: main
+seat: second
 output: json
 temperature: 0.7
 # A short script needs no hidden reasoning; without this Qwen can spend the whole budget thinking.

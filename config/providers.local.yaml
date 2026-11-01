@@ -13,6 +13,17 @@ endpoints:
       chat_template_kwargs: { enable_thinking: false }
     timeout_ms: 180000
 
+  - id: spark-c3c8                       # Nearchant's second node (gx10-c3c8), vLLM 0.31, Qwen3.8-27B (deploy/llm-node)
+    base_url: http://100.64.0.1:8010/v1
+    api_key_env: NC_LOCAL_LLM_KEY
+    privacy_tier: local
+    capabilities: [chat, vision]
+    model_map:
+      Qwen/Qwen3.8-27B: qwen3.8-27b
+    extra_body:
+      chat_template_kwargs: { enable_thinking: false }
+    timeout_ms: 300000                   # ~23 tok/s: a 3-post batch is a few thousand tokens
+
   - id: spark-image                      # our ComfyUI on gx10-8695 (compose profile gpu), Qwen-Image-Edit-2511
     base_url: http://image:8102/v1       # pass image_b64 (product photo) to restyle it; none = paint from text
     api_key_env: IMAGE_API_KEY
@@ -30,9 +41,9 @@ endpoints:
 
 routing:
   decide: [nearai-sage]
-  chat: [spark-8695]
+  chat: [spark-8695, spark-c3c8]
   image.generate: [spark-image]
-  vision: [spark-8695]
+  vision: [spark-8695, spark-c3c8]
   private_data_allowed_tiers: [local]
 
 models:
