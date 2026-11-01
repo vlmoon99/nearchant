@@ -380,6 +380,18 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   containers; Boost Content's inference_system untouched). A third Spark may be connected later.
 - Next: video + voiceover services on `gx10-c3c8` (13b, now unblocked), step 7 publish + proof, step 10 pages.
 
+## 2026-11-01 ~16:40 UTC — M1 step 7: published posts get a proof on NEAR
+
+- `publish_post` (at the scheduled time) makes the image public and enqueues `post.proof`; the outbox signs
+  `proofs.record` with the store's own proofs agent key (function-call only). Entry: task `post:<id>`, brief hash
+  (the idea), output hash = sha256(caption + image sha256), producer `content-store (qwen3.6 + qwen-image-edit)`;
+  attestation_ref stays null until the NEAR AI TEE step. Unit test for the entry.
+- **Verified on testnet**: proof #13 on `proofs.nearchant.testnet`, author `novatestrjin.nearchant.testnet`
+  (an onboarding-created store), read back with `get`.
+- Not done: posting to the seller's Telegram channel (needs a bot token from a seller).
+- Video + English voiceover being built on `gx10-c3c8` by a parallel agent (worktree branch; I review and merge).
+- Next: step 10 (Home, Create, Posts, Post detail with the proof), step 11 (storefront).
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +

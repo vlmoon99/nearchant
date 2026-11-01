@@ -32,7 +32,7 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
    estimate and the "estimates, not promises" rule; tests.
 6. [x] **Posts pipeline**: ideas (port of `ideas` prompt, seeded by chosen opportunities) → caption → image
    (Qwen-Image-Edit from the product photo) → ready; choose/pass/edit signals; learn memory.
-7. [ ] **Publish + proof**: publishing a post writes a `proof-log` entry (hash of caption + image) and shows it on
+7. [x] **Publish + proof** (Telegram channel posting waits for a seller bot token): publishing a post writes a `proof-log` entry (hash of caption + image) and shows it on
    the store; Telegram channel post via the seller's bot (existing ADR 0011 code).
 8. [x] **UI foundation**: CSS tokens from the Figma variables + type styles, layout shell (desktop sidebar,
    mobile web bottom nav), components (badge "Verified on NEAR", stat card, post card, buttons, chips).
