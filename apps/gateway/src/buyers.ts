@@ -31,7 +31,7 @@ export class RateLimit {
  */
 export async function sponsorBuyer(d: { chain: Chain; accounts: PlatformAccounts }, publicKey: string, gasNear = "0.2") {
   const accountId = implicitAccountId(publicKey);
-  const exists = await d.chain.provider.viewAccount({ accountId, finality: "optimistic" } as never).then(() => true, () => false);
+  const exists = await d.chain.accountExists(accountId);
   if (!exists) await d.chain.transferFromRelayer(accountId, gasNear);
   let funded = true;
   await d.chain.call(d.accounts.nusd, "faucet_for", { account_id: accountId }, { gasTgas: 30 }).catch(() => { funded = false; });

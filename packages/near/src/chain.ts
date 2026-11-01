@@ -33,6 +33,24 @@ export class Chain {
     return this.relayerAccount?.accountId;
   }
 
+  /** Whether an account exists (plain JSON-RPC, so a missing account isn't logged as an error). */
+  async accountExists(accountId: string): Promise<boolean> {
+    for (const url of this.opts.rpcUrls) {
+      try {
+        const res = await fetch(url, {
+          method: "POST", headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(this.opts.timeoutMs ?? 15_000),
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "query", params: { request_type: "view_account", finality: "optimistic", account_id: accountId } }),
+        });
+        const j = (await res.json()) as { result?: unknown; error?: { cause?: { name?: string } } };
+        if (j.result) return true;
+        if (j.error?.cause?.name === "UNKNOWN_ACCOUNT") return false;
+      } catch {
+        /* next RPC */
+      }
+    }
+    throw new Error(`could not check ${accountId}: all RPCs failed`);
+  }
+
   /** Sends NEAR from the relayer (creates an implicit account if it doesn't exist). */
   async transferFromRelayer(receiverId: string, amountNear: string): Promise<void> {
     if (!this.relayerAccount) throw new Error("no relayer key configured");
