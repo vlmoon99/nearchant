@@ -16,7 +16,7 @@ import { createApp } from "./app.js";
 import { mountSellerApp } from "./seller-app.js";
 import { mountUi } from "./ui/routes.js";
 import { labApp } from "./admin/lab.js";
-import { ComfyCloud, type LabVariant } from "./admin/comfy.js";
+import { ComfyCloud, type LabVariant } from "@nearchant/providers";
 import { RateLimit, sponsorBuyer } from "./buyers.js";
 import { loadGatewayConfig } from "./config.js";
 

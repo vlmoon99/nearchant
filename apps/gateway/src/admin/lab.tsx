@@ -7,7 +7,7 @@ import { Hono } from "hono";
 import type { FC } from "hono/jsx";
 import { desc, eq } from "drizzle-orm";
 import { schema, type Db } from "@nearchant/db";
-import { ComfyCloud, ComfyError, fillWorkflow, type LabVariant } from "./comfy.js";
+import { ComfyCloud, ComfyError, fillWorkflow, type LabVariant } from "@nearchant/providers";
 
 export interface LabDeps { db: Db; comfy: ComfyCloud | null; variants: LabVariant[]; workflows: Record<string, unknown>; mediaDir: string }
 

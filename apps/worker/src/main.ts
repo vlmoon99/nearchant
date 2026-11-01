@@ -16,6 +16,7 @@ import type { ResultEnvelope } from "@nearchant/contracts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { makeRouter } from "./router.js";
 import { makeContentTasks } from "./content-tasks.js";
+import { ComfyCloud, fillWorkflow, type LabVariant } from "@nearchant/providers";
 import { localMedia, marpServerRender, searxng } from "./tools.js";
 
 const root = resolve(import.meta.dirname, "../../..");
@@ -154,7 +155,22 @@ const escrowTimers: Task = async (_p, helpers) => {
 
 const mediaDir = process.env.MEDIA_DIR ?? join(root, ".media");
 const contentStore = new ContentStore(conn.db);
+// Admin lab choice (settings.image_variant) renders post pictures on Comfy Cloud when a key is set.
+const comfy = process.env.COMFY_API_KEY ? new ComfyCloud(process.env.COMFY_API_KEY) : null;
+const lab = parse(readFileSync(join(root, "config/image-lab.yaml"), "utf8")) as { variants: LabVariant[] };
+const labRender = comfy ? async (prompt: string, photo: Buffer | null): Promise<Buffer | null> => {
+  const id = await contentStore.getSetting<string>("image_variant");
+  const v = lab.variants.find((x) => x.id === id);
+  if (!v || (v.needs_photo && !photo)) return null;
+  const template = JSON.parse(readFileSync(join(root, "config/image-lab", v.workflow), "utf8"));
+  const ref = photo ? await comfy.upload(photo, `post-${Date.now()}.png`) : undefined;
+  const wf = fillWorkflow(template, { prompt, ref, seed: Math.floor(Math.random() * 2 ** 31), width: 1024, height: 1280, set: v.set });
+  console.info(`[content] render with lab model ${v.id}`);
+  return Buffer.from(await comfy.run(wf));
+} : undefined;
+
 const contentTasks = makeContentTasks({
+  ...(labRender ? { labRender } : {}),
   content: contentStore, envelopes, router, outbox, env: loadAgentEnv(join(root, "envs/content-store")), mediaDir,
   accountOf: (h) => `${h}.${accounts.root}`, decimals: Number(gw.token?.decimals ?? 6),
   ...(process.env.SEARXNG_URL ? { search: searxng(process.env.SEARXNG_URL) } : {}),

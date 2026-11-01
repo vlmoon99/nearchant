@@ -16,6 +16,7 @@ x-app: &app
     SEARXNG_URL: ${SEARXNG_URL:-http://search:8080}
     PROVIDERS_FILE: ${PROVIDERS_FILE:-providers.yaml}
     IMAGE_API_KEY: ${IMAGE_API_KEY:-}
+    COMFY_API_KEY: ${COMFY_API_KEY:-}
     REPLAY_DIR: ${REPLAY_DIR:-}
     PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8787}
     TRUST_PROXY: ${TRUST_PROXY:-}
@@ -39,7 +40,7 @@ services:
     command: ["node", "apps/gateway/dist/main.js"]
     # 8790 = admin (image lab): publish it on the tailnet address only (ADMIN_BIND), never through the tunnel.
     ports: ["${GATEWAY_BIND:-127.0.0.1}:8787:8787", "${ADMIN_BIND:-127.0.0.1}:8790:8790"]
-    environment: { <<: *appenv, PORT: "8787", ADMIN_PORT: "8790", COMFY_API_KEY: "${COMFY_API_KEY:-}" }
+    environment: { <<: *appenv, PORT: "8787", ADMIN_PORT: "8790" }
 
   worker:
     <<: *app

@@ -154,6 +154,11 @@ export class ContentStore {
     }
   }
 
+  // --- operator settings ---
+  async getSetting<T = unknown>(key: string): Promise<T | null> {
+    return ((await this.db.select().from(s.settings).where(eq(s.settings.key, key)))[0]?.value as T) ?? null;
+  }
+
   // --- signals + events ---
   async addSignal(handle: string, postId: string | null, kind: string, data: unknown = {}): Promise<void> {
     await this.db.insert(s.signals).values({ handle, postId, kind, data });

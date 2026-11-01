@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
-import { fillWorkflow, type LabVariant } from "../src/admin/comfy.js";
+import { fillWorkflow, type LabVariant } from "@nearchant/providers";
 
 const cfg = join(import.meta.dirname, "../../../config");
 const lab = parse(readFileSync(join(cfg, "image-lab.yaml"), "utf8")) as { variants: LabVariant[] };

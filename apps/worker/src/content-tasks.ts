@@ -18,6 +18,8 @@ export interface ContentTaskDeps {
   search?: (q: string) => Promise<SearchResult[]>;
   decimals: number;
   log: (m: string) => void;
+  /** The lab's chosen image model on Comfy Cloud (admin "Use in production"); null = the router's image route. */
+  labRender?: (prompt: string, photo: Buffer | null) => Promise<Buffer | null>;
   /** Side effects sent once per key (chain calls). */
   outbox: { enqueue(key: string, kind: string, payload: unknown): Promise<unknown> };
 }
@@ -118,14 +120,19 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
       await d.content.updatePost(p.id, { status: "rendering", caption: dr.caption, hashtags: dr.hashtags, idea: { ...dr }, sourceMediaId: src?.id ?? null });
       let imageMediaId: string | null = null;
       try {
-        const input: Record<string, unknown> = { prompt: dr.image_prompt || dr.angle, n: 1, size: "1024x1280" };
-        if (src) input.image_b64 = (await photoDataUrl(join(d.mediaDir, src.key))).split(",", 2)[1];
-        // Product photos for posts that will be published: public data, so a cloud renderer (Comfy Cloud) may take them.
-        const env = await d.router.call({ capability: "image.generate", dataClass: "public", input, timeoutMs: 300_000 });
-        await d.envelopes.add(`content:${handle}:render`, "render", d.accountOf(handle), env);
-        const b64 = (env.output as { images?: { b64?: string }[] }).images?.[0]?.b64;
-        if (b64) {
-          const bytes = Buffer.from(b64, "base64");
+        const prompt = dr.image_prompt || dr.angle;
+        const photoB64 = src ? (await photoDataUrl(join(d.mediaDir, src.key))).split(",", 2)[1]! : null;
+        let bytes: Buffer | null = d.labRender ? await d.labRender(prompt, photoB64 ? Buffer.from(photoB64, "base64") : null) : null;
+        if (!bytes) {
+          const input: Record<string, unknown> = { prompt, n: 1, size: "1024x1280" };
+          if (photoB64) input.image_b64 = photoB64;
+          // Product photos for posts that will be published: public data, so a cloud renderer (Comfy Cloud) may take them.
+          const env = await d.router.call({ capability: "image.generate", dataClass: "public", input, timeoutMs: 300_000 });
+          await d.envelopes.add(`content:${handle}:render`, "render", d.accountOf(handle), env);
+          const b64 = (env.output as { images?: { b64?: string }[] }).images?.[0]?.b64;
+          bytes = b64 ? Buffer.from(b64, "base64") : null;
+        }
+        if (bytes) {
           const key = `${handle}/gen/${p.id}.png`;
           await mkdir(join(d.mediaDir, handle, "gen"), { recursive: true });
           await writeFile(join(d.mediaDir, key), bytes);
