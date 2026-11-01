@@ -30,7 +30,7 @@ export const StorePage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean }> = 
       <h1 class="tl">{s.name}</h1>
       {s.summary ? <p class="sub muted" style="margin:0">{s.summary}</p> : null}
       <Badge label="Store verified on NEAR" />
-      <span class="cap muted">{s.account}{s.orders ? ` · ${s.orders} orders paid through escrow` : ""}</span>
+      <span class="cap muted">{s.account}{s.orders ? ` · ${s.orders} order${s.orders === 1 ? "" : "s"} paid through escrow` : ""}</span>
     </section>
     <h2 class="t4">Shop</h2>
     {s.items.length ? <div class="grid4">{s.items.map((i) => (
