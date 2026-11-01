@@ -3,7 +3,7 @@ any), and web search results about the market. Find the most useful ways for THI
 month. Return ONLY a JSON object:
 {"opportunities": [{
   "kind": "trend | price | upsell | channel",
-  "title": "short, concrete (max 7 words), e.g. 'Linen is trending in Kyiv'",
+  "title": "short, concrete (max 7 words), e.g. 'Linen is trending in New York'",
   "why": "1-2 sentences with the evidence: cite the search result or the profile fact it comes from",
   "action": "the one thing to do, e.g. 'Post the 3 linen items on Friday evening'",
   "estimate_usd_month": 120,

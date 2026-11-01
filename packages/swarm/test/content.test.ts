@@ -101,13 +101,19 @@ describe("writePostOptions", () => {
 
 describe("writeVideoScript", () => {
   const profile = shapeProfile(PROFILE, "Nova", 2);
-  it("cuts the hook to six words and drops voiceover sentences with numbers", async () => {
+  it("keeps whole sentences up to ~22 words", async () => {
+    const { shortVoiceover } = await import("../src/index.js");
+    expect(shortVoiceover("Soft denim that moves with you. Dark wash, clean seams, built to last for years and years of wear. Tap the link to get yours.", 22))
+      .toBe("Soft denim that moves with you. Dark wash, clean seams, built to last for years and years of wear.");
+    expect(shortVoiceover("one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twentyone twentytwo twentythree", 22).split(" ")).toHaveLength(22);
+  });
+  it("cuts the hook to five words and drops voiceover sentences with numbers", async () => {
     const seen: { role: string; user: any }[] = [];
     const s = await writeVideoScript(fakeAsk({ "video-director": {
       hook: "Autumn layers that feel like home every day", voiceover: "Soft linen meets warm knit. Now 20% off! Made by hand in Kyiv. Come and find yours.",
       video_prompt: "slow push-in, light breeze" } }, seen), { profile, caption: "c", angle: "a" });
     expect(seen[0]!.role).toBe("video-director");
-    expect(s.hook).toBe("Autumn layers that feel like home");
+    expect(s.hook).toBe("Autumn layers that feel like");
     expect(s.voiceover).toBe("Soft linen meets warm knit. Made by hand in Kyiv. Come and find yours.");
   });
   it("fails on an empty script", async () => {

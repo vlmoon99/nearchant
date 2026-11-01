@@ -25,8 +25,8 @@ describe("composeArgs", () => {
   it("loops the clip under the voice with a hard length cap and escapes filter paths", () => {
     const a = composeArgs({ clip: "/m/c.webm", voice: "/m/v.wav", ass: "/m/it's:x.ass", fontsDir: "/app/assets/fonts", out: "/m/o.mp4", seconds: 9.5 });
     expect(a.slice(a.indexOf("-stream_loop"), a.indexOf("-stream_loop") + 4)).toEqual(["-stream_loop", "-1", "-i", "/m/c.webm"]);
-    expect(a[a.indexOf("-t") + 1]).toBe("10.10");
-    expect(composeArgs({ clip: "c", voice: "v", ass: "a", fontsDir: "f", out: "o", seconds: 40 })[a.indexOf("-t") + 1]).toBe("30.00");
+    expect(a[a.indexOf("-t") + 1]).toBe("10.10");   // 9.5 s of voice + 0.6 s tail
+    expect(composeArgs({ clip: "c", voice: "v", ass: "a", fontsDir: "f", out: "o", seconds: 40 })[a.indexOf("-t") + 1]).toBe("12.00");
     expect(a[a.indexOf("-filter_complex") + 1]).toContain("subtitles=filename='/m/it\\'s\\:x.ass'");
   });
 });

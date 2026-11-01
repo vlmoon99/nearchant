@@ -5,7 +5,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 export interface Word { word: string; start: number; end: number }
-export const VIDEO_W = 720, VIDEO_H = 1280, MAX_SHORT_S = 30;
+export const VIDEO_W = 720, VIDEO_H = 1280, MAX_SHORT_S = 12;   // a short is caught in one glance: ~8–10 s of voice, never longer than 12
 
 /** Caption chunks of at most 3 words / 18 characters, timed by the words (subtitles.py rule). */
 export function captionChunks(words: Word[]): { text: string; start: number; end: number }[] {

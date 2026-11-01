@@ -49,7 +49,7 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
       <Dots step={2} />
       <h1 class="tl">Show us what you sell</h1>
       <p class="sub muted" style="margin:0">A sentence, a link and a few photos. AI reads it in about 20 seconds.</p>
-      <label class="field">In one sentence, what do you sell?<textarea class="input" id="biz-desc" maxlength={500} placeholder="Relaxed everyday clothes made in Kyiv — denim, knitwear and linen."></textarea></label>
+      <label class="field">In one sentence, what do you sell?<textarea class="input" id="biz-desc" maxlength={500} placeholder="Relaxed everyday clothes designed in New York — denim, knitwear and linen."></textarea></label>
       <label class="field">Instagram, Telegram channel or website (optional)<input class="input" id="biz-link" placeholder="instagram.com/yourstore" /></label>
       <span class="foot b">Product photos (2–8 work best)</span>
       <div class="thumbs" id="thumbs"><label class="th" style="display:grid;place-items:center;cursor:pointer;background:var(--bg-2)"><Icon n="plus" s={22} c="#6E6E73" /><input type="file" id="photo-input" accept="image/*" multiple class="hidden" /></label></div>

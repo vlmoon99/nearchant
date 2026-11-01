@@ -56,8 +56,8 @@ export const ItemPage: FC<{ s: StoreData; i: StoreItem; cfg: CheckoutCfg; test: 
         <span class="t4">{i.price}</span>
         {i.description ? <p class="sub muted" style="margin:0">{i.description}</p> : null}
         <form class="order card" data-service={i.id}>
-          <label class="field">{i.kind === "service" ? "What do you need, and when?" : "Delivery details — size, city, Nova Poshta branch, phone"}
-            <textarea class="input" name="brief" required minlength={10} maxlength={1000} rows={4} placeholder={i.kind === "service" ? "Describe what you need" : `Size ${i.options[0] ?? "M"}, Kyiv, Nova Poshta №112, +380…`}></textarea></label>
+          <label class="field">{i.kind === "service" ? "What do you need, and when?" : "Delivery details — size, name, address, phone"}
+            <textarea class="input" name="brief" required minlength={10} maxlength={1000} rows={4} placeholder={i.kind === "service" ? "Describe what you need" : `Size ${i.options[0] ?? "M"}, Jane Doe, 120 Spring St, New York, NY 10012, +1 212 555 0100`}></textarea></label>
           <button class="btn block" type="submit"><Icon n="lock" />Pay {i.price} into escrow</button>
           <output class="result foot"></output>
           <span class="cap muted">A free test wallet is created in your browser. Money is held on NEAR until you confirm you got it.</span>

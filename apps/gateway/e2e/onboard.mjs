@@ -24,8 +24,8 @@ await shot("2-sell");
 await page.click("#create-store");
 await visible("show", 120_000);
 log("store created");
-await page.fill("#biz-desc", "Relaxed everyday clothes made in Kyiv — denim, linen and knitwear. Delivery across Ukraine.");
-await page.fill("#biz-link", "instagram.com/novawear");
+await page.fill("#biz-desc", "Relaxed everyday clothes designed in SoHo, New York — denim, linen and knitwear. We ship across the US.");
+await page.fill("#biz-link", "instagram.com/novawear.nyc");
 if (photosDir) await page.setInputFiles("#photo-input", readdirSync(photosDir).filter((f) => f.endsWith(".jpg")).map((f) => join(photosDir, f)));
 await shot("3-show");
 await page.click("#analyze");
@@ -60,7 +60,7 @@ if (process.env.LIST_ITEM) {
     const me = await fetch("/api/app/me").then((r) => r.json());
     const photo = (await fetch("/api/app/photos").then((r) => r.json())).photos[0];
     const r = await fetch("/api/app/items", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: "Dark denim jacket", price: 1, description: "Made in Kyiv.", options: ["S", "M", "L"], photoMediaId: photo?.id }) });
+      body: JSON.stringify({ title: "Dark denim jacket", price: 1, description: "Designed in New York.", options: ["S", "M", "L"], photoMediaId: photo?.id }) });
     if (!r.ok) throw new Error(`item: ${r.status}`);
     return me.handle;
   });

@@ -159,6 +159,19 @@ export async function writePostOptions(ask: Asker, a: {
   }).filter((p) => p.caption).slice(0, a.n);
 }
 
+/** A short video says one thing: keep whole sentences while they fit in ~22 words (≈ 8–9 s of speech). */
+export function shortVoiceover(text: string, maxWords = 22): string {
+  const sentences = text.match(/[^.!?]+[.!?]*/g)?.map((x) => x.trim()).filter(Boolean) ?? [];
+  const out: string[] = [];
+  for (const s of sentences) {
+    if (out.join(" ").split(/\s+/).filter(Boolean).length + s.split(/\s+/).length > maxWords && out.length) break;
+    out.push(s);
+  }
+  const joined = out.join(" ");
+  const words = joined.split(/\s+/);
+  return words.length > maxWords ? words.slice(0, maxWords).join(" ").replace(/[,;:]$/, "") + "." : joined;
+}
+
 export interface VideoScript { hook: string; voiceover: string; video_prompt: string }
 
 /** A short video's script for one post (advertisment_system short-form director, ported): hook, voiceover, motion. */
@@ -166,7 +179,7 @@ export async function writeVideoScript(ask: Asker, a: { profile: StyleProfile; c
   const raw = await ask<Record<string, unknown>>("video-director", [block("style_profile", a.profile), block("post", { angle: a.angle, caption: a.caption })].join("\n\n"));
   // The voice must not read numbers (TTS reads them badly and they are the claims most often made up).
   const voiceover = str(raw.voiceover, 400).replace(/\s*[^.!?]*\d[^.!?]*[.!?]?/g, "").trim();
-  const s = { hook: str(raw.hook, 60).split(/\s+/).slice(0, 6).join(" "), voiceover, video_prompt: str(raw.video_prompt, 600) };
+  const s = { hook: str(raw.hook, 60).split(/\s+/).slice(0, 5).join(" "), voiceover: shortVoiceover(voiceover), video_prompt: str(raw.video_prompt, 600) };
   if (!s.voiceover || !s.video_prompt) throw new Error("video-director: empty voiceover or video prompt");
   return s;
 }

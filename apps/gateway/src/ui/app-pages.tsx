@@ -8,7 +8,7 @@ type Img = (id: string | null) => string | null;
 
 const money = (cfg: UiConfig, units: string | number) => `${(Number(units) / 10 ** cfg.decimals).toLocaleString("en", { maximumFractionDigits: 2 })} ${cfg.token}`;
 const when = (p: Post) => p.status === "published" ? `Posted ${fmt(p.publishedAt)}` : p.status === "scheduled" ? `Scheduled · ${fmt(p.scheduledAt)}` : p.status === "ready" ? "Ready to post" : p.status === "failed" ? "Could not make this one" : "Making…";
-const fmt = (d: Date | null) => (d ? d.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Kyiv" }) : "");
+const fmt = (d: Date | null) => (d ? d.toLocaleString("en-US", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" }) : "");
 const clip = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, s.lastIndexOf(" ", n) > n * 0.6 ? s.lastIndexOf(" ", n) : n)}…`);
 
 export const PostCard: FC<{ p: Post; img: Img }> = ({ p, img }) => (
