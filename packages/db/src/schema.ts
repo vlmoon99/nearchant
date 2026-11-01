@@ -210,3 +210,27 @@ export const usageMonthly = pgTable("usage_monthly", {
   posts: integer("posts").notNull().default(0),
   images: integer("images").notNull().default(0),
 }, (t) => [primaryKey({ columns: [t.handle, t.month] })]);
+
+/** Admin image lab (tailnet only): one row per model render, to compare models on real product photos. */
+export const labRuns = pgTable("lab_runs", {
+  id: text("id").primaryKey(),
+  batchId: text("batch_id").notNull(),
+  variant: text("variant").notNull(),
+  prompt: text("prompt").notNull(),
+  photoKey: text("photo_key"),
+  /** queued | running | done | failed */
+  status: text("status").notNull().default("queued"),
+  elapsedMs: integer("elapsed_ms"),
+  outputKey: text("output_key"),
+  error: text("error"),
+  /** -1 bad, 0 unrated, 1 good, 2 best */
+  rating: integer("rating").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("lab_runs_batch").on(t.batchId), index("lab_runs_created").on(t.createdAt)]);
+
+/** Operator settings (e.g. the image model chosen in the lab). */
+export const settings = pgTable("settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

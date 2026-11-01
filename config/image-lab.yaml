@@ -1,0 +1,32 @@
+# Image lab (admin only, tailnet): models to compare on Comfy Cloud before choosing the production default.
+# Each variant = a workflow file in config/image-lab/ + node overrides "<nodeId>.<input>": value.
+# Placeholders in workflows: __PROMPT__, __REF__ (uploaded photo), __SEED__, __WIDTH__, __HEIGHT__.
+variants:
+  - id: qie2511-l4
+    label: Qwen-Image-Edit 2511 · Lightning 4 steps (current default)
+    workflow: qwen_edit.json
+    needs_photo: true
+  - id: qie2511-l8
+    label: Qwen-Image-Edit 2511 · Lightning 8 steps
+    workflow: qwen_edit.json
+    needs_photo: true
+    set: { "29.lora_name": Qwen-Image-Edit-2511-Lightning-8steps-V1.0-fp32.safetensors, "31.steps": 8 }
+  - id: qie2511-full
+    label: Qwen-Image-Edit 2511 · full quality (20 steps, no speed-up)
+    workflow: qwen_edit.json
+    needs_photo: true
+    set: { "29.strength_model": 0.0, "31.steps": 20, "31.cfg": 4.0 }
+  - id: qie2509-l4
+    label: Qwen-Image-Edit 2509 · Lightning 4 steps
+    workflow: qwen_edit.json
+    needs_photo: true
+    set: { "30.unet_name": qwen_image_edit_2509_fp8mixed.safetensors, "29.lora_name": Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors }
+  - id: qi2512-l4
+    label: Qwen-Image 2512 text-to-image · Lightning 4 steps (no photo — baseline)
+    workflow: qwen_t2i.json
+    needs_photo: false
+  - id: qi2512-turbo2
+    label: Qwen-Image 2512 text-to-image · Turbo 2 steps
+    workflow: qwen_t2i.json
+    needs_photo: false
+    set: { "2.lora_name": Wuli-Qwen-Image-2512-Turbo-LoRA-2steps-V1.0-bf16.safetensors, "9.steps": 2 }

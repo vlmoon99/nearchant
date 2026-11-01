@@ -29,6 +29,13 @@
       "when": 1793532806572,
       "tag": "0003_content_store",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793541886634,
+      "tag": "0004_image_lab",
+      "breakpoints": true
     }
   ]
 }

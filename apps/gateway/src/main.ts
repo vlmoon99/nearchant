@@ -15,6 +15,8 @@ import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote }
 import { createApp } from "./app.js";
 import { mountSellerApp } from "./seller-app.js";
 import { mountUi } from "./ui/routes.js";
+import { labApp } from "./admin/lab.js";
+import { ComfyCloud, type LabVariant } from "./admin/comfy.js";
 import { RateLimit, sponsorBuyer } from "./buyers.js";
 import { loadGatewayConfig } from "./config.js";
 
@@ -263,6 +265,14 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     accountOf: (h) => `${h}.${accounts.root}`,
     explorer: (a) => `https://${config.network === "mainnet" ? "" : "testnet."}nearblocks.io/address/${a}`,
   });
+}
+
+// Admin (owner only): a second listener that is published on the tailnet address only, never via the tunnel.
+if (conn && process.env.ADMIN_PORT) {
+  const lab = parse(readFileSync(join(configDir, "image-lab.yaml"), "utf8")) as { variants: LabVariant[] };
+  const workflows = Object.fromEntries([...new Set(lab.variants.map((v) => v.workflow))].map((f) => [f, JSON.parse(readFileSync(join(configDir, "image-lab", f), "utf8"))]));
+  const admin = labApp({ db: conn.db, comfy: process.env.COMFY_API_KEY ? new ComfyCloud(process.env.COMFY_API_KEY) : null, variants: lab.variants, workflows, mediaDir });
+  serve({ fetch: admin.fetch, hostname: "0.0.0.0", port: Number(process.env.ADMIN_PORT) }, (i) => console.info(`[admin] image lab on :${i.port} (publish on the tailnet only)`));
 }
 
 serve({ fetch: app.fetch, hostname: config.listen.host, port: config.listen.port }, (i) =>
