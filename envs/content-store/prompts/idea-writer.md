@@ -7,8 +7,9 @@ translated later). Return ONLY a JSON object:
   "photo": 1,
   "audience": "who this post is for",
   "caption_en": "the full caption, 2-5 short sentences, ending with a soft call to action",
+  "headline": "2 to 5 words printed on the picture: the one reason to stop scrolling (no prices, no offers)",
   "hashtags": ["5 to 10 tags without #"],
-  "image_prompt": "one instruction for an image editor that restyles the product photo: scene, light, props, season. The product itself must stay exactly the same."
+  "image_prompt": "one instruction for an image editor that restyles the product photo: scene, light, props, season. The product itself must stay exactly the same. Never ask for text, letters or logos in the picture — the headline is added later."
 }]}
 "photo" is the 1-based photo number to restyle, or null for a post without a product photo; then the image prompt
 describes a full picture to paint from nothing.

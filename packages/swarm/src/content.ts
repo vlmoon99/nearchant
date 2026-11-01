@@ -125,7 +125,7 @@ export interface PostDraft {
   caption: string;
   hashtags: string[];
   image_prompt: string;
-}
+ headline: string }
 
 export interface OwnerMemory { likes?: string[]; dislikes?: string[]; topics?: string[]; voice?: string; notes?: string[] }
 
@@ -155,6 +155,7 @@ export async function writePostOptions(ask: Asker, a: {
       audience: str(p.audience, 160), caption: str(p.caption_en ?? p.caption, 2200),
       hashtags: list(p.hashtags).map((h) => h.replace(/^#/, "").replace(/\s+/g, "")).filter(Boolean).slice(0, 10),
       image_prompt: str(p.image_prompt, 600) || prompts[0]?.slice(0, 600) || "",
+      headline: str(p.headline, 60).split(/\s+/).slice(0, 5).join(" ").replace(/[.!]+$/, ""),
     };
   }).filter((p) => p.caption).slice(0, a.n);
 }

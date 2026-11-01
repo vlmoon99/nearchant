@@ -194,6 +194,8 @@ const videoVariant = lab.variants.find((x) => x.id === (process.env.VIDEO_VARIAN
 const video = comfy && videoVariant && process.env.TTS_URL ? {
   tts: makeTts(process.env.TTS_URL, process.env.TTS_API_KEY ?? ""),
   fontsDir: process.env.FONTS_DIR ?? join(root, "assets/fonts"),
+  // The end-card shows where to buy: <handle>.nearchant.com on the public site, else the /h/<handle> path.
+  storeLink: (h: string) => { const u = new URL(process.env.PUBLIC_URL ?? "http://localhost:8787"); return u.protocol === "https:" ? `${h}.${u.host}` : `${u.host}/h/${h}`; },
   render: async (prompt: string, picture: Buffer) => {
     const template = JSON.parse(readFileSync(join(root, "config/image-lab", videoVariant.workflow), "utf8"));
     const ref = await comfy.upload(picture, `video-${Date.now()}.png`);
@@ -203,6 +205,7 @@ const video = comfy && videoVariant && process.env.TTS_URL ? {
 } : undefined;
 
 const contentTasks = makeContentTasks({
+  fontsDir: process.env.FONTS_DIR ?? join(root, "assets/fonts"),
   ...(labRender ? { labRender } : {}),
   ...(video ? { video } : {}),
   content: contentStore, envelopes, router, outbox, env: loadAgentEnv(join(root, "envs/content-store")), mediaDir,

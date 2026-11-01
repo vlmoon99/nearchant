@@ -6,8 +6,9 @@ import type { Task } from "graphile-worker";
 import sharp from "sharp";
 import type { ContentStore, Envelopes } from "@nearchant/db";
 import type { ResultEnvelope } from "@nearchant/contracts";
-import { assSubtitles, compose } from "./video-compose.js";
+import { assSubtitles, compose, pickAccent, totalSeconds } from "./video-compose.js";
 import type { Tts } from "./tts.js";
+import { NO_TEXT, applyHeadline, headlineAss } from "./image-text.js";
 import { block, checkCaption, type CaptionCheck, writeVideoScript, analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type StyleProfile } from "@nearchant/swarm";
 
 export interface ContentTaskDeps {
@@ -24,7 +25,9 @@ export interface ContentTaskDeps {
   /** The lab's chosen image model on Comfy Cloud (admin "Use in production"); null = the router's image route. */
   labRender?: (prompt: string, photo: Buffer | null) => Promise<Buffer | null>;
   /** Short videos (step 13b): a clip from a picture (Comfy Cloud Wan 2.2), an English voice, fonts for captions. */
-  video?: { render: (prompt: string, picture: Buffer) => Promise<Buffer>; tts: Tts; fontsDir: string };
+  video?: { render: (prompt: string, picture: Buffer) => Promise<Buffer>; tts: Tts; fontsDir: string; storeLink?: (handle: string) => string };
+  /** Fonts for text we put on pictures and videos (headline strip, captions). */
+  fontsDir?: string;
   /** Side effects sent once per key (chain calls). */
   outbox: { enqueue(key: string, kind: string, payload: unknown): Promise<unknown> };
 }
@@ -57,6 +60,18 @@ export async function photoDataUrl(path: string): Promise<string> {
 
 export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
   const askFor = (handle: string, step: string, seen?: (e: ResultEnvelope) => void) => makeAsker(d.env, d.router, async (e) => { seen?.(e); await d.envelopes.add(`content:${handle}:${step}`, step, d.accountOf(handle), e); });
+
+  /** Vision QA (advertisment_system ad_post): did the image model draw lettering? Any doubt reads as "no". */
+  async function hasTextArtifacts(png: Buffer): Promise<boolean> {
+    try {
+      const url = `data:image/jpeg;base64,${(await sharp(png).resize(768, 768, { fit: "inside" }).jpeg({ quality: 80 }).toBuffer()).toString("base64")}`;
+      const env = await d.router.call({ capability: "vision", dataClass: "private", reasoning: false, timeoutMs: 60_000, input: { max_tokens: 60, temperature: 0, messages: [{ role: "user", content: [
+        { type: "text", text: 'Does this picture contain any visible text, letters, words, numbers or logo-like lettering drawn inside it (garbled or not)? Answer only JSON: {"has_text": true|false}' },
+        { type: "image_url", image_url: { url } }] }] } });
+      const txt = String((env.output as { message?: { content?: string } }).message?.content ?? "");
+      return /"has_text"\s*:\s*true/.test(txt);
+    } catch { return false; }
+  }
 
   const analyzeBusinessTask: Task = async (payload, helpers) => {
     const { handle } = payload as { handle: string };
@@ -134,30 +149,48 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
       if (!dr) { await d.content.failPost(p.id, "the model wrote fewer options than asked"); continue; }
       const src = dr.photo ? photos[dr.photo - 1] : undefined;
       await d.content.updatePost(p.id, { status: "rendering", caption: dr.caption, hashtags: dr.hashtags, idea: { ...dr, ...(writer ? { writer } : {}) }, sourceMediaId: src?.id ?? null });
-      let imageMediaId: string | null = null;
+      let imageMediaId: string | null = null, cleanMediaId: string | null = null;
       try {
-        const prompt = dr.image_prompt || dr.angle;
+        const prompt = (dr.image_prompt || dr.angle) + NO_TEXT;
         const photoB64 = src ? (await photoDataUrl(join(d.mediaDir, src.key))).split(",", 2)[1]! : null;
-        let bytes: Buffer | null = d.labRender ? await d.labRender(prompt, photoB64 ? Buffer.from(photoB64, "base64") : null) : null;
-        if (!bytes) {
+        const renderOnce = async (): Promise<Buffer | null> => {
+          const lab = d.labRender ? await d.labRender(prompt, photoB64 ? Buffer.from(photoB64, "base64") : null) : null;
+          if (lab) return lab;
           const input: Record<string, unknown> = { prompt, n: 1, size: "1024x1280" };
           if (photoB64) input.image_b64 = photoB64;
           // Product photos for posts that will be published: public data, so a cloud renderer (Comfy Cloud) may take them.
           const env = await d.router.call({ capability: "image.generate", dataClass: "public", input, timeoutMs: 300_000 });
           await d.envelopes.add(`content:${handle}:render`, "render", d.accountOf(handle), env);
           const b64 = (env.output as { images?: { b64?: string }[] }).images?.[0]?.b64;
-          bytes = b64 ? Buffer.from(b64, "base64") : null;
-        }
+          return b64 ? Buffer.from(b64, "base64") : null;
+        };
+        let bytes = await renderOnce();
+        // Models garble lettering: a picture painted from nothing that came out with text gets one re-roll. Not for
+        // a restyled product photo — its label is real text (advertisment_system ad_post QA).
+        if (bytes && !src && (await hasTextArtifacts(bytes))) { d.log(`render ${p.id}: text in the picture — one re-roll`); bytes = (await renderOnce()) ?? bytes; }
         if (bytes) {
           const key = `${handle}/gen/${p.id}.png`;
           await mkdir(join(d.mediaDir, handle, "gen"), { recursive: true });
           await writeFile(join(d.mediaDir, key), bytes);
-          imageMediaId = await d.content.addMedia({ handle, kind: "generated", key, contentType: "image/png", sha256: createHash("sha256").update(bytes).digest("hex") });
+          const sha = (b: Buffer) => createHash("sha256").update(b).digest("hex");
+          cleanMediaId = await d.content.addMedia({ handle, kind: "generated", key, contentType: "image/png", sha256: sha(bytes) });
+          imageMediaId = cleanMediaId;
+          // The headline strip goes on in our font and the brand colour; the clean picture stays for videos.
+          if (dr.headline && d.fontsDir) {
+            try {
+              const meta = await sharp(bytes).metadata();
+              const assFile = join(d.mediaDir, handle, "gen", `${p.id}-h.ass`), hKey = `${handle}/gen/${p.id}-h.png`;
+              await writeFile(assFile, headlineAss(dr.headline, meta.width ?? 1024, meta.height ?? 1280, pickAccent(profile.brand_colors)));
+              await applyHeadline({ input: join(d.mediaDir, key), output: join(d.mediaDir, hKey), ass: assFile, fontsDir: d.fontsDir });
+              imageMediaId = await d.content.addMedia({ handle, kind: "generated", key: hKey, contentType: "image/png", sha256: sha(await readFile(join(d.mediaDir, hKey))) });
+            } catch (e) { d.log(`headline ${p.id}: ${(e as Error).message.slice(0, 160)} — plain picture`); }
+          }
         }
       } catch (e) {
         d.log(`render ${p.id}: ${(e as Error).message.slice(0, 160)} — using the product photo`);
       }
-      await d.content.updatePost(p.id, { status: "ready", imageMediaId: imageMediaId ?? src?.id ?? null, error: imageMediaId ? null : "image engine unavailable — showing your photo" });
+      await d.content.updatePost(p.id, { status: "ready", imageMediaId: imageMediaId ?? src?.id ?? null, error: imageMediaId ? null : "image engine unavailable — showing your photo",
+        ...(cleanMediaId && cleanMediaId !== imageMediaId ? { idea: { ...dr, ...(writer ? { writer } : {}), cleanImageMediaId: cleanMediaId } } : {}) });
       await helpers.addJob("check_post", { postId: p.id }, { jobKey: `check:${p.id}`, maxAttempts: 2 });
     }
     await helpers.addJob("learn_taste", { handle }, { jobKey: `learn:${handle}`, runAt: new Date(Date.now() + 60_000), maxAttempts: 1 });
@@ -226,7 +259,7 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     const idea = (p.idea ?? {}) as Record<string, unknown>;
     const setVideo = (v: Record<string, unknown>) => d.content.updatePost(p.id, { idea: { ...idea, video: v } });
     try {
-      const mid = p.imageMediaId ?? p.sourceMediaId;
+      const mid = (idea.cleanImageMediaId as string | undefined) ?? p.imageMediaId ?? p.sourceMediaId; // no headline strip in the video
       const m = mid ? await d.content.getMedia(mid) : null;
       if (!m) throw new Error("the post has no picture to animate");
       const profile = (await d.content.getProfile(p.handle))?.data as StyleProfile;
@@ -236,14 +269,18 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
       const [clip, voice] = await Promise.all([d.video.render(script.video_prompt, picture), d.video.tts.speak(script.voiceover, p.handle)]);
       const dir = join(d.mediaDir, p.handle, "gen", `v-${p.id}`);
       await mkdir(dir, { recursive: true });
-      await Promise.all([writeFile(join(dir, "clip.webm"), clip), writeFile(join(dir, "voice.wav"), voice.wav), writeFile(join(dir, "subs.ass"), assSubtitles(script.hook, voice.words))]);
+      const b = await d.content.getBusiness(p.handle);
+      const overlay = { hook: script.hook, words: voice.words, script: script.voiceover, voiceEnd: voice.seconds, accent: pickAccent(profile?.brand_colors),
+        store: b?.name ?? p.handle, cta: "Tap the link to shop", ...(d.video.storeLink ? { link: d.video.storeLink(p.handle) } : {}) };
+      const seconds = totalSeconds(voice.seconds, true);
+      await Promise.all([writeFile(join(dir, "clip.webm"), clip), writeFile(join(dir, "voice.wav"), voice.wav), writeFile(join(dir, "subs.ass"), assSubtitles(overlay))]);
       const key = `${p.handle}/gen/${p.id}.mp4`;
-      await compose({ clip: join(dir, "clip.webm"), voice: join(dir, "voice.wav"), ass: join(dir, "subs.ass"), fontsDir: d.video.fontsDir, out: join(d.mediaDir, key), seconds: voice.seconds });
+      await compose({ clip: join(dir, "clip.webm"), voice: join(dir, "voice.wav"), ass: join(dir, "subs.ass"), fontsDir: d.video.fontsDir, out: join(d.mediaDir, key), seconds });
       const bytes = await readFile(join(d.mediaDir, key));
       const mediaId = await d.content.addMedia({ handle: p.handle, kind: "video", key, contentType: "video/mp4", sha256: createHash("sha256").update(bytes).digest("hex") });
       const now = await d.content.getPost(p.id); // published while the video was made → show it on the store too
       const publicVideo = now?.status === "published" ? await publishVideo(p.handle, p.id, key) : undefined;
-      await d.content.updatePost(p.id, { idea: { ...((now?.idea ?? idea) as object), video: { status: "ready", mediaId, key, script, seconds: voice.seconds }, ...(publicVideo ? { publicVideo } : {}) } });
+      await d.content.updatePost(p.id, { idea: { ...((now?.idea ?? idea) as object), video: { status: "ready", mediaId, key, script, seconds }, ...(publicVideo ? { publicVideo } : {}) } });
       d.log(`video ${p.id}: ${voice.seconds}s, ${Math.round(bytes.length / 1024)} KB`);
     } catch (e) {
       await d.content.refund(p.handle, 0, 3);
