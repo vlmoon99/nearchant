@@ -379,6 +379,8 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Phala Cloud account with credit, needed by ~8 Nov.
 - ~~Cloudflare routes~~ — done 1 Nov: `https://nearchant.com` and `https://<store>.nearchant.com` are public
   (verified: /new 200, verity.nearchant.com 200, alice via Cloudflare edge 200).
+- Video weights (stretch 13b): LTX-2.5 is gated on Hugging Face — accept its licence and give an HF token
+  (Keychain `HF_TOKEN`, account `nearchant`) when we start video.
 - GPU for video (stretch 13b): may Nearchant use `gx10-c3c8` (Boost Content's Spark; its engines are off) for
   video + TTS, or should video time-share `gx10-8695`?
 - NEAR AI credit ~$2: top up before step 14 of `docs/m1-plan.md` (end of the build).
