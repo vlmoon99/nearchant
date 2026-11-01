@@ -615,6 +615,11 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   review "passed" bit in proofs. → Owner decision below; nothing built yet.
 
 ### Owner actions
+- **Sparks back (1 Nov ~17:20 UTC)**: gx10-8695 and dgx-spark-2 up, gx10-c3c8 still down (power-cycle it). The
+  Mac still serves nearchant.com (its DB is now the primary: new stores, proof #18, videos). On gx10-8695 I stopped
+  the Spark tunnel and the Spark worker (restart=no) so the old Spark DB does not publish posts or write proofs in
+  parallel. Your call: stay on the Mac until the demo, or move back to the Spark (I'd copy the Mac DB + media over,
+  then switch the tunnel).
 - **Decide Levanto Sage's job** (step 14): it answers yes/no/choice/score questions with probabilities, it does not
   route between models. Recommended: use it for policy checks (invented offers in captions, buyer messages that try
   to change payment) and as the proof's review signal; keep model choice in `config/`.
