@@ -526,6 +526,16 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Fix for reliable trends: a search API (e.g. Brave Search API free tier) — owner's call; or run search from a
   different network (the Sparks' SearXNG worked earlier on 1 Nov).
 
+## 2026-11-01 ~23:40 UTC — step 13 (part 1): order page restyle, store order count, README + demo script
+
+- Item order page in the Figma style (paid → shipped → you confirm → released, escrow card); store page shows the
+  real paid-order count. **Verified**: `e2e/buy-item.mjs` paid 12 s → shipped → delivered 29 s → Released 48 s,
+  screenshots match the design, no page errors.
+- README rewritten for the content-store story (live link, 7-step story, architecture diagram, run section with the
+  new e2e scripts); `docs/demo-script.md` rewritten (90 s).
+- Not yet: `make demo` still replays the first (deck) service — next: a content-store replay (analyze →
+  opportunities → posts with pictures) recorded from a live run, so judges can run the new story with Docker only.
+
 ### Owner actions
 - Optional: a Brave Search API key (free tier) for reliable trend opportunities — self-hosted search is blocked
   from the home network right now.
