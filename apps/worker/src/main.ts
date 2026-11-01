@@ -29,7 +29,7 @@ const envelopes = new Envelopes(conn.db);
 const outbox = new Outbox(conn.db);
 const sealer = new Sealer(need("NEARCHANT_SECRET_KEY"));
 const chain = new Chain({ rpcUrls: gw.rpc_urls, relayer: { accountId: accounts.relayer, secretKey: need("NEAR_RELAYER_KEY") } });
-const router = await makeRouter(join(root, "config/providers.yaml"));
+const router = await makeRouter(join(root, "config", process.env.PROVIDERS_FILE ?? "providers.yaml"));
 const media = localMedia(process.env.MEDIA_DIR ?? join(root, ".media"), process.env.MEDIA_PUBLIC ?? "/media");
 const env = loadAgentEnv(join(root, "envs/deck-seller"));
 

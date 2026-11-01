@@ -1,0 +1,54 @@
+# Nearchant on a Phala Cloud CVM (dstack, Intel TDX) — the judged deployment (ADR 0007).
+# Images are referenced by digest so the attestation report binds exactly what runs. Secrets come from Phala's
+# encrypted environment (set in the Phala dashboard / `phala deploy -e`), never from this file.
+name: nearchant
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment: { POSTGRES_USER: nearchant, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}", POSTGRES_DB: nearchant }
+    volumes: ["db:/var/lib/postgresql/data"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U nearchant"], interval: 3s, retries: 20 }
+    restart: unless-stopped
+
+  gateway:
+    image: ${NEARCHANT_IMAGE:?set NEARCHANT_IMAGE to ghcr.io/<owner>/nearchant@sha256:...}
+    command: ["node", "apps/gateway/dist/main.js"]
+    environment: &env
+      DATABASE_URL: postgres://nearchant:${POSTGRES_PASSWORD}@db:5432/nearchant
+      PROVIDERS_FILE: providers.cloud.yaml      # NEAR AI TEE models only: a CVM can't reach the owner's GPUs
+      NEARCHANT_SECRET_KEY: ${NEARCHANT_SECRET_KEY}
+      NEAR_RELAYER_KEY: ${NEAR_RELAYER_KEY}
+      NEARAI_API_KEY: ${NEARAI_API_KEY}
+      PUBLIC_URL: ${PUBLIC_URL:-https://nearchant.com}
+      MEDIA_DIR: /app/.media
+      MEDIA_PUBLIC: /media
+      PORT: "8787"
+    ports: ["8787:8787"]
+    volumes: ["media:/app/.media"]
+    depends_on: { db: { condition: service_healthy } }
+    restart: unless-stopped
+
+  worker:
+    image: ${NEARCHANT_IMAGE}
+    command: ["node", "apps/worker/dist/main.js"]
+    environment: { <<: *env, RENDERER_URL: http://renderer:8080, FACTCHECK_A2A_URL: "http://gateway:8787/h/verity/a2a/v1" }
+    volumes: ["media:/app/.media"]
+    depends_on: { db: { condition: service_healthy } }
+    restart: unless-stopped
+
+  renderer:
+    image: marpteam/marp-cli@sha256:3cf660df7b9737f875e57f7169dff0b08d1d3ab604ea2d655ab761102942fa42
+    command: ["--server", "--allow-local-files", "."]
+    environment: { MARP_USER: "1000:1000" }
+    volumes: ["media:/home/marp/app"]
+    restart: unless-stopped
+
+  tunnel:
+    image: cloudflare/cloudflared:2025.9.1
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment: { TUNNEL_TOKEN: "${CF_TUNNEL_TOKEN}" }
+    restart: unless-stopped
+
+volumes:
+  db: {}
+  media: {}

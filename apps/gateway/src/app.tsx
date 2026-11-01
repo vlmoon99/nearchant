@@ -163,6 +163,8 @@ export function createApp(d: Deps) {
     if (chain && row.state === "awaiting_payment" && chain.status !== "Opening" && chain.amount === row.amount && chain.seller_handle === h.handle) {
       if (await d.store.transitionOrder(row.orderId, "awaiting_payment", "paid")) { row.state = "paid"; await d.onPaid?.(row.orderId); }
     }
+    if (chain?.status === "Released" && row.state === "delivered" && (await d.store.transitionOrder(row.orderId, "delivered", "released"))) row.state = "released";
+    if (chain?.status === "Refunded" && row.state === "delivered" && (await d.store.transitionOrder(row.orderId, "delivered", "refunded"))) row.state = "refunded";
     const service = await d.store.getService(h.handle, row.serviceId);
     const p = (await d.progress?.(row.orderId)) ?? { stepsDone: [], files: [], stopped: null };
     const o: OrderView = {

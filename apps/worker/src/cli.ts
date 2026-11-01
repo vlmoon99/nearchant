@@ -8,7 +8,7 @@ import { makeRouter } from "./router.js";
 const root = resolve(import.meta.dirname, "../../..");
 const brief = process.argv.slice(2).join(" ") || "Seed pitch deck for BeanBox: a specialty coffee subscription in Kyiv, 18 EUR a month, 400 paying subscribers after 6 months, two founders (a roaster and a growth marketer), raising 300k EUR to open a second roastery.";
 const orderId = process.env.ORDER_ID ?? `cli-${Date.now().toString(36)}`;
-const router = await makeRouter(join(root, "config/providers.yaml"));
+const router = await makeRouter(join(root, "config", process.env.PROVIDERS_FILE ?? "providers.yaml"));
 const media = localMedia(process.env.MEDIA_DIR ?? join(root, ".media"), process.env.MEDIA_PUBLIC ?? "/media");
 const store = new Map<string, unknown>();
 const t0 = Date.now();

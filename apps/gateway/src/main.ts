@@ -65,7 +65,7 @@ let router: Router | null = null;
 const envs = new Map<string, AgentEnv>();
 async function executeA2a(handle: { account_id: string }, service: Service, text: string, paymentId: string): Promise<string> {
   if (!router) {
-    router = Router.fromConfig(parse(readFileSync(join(configDir, "providers.yaml"), "utf8")));
+    router = Router.fromConfig(parse(readFileSync(join(configDir, process.env.PROVIDERS_FILE ?? "providers.yaml"), "utf8")));
     await router.discover();
   }
   const name = service.agentEnv!;
@@ -98,7 +98,7 @@ async function onTelegramUpdate(handle: string, update: TgUpdate) {
   if (!token) return;
   const { h, shop } = await botShop(handle);
   await handleUpdate(new TelegramApi(token), shop, update, async (text) => {
-    if (!router) { router = Router.fromConfig(parse(readFileSync(join(configDir, "providers.yaml"), "utf8"))); await router.discover(); }
+    if (!router) { router = Router.fromConfig(parse(readFileSync(join(configDir, process.env.PROVIDERS_FILE ?? "providers.yaml"), "utf8"))); await router.discover(); }
     if (!envs.has("deck-seller")) envs.set("deck-seller", loadAgentEnv(join(configDir, "../envs/deck-seller")));
     const envelopes = new Envelopes(conn!.db);
     const ask = makeAsker(envs.get("deck-seller")!, router, async (e) => { await envelopes.add(`tg:${handle}:${update.update_id}`, "chat", h.account_id, e); });
