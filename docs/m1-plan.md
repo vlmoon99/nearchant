@@ -1,0 +1,52 @@
+# M1 plan — the Figma product (AI content + analytics + NEAR payments)
+
+Decided in ADR 0018. Design: Figma `Nearchant` → page "Nearchant — all screens" (rows: web app, mobile web,
+storefront, landing & web onboarding, onboarding mobile web). This file is the build order; the loop takes the
+first unchecked item, finishes it with tests, commits, and logs it in `PROGRESS.md`.
+
+Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
+
+## Rules for this phase
+
+- Models during development: `providers.local.yaml` only (Qwen3.6 text+vision on `gx10-8695`, own ComfyUI).
+  **No NEAR AI calls until step 14.** NEAR AI credit is ~$2: if a call fails with a billing/credit error, stop and
+  ask the owner to top up.
+- Reuse Boost Content (`~/Documents/dev/boostcontent_backend`, `boostcontent_client/inference_system`) by porting
+  prompts, shapes and contracts — never change those repos or the shared `inference_system` cluster.
+- Mobile-first web: every page works at 393 px and 1440 px (one codebase, responsive).
+- Store photos and generated images under the existing media volume; signed URLs later if needed.
+
+## Build order
+
+1. [ ] **Image engine on gx10-8695**: ComfyUI + Qwen-Image-Edit-2511 (weights in `~/nearchant-node/comfy`),
+   an OpenAI-shaped images service (port of `inference_system/services/image/app.py`, `/v1/images/generations`
+   with `image_b64`/`image_url`), compose service `image`, router endpoint `spark-image` (`image.generate`,
+   `image.edit`) in `providers.local.yaml`. Verify: one product photo → restyled 1024×1280 PNG.
+2. [ ] **Data model**: Drizzle migration for businesses, profiles, items, media, posts, post_images, signals,
+   events, opportunities; quota helpers (reserve/refund) from Boost Content's plans (free: 12 posts/month).
+3. [ ] **Uploads + business API**: create business (what you sell, name), photo upload (multipart → media),
+   link field; JSON endpoints used by the pages.
+4. [ ] **Analyze pipeline** (worker): vision profile prompt (port of Boost Content `profile`), facts streamed to
+   the "Getting to know you" screen; replay fixture + tests.
+5. [ ] **Opportunities pipeline**: trend (SearXNG), price (similar items), upsell bundle, channel — each with an
+   estimate and the "estimates, not promises" rule; tests.
+6. [ ] **Posts pipeline**: ideas (port of `ideas` prompt, seeded by chosen opportunities) → caption → image
+   (Qwen-Image-Edit from the product photo) → ready; choose/pass/edit signals; learn memory.
+7. [ ] **Publish + proof**: publishing a post writes a `proof-log` entry (hash of caption + image) and shows it on
+   the store; Telegram channel post via the seller's bot (existing ADR 0011 code).
+8. [ ] **UI foundation**: CSS tokens from the Figma variables + type styles, layout shell (desktop sidebar,
+   mobile web bottom nav), components (badge "Verified on NEAR", stat card, post card, buttons, chips).
+9. [ ] **Onboarding pages** (10 screens, mobile web first) wired to steps 3–6.
+10. [ ] **Seller app pages**: Home, Create (3 steps), Posts, Post detail + proof.
+11. [ ] **Storefront**: store page from items/posts, item page, checkout (existing sponsored wallet + `orders`
+    escrow), order paid page with timeline and "I got it — release payment".
+12. [ ] **Analytics + Wallet + Settings**: page-view/click/sale events, weekly charts, AI insights (LLM over the
+    numbers), first-week goal + checklist, first-sale celebration, Monday report; wallet from chain views.
+13. [ ] **Public URL + polish**: tunnel routes live (owner adds hostnames), end-to-end browser test of onboarding →
+    post → buy → release; `make demo` replay updated to the new story; README + demo script.
+14. [ ] **NEAR AI TEE at the end**: switch text to NEAR AI TEE models (`providers.yaml`), attestation in proofs,
+    a short paid test within the ~$2 credit; Phala deploy if the owner provides the account.
+
+## Status
+
+See `PROGRESS.md` for dated entries.

@@ -22,3 +22,4 @@ Changing a default from `CLAUDE.md` or `architecture.md` needs a new ADR here.
 | [0015](0015-doc-split.md) | Split the plan into CLAUDE.md, architecture, scope and ADRs |
 | [0016](0016-ajv-from-json-schema.md) | Ajv from the JSON Schemas instead of Zod for boundary validation |
 | [0017](0017-second-seat-must-be-attested.md) | The council's second model family must be TEE-attested |
+| [0018](0018-pivot-to-ai-content-store.md) | Pivot to the Figma product: AI content + analytics + NEAR payments for small sellers |

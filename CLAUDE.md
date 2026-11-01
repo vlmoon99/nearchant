@@ -6,7 +6,8 @@ Telegram and the NEAR AI Agent Market, with payments on NEAR. We are building **
 
 ## Where things are decided
 
-- **Scope**: `docs/m0-scope.md` — read before adding anything; it holds the demo story, timeline and cut list,
+- **Current plan**: `docs/m1-plan.md` (ADR 0018 pivot to the Figma product) — read first; it wins over `m0-scope.md`.
+- **Scope (deck story, history)**: `docs/m0-scope.md` — read before adding anything; it holds the demo story, timeline and cut list,
   and wins over `architecture.md`.
 - **Why a default is what it is**: `docs/adr/` (index in its README). A changed default gets a new ADR.
 - **Full concept** (capability contracts, CORS rules, handle safety, NEAR-native stack): `docs/architecture.md`,

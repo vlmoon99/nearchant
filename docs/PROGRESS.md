@@ -304,6 +304,20 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Phala, Cloudflare tunnel and Telegram are done **at the end**, after the owner's local testing on the tailnet.
   Keep a buffer: start the Phala deploy by ~11 Nov (cloud-only config already verified locally).
 
+## 2026-11-01 ~11:30 UTC — pivot to the Figma product (ADR 0018)
+
+- Owner designed the product with me in Figma and asked to build it: AI content + AI analytics + NEAR payments
+  and proofs, web + mobile web. Plan and build order in `docs/m1-plan.md`; ADR 0018.
+- Reuse map of Boost Content (backend = SQL/PostgREST; prompts for profile/ideas/learn, options-then-choose,
+  quotas, TEE attestation check; images via inference_system's `/v1/images/generations` on ComfyUI with
+  Qwen-Image-Edit-2511). The shared `inference_system` engines are off and stay untouched.
+- Development is local-only now: `config/providers.local.yaml` (Qwen3.6 on `gx10-8695`, which also reads images —
+  verified). The Spark runs with `PROVIDERS_FILE=providers.local.yaml`; no NEAR AI spend until step 14.
+- Downloading Qwen-Image-Edit-2511 weights (~28 GB, checksums from inference_system's weights.lock) to
+  `gx10-8695:~/nearchant-node/comfy/models` for our own image engine (step 1).
+- Cloudflare tunnel connected from the Spark (cloudflared 2026.10.7, 4 connections); public hostnames not yet
+  added in the dashboard.
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
@@ -315,6 +329,8 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   faucet as needed.
 - ~~Sparks offline~~ — back ~07:00 UTC 1 Nov.
 - Phala Cloud account with credit, needed by ~8 Nov.
-- Cloudflare: a tunnel token for `*.nearchant.com` (or API token so I can create it), needed by ~6 Nov.
+- Cloudflare: tunnel connected; add public hostnames `nearchant.com` + `*.nearchant.com` → HTTP `gateway:8787`
+  in the tunnel's Routes tab.
+- NEAR AI credit ~$2: top up before step 14 of `docs/m1-plan.md` (end of the build).
 - `gx10-c3c8` / inference_system: its own engines are off; its config still lists the reinstalled `dgx-spark-2`
   (now `gx10-8695`) as node1. Nearchant doesn't depend on it; fix in that repo when convenient.
