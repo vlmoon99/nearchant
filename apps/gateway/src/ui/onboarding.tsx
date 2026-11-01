@@ -84,7 +84,7 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
       <p class="sub muted" style="margin:0">Made from the opportunities you picked. Change anything later, or schedule them all.</p>
       <div class="stack s12" id="first-posts"></div>
       <div class="card proof" style="flex-direction:row;gap:10px;padding:12px"><Icon n="shield" c="#007A4F" /><span class="foot">Each post gets a proof on NEAR when it goes live — buyers see it’s really yours.</span></div>
-      <div class="onb-bottom"><button class="btn" id="schedule-all" disabled><Icon n="calendar" />Schedule all</button></div>
+      <div class="onb-bottom"><button class="btn" id="schedule-all" disabled><Icon n="calendar" />Schedule all</button><a class="sub" id="edit-first" href="/app/posts">Edit first</a></div>
     </section>
 
     {/* 7 Store live */}

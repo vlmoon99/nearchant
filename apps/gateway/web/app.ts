@@ -141,8 +141,8 @@ function onboarding() {
       $("#opp-count").textContent = String(ops.length || "a few");
       $("#opp-total").textContent = `≈ +${money(String(total()))} a month together`;
       $("#opps").innerHTML = ops.map((o) => `<div class="card" data-opp="${o.id}" style="gap:6px;padding:14px;cursor:pointer;${chosen.has(o.id) ? "" : "opacity:.55"}">
-        <div class="spread"><span class="tag"><span style="color:${color[o.kind] ?? "#007AFF"}">●</span>${esc(o.kind[0]!.toUpperCase() + o.kind.slice(1))}</span><span class="foot b okt">+${esc(money(o.estimateUnits))}/mo ${chosen.has(o.id) ? "✓" : "○"}</span></div>
-        <span class="callout b">${esc(o.title)}</span><span class="foot muted">${esc(o.why)}</span>${o.data?.action ? `<span class="foot">→ ${esc(o.data.action)}</span>` : ""}</div>`).join("") || `<p class="sub muted">No clear opportunities yet — we’ll keep looking. Let’s make your first posts.</p>`;
+        <div class="spread"><span class="tag"><span style="color:${color[o.kind] ?? "#007AFF"}">●</span>${esc(o.kind[0]!.toUpperCase() + o.kind.slice(1))}</span><span class="row" style="gap:8px;align-items:center"><span class="foot b okt">+${esc(money(o.estimateUnits))}/mo</span><span class="chk ${chosen.has(o.id) ? "on" : ""}">${chosen.has(o.id) ? "✓" : ""}</span></span></div>
+        <span class="callout b">${esc(o.title)}</span><span class="foot muted clamp2">${esc(o.why)}</span></div>`).join("") || `<p class="sub muted">No clear opportunities yet — we’ll keep looking. Let’s make your first posts.</p>`;
       $$("[data-opp]").forEach((el) => el.addEventListener("click", () => { const id = el.dataset.opp!; chosen.has(id) ? chosen.delete(id) : chosen.add(id); paint(); }));
     };
     paint();
@@ -164,9 +164,10 @@ function onboarding() {
     for (let i = 0; i < 240; i++) {
       const { posts } = await api<{ posts: { id: string; status: string; caption: string | null; imageUrl: string | null; idea: { angle?: string } }[] }>("/api/app/posts");
       const mine = posts.filter((p) => ids.includes(p.id));
-      $("#first-posts").innerHTML = mine.map((p) => `<div class="card" style="flex-direction:row;gap:12px;padding:10px;align-items:center">
-        <div style="width:76px;height:76px;border-radius:12px;flex:none;background:var(--grouped) center/cover${p.imageUrl ? ` url('${p.imageUrl}')` : ""}"></div>
-        <div class="stack" style="gap:6px;min-width:0"><span class="foot b">${esc(clip(p.caption ?? (p.status === "failed" ? "Could not make this one" : "Writing…"), 110))}</span><span class="cap muted">${esc(p.status === "ready" ? (p.idea?.angle ?? "Ready") : p.status)}</span></div></div>`).join("");
+      $("#first-posts").innerHTML = mine.map((p) => `<div class="card" style="flex-direction:row;gap:12px;padding:12px;align-items:center">
+        <div style="width:72px;height:72px;border-radius:12px;flex:none;background:var(--grouped) center/cover${p.imageUrl ? ` url('${p.imageUrl}')` : ""}"></div>
+        <div class="stack" style="gap:6px;min-width:0"><span class="foot b clamp2">${esc(p.caption ?? (p.status === "failed" ? "Could not make this one" : "Writing…"))}</span><span class="cap muted clamp1">${esc(p.status === "ready" ? (p.idea?.angle ?? "Ready") : p.status === "failed" ? "skipped" : "AI is making it…")}</span></div></div>`).join("");
+      const edit = document.querySelector<HTMLAnchorElement>("#edit-first"); if (edit) edit.href = `/app/posts?batch=${encodeURIComponent(batchId)}`;
       const ready = mine.filter((p) => p.status === "ready");
       const settled = mine.every((p) => ["ready", "failed"].includes(p.status));
       $("#posts-title").textContent = settled ? `Your first ${ready.length} posts are ready` : "Making your first posts…";
