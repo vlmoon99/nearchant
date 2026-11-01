@@ -7,6 +7,7 @@ const cfg: Cfg = JSON.parse(document.getElementById("nc-config")!.textContent!);
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 const $$ = <T extends HTMLElement = HTMLElement>(sel: string) => Array.from(document.querySelectorAll<T>(sel));
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const clip = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, s.lastIndexOf(" ", n) > n * 0.6 ? s.lastIndexOf(" ", n) : n).trimEnd()}…`);
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const CUR = `nc:${cfg.network}:current-store`;
 const keyOf = (h: string) => `nc:${cfg.network}:shop:${h}`;
@@ -165,7 +166,7 @@ function onboarding() {
       const mine = posts.filter((p) => ids.includes(p.id));
       $("#first-posts").innerHTML = mine.map((p) => `<div class="card" style="flex-direction:row;gap:12px;padding:10px;align-items:center">
         <div style="width:76px;height:76px;border-radius:12px;flex:none;background:var(--grouped) center/cover${p.imageUrl ? ` url('${p.imageUrl}')` : ""}"></div>
-        <div class="stack" style="gap:6px;min-width:0"><span class="foot b">${esc((p.caption ?? (p.status === "failed" ? "Could not make this one" : "Writing…")).slice(0, 110))}</span><span class="cap muted">${esc(p.status === "ready" ? (p.idea?.angle ?? "Ready") : p.status)}</span></div></div>`).join("");
+        <div class="stack" style="gap:6px;min-width:0"><span class="foot b">${esc(clip(p.caption ?? (p.status === "failed" ? "Could not make this one" : "Writing…"), 110))}</span><span class="cap muted">${esc(p.status === "ready" ? (p.idea?.angle ?? "Ready") : p.status)}</span></div></div>`).join("");
       const ready = mine.filter((p) => p.status === "ready");
       const settled = mine.every((p) => ["ready", "failed"].includes(p.status));
       $("#posts-title").textContent = settled ? `Your first ${ready.length} posts are ready` : "Making your first posts…";
