@@ -12,6 +12,8 @@ export interface CapabilityRequest {
   endpoints?: string[];
   /** Per-request timeout (ms); defaults to the endpoint's `timeout_ms`. */
   timeoutMs?: number;
+  /** `false`: answer without a thinking phase (short structured roles). A hint, not part of the replay key. */
+  reasoning?: boolean;
   signal?: AbortSignal;
 }
 
@@ -24,6 +26,7 @@ export interface AdapterResult {
 export interface CallContext {
   model: string;
   timeoutMs: number;
+  reasoning?: boolean;
   signal?: AbortSignal;
   /** Stable key of the logical request (used by replay). */
   requestKey?: string;

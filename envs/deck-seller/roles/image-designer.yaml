@@ -3,3 +3,4 @@ seat: main
 output: json
 temperature: 0.8
 max_tokens: 400
+reasoning: false   # a short answer; thinking first can eat the whole budget

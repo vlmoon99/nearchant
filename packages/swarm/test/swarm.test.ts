@@ -303,6 +303,10 @@ describe("redaction after the last round", () => {
 });
 
 describe("helpers", () => {
+  it("loads reasoning: false for short structured roles", () => {
+    expect(env.roles["image-designer"]!.reasoning).toBe(false);
+    expect(env.roles.judge!.reasoning).toBeUndefined();
+  });
   it("counts slides and citations", () => {
     expect(slideCount(DECK)).toBe(7);
     expect(citedIds(DECK)).toEqual(["f1", "f2", "f3"]);

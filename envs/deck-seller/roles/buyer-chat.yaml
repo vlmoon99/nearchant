@@ -3,3 +3,4 @@ seat: main
 output: markdown
 temperature: 0.3
 max_tokens: 400
+reasoning: false   # a short answer; thinking first can eat the whole budget

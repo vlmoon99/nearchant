@@ -35,6 +35,18 @@ const chat = (dataClass: "private" | "public" = "private", model?: string) => ({
 });
 
 describe("router", () => {
+  it("passes reasoning: false as the chat-template flag without changing the replay key", async () => {
+    const { local, config } = await two();
+    const r = Router.fromConfig(config, { ...quiet, env: {} });
+    await r.discover();
+    const a = await r.call({ ...chat(), reasoning: false });
+    const b = await r.call(chat());
+    const bodies = local.hits.filter((h) => h.path === "/v1/chat/completions").map((h) => h.body);
+    expect(bodies[0].chat_template_kwargs).toEqual({ enable_thinking: false });
+    expect(bodies[1].chat_template_kwargs).toBeUndefined();
+    expect(a.requestHash).toBe(b.requestHash);
+  });
+
   it("uses the first endpoint, maps the model name and returns a valid envelope", async () => {
     const { local, config } = await two();
     const r = Router.fromConfig(config, { ...quiet, env: {} });

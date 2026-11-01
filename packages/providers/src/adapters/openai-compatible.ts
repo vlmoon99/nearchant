@@ -59,9 +59,13 @@ export class OpenAICompatibleAdapter implements CapabilityAdapter {
     const path = PATHS[capability];
     if (!path) throw new ProviderError(`${this.endpoint.id}: ${capability} not supported by this adapter`, false);
     if (capability === "asr") return this.transcribe(input, ctx);
-    const body = { ...(this.endpoint.extra_body ?? {}), ...input, model: ctx.model };
+    const body: Record<string, unknown> = { ...(this.endpoint.extra_body ?? {}), ...input, model: ctx.model };
+    // vLLM / SGLang chat templates (Qwen3, GLM) switch the thinking phase with this flag.
+    if (ctx.reasoning === false && (capability === "chat" || capability === "vision")) {
+      body.chat_template_kwargs = { ...((body.chat_template_kwargs as object) ?? {}), enable_thinking: false };
+    }
     if (capability === "image.generate" || capability === "image.edit") {
-      (body as Record<string, unknown>).response_format ??= "b64_json";
+      body.response_format ??= "b64_json";
     }
     const raw = (await this.request(path, { method: "POST", headers: this.headers(), body: JSON.stringify(body) }, ctx.timeoutMs, ctx.signal)) as Record<string, any>;
     const u = raw.usage ?? {};
