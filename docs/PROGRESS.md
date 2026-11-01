@@ -729,6 +729,20 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   the old picture. e2e journey lists "Dark denim jacket".
 - Store page: "1 order" (was "1 orders").
 
+## 2026-11-01 20:35 UTC — New York instead of Kyiv; 8-second shorts
+
+- Owner: use an English-speaking, wealthy city instead of Kyiv; 19 s shorts are too long — must be quick to catch,
+  read and sell. Demo store is now "Nova Wear NYC — designed in SoHo, New York, ships across the US": `make demo`
+  re-recorded (no Kyiv/Ukraine anywhere; replay identical), e2e store, onboarding placeholder, checkout delivery
+  form (name/address/phone, US example instead of Nova Poshta / +380), opportunity example, dates in New York
+  time (en-US).
+- Shorts: hook ≤5 words; voiceover 12–20 words (feeling → product detail → "tap the link"), `shortVoiceover` keeps
+  whole sentences ≤22 words; hard cap 12 s. **Verified live**: 7.9 s video for a Nova Wear NYC post — hook "Raw
+  denim truth", three readable caption chunks, ends on the call to action.
+- **Live**: new store `novatest1rxu` ("Nova Wear NYC") through the full journey (posts 188 s, Released 61 s after
+  payment), its 3 posts published → proofs #21–#23; nearchant.com home now shows them (no "Kyiv" on the page).
+  Older Kyiv test stores still exist at their own links but are not shown on the home page.
+
 ### Owner actions
 - Email sign-up (Figma onboarding 1): say if you want it, and give an email provider key (e.g. Resend or Postmark)
   — I'll add "Continue with email" login links. "Connect a NEAR wallet" I can build without anything from you.
