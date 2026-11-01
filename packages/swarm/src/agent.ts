@@ -53,8 +53,9 @@ export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultE
     ];
     let maxTokens = role.max_tokens;
     let seatModel = model;
-    let lengthRetried = false;
+    let lengthRetries = 0;
     let parseFailures = 0;
+    let last = "";
     for (let calls = 0; calls < 5; calls++) {
       const req = { capability: "chat" as const, dataClass: "private" as const, input: { messages, temperature: role.temperature, max_tokens: maxTokens }, ...(role.timeout_s && seatModel ? { timeoutMs: role.timeout_s * 1000 } : {}) };
       let e: ResultEnvelope;
@@ -70,9 +71,13 @@ export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultE
       }
       await track(e, roleName);
       const text = contentOf(e);
-      // Reasoning models can spend the whole budget thinking: retry once with more room (not a parse failure).
-      if ((e.output as { finish_reason?: string }).finish_reason === "length" && !lengthRetried) {
-        lengthRetried = true;
+      last = `finish_reason=${(e.output as { finish_reason?: string }).finish_reason ?? "?"}, ${text.length} chars: ${JSON.stringify(text.slice(0, 160))}`;
+      // Reasoning models can spend the whole budget thinking: retry with more room (not a parse failure). Some
+      // endpoints omit finish_reason, so an empty answer next to reasoning text counts as running out too.
+      const out = e.output as { finish_reason?: string | null; message?: { reasoning_content?: string | null } };
+      const outOfRoom = out.finish_reason === "length" || (!text.replace(/<think>[\s\S]*?<\/think>/g, "").trim() && !!out.message?.reasoning_content);
+      if (outOfRoom && lengthRetries < 2 && maxTokens < 16_000) {
+        lengthRetries++;
         maxTokens = Math.min(maxTokens * 2, 16_000);
         continue;
       }
@@ -88,13 +93,13 @@ export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultE
           degrade(roleName, seatModel, "no valid JSON from the second seat");
           seatModel = undefined;
           messages.splice(2);
-          lengthRetried = false;
+          lengthRetries = 0;
           maxTokens = role.max_tokens;
         } else {
           break;
         }
       }
     }
-    throw new Error(`${roleName}: no valid JSON after a retry`);
+    throw new Error(`${roleName}: no valid JSON after a retry (last answer ${last})`);
   };
 }

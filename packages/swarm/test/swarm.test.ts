@@ -247,6 +247,34 @@ describe("format failures", () => {
   });
 });
 
+describe("reasoning budget", () => {
+  it("retries with more tokens when the answer is empty but the model was still reasoning", async () => {
+    const router = fakeRouter();
+    const inner = router.call.bind(router);
+    const judgeBudgets: number[] = [];
+    router.call = async (req) => {
+      const env = await inner(req);
+      if ((req.input.messages as { content: string }[])[0]!.content.includes("You are the judge")) {
+        judgeBudgets.push((req.input as { max_tokens: number }).max_tokens);
+        // Cloud endpoint shape: content null, thinking in reasoning_content, no finish_reason.
+        if (judgeBudgets.length < 3) return { ...env, output: { message: { role: "assistant", content: null, reasoning_content: "Let me think…" } } };
+      }
+      return env;
+    };
+    const { d } = deps(router);
+    expect((await runPipeline(d, "r1", "seed deck please, coffee")).status).toBe("done");
+    expect(judgeBudgets).toEqual([judgeBudgets[0], judgeBudgets[0]! * 2, judgeBudgets[0]! * 4]);
+  });
+});
+
+describe("format failures: main seat", () => {
+  it("says what the last answer looked like when the main seat never returns JSON", async () => {
+    const router = fakeRouter({ judge: () => "I think the story should focus on traction." });
+    const { d } = deps(router);
+    await expect(runPipeline(d, "j2", "seed deck please, coffee")).rejects.toThrow(/judge: no valid JSON.*finish_reason=\?.*focus on traction/);
+  });
+});
+
 describe("redaction after the last round", () => {
   it("removes exactly the quoted lines and ships", async () => {
     const stubborn = fakeRouter({ reviewer: () => ({ blocking: [{ slide: 7, quote: "Two founders, roaster + growth", problem: "x", fix: "y" }], suggestions: [], untraced_claims: [], score: 6 }) });
