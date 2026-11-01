@@ -122,7 +122,7 @@ describe("deck pipeline", () => {
     const { d, store, recorded, delivered } = deps(router);
     const out = await runPipeline(d, "o1", "Make me a seed deck for BeanBox, a coffee subscription at 18 EUR/month");
     expect(out).toEqual({ status: "done", next: null });
-    expect([...store.keys()]).toEqual(["o1/brief", "o1/research", "o1/council", "o1/write", "o1/design", "o1/review", "o1/render", "o1/deliver"]);
+    expect([...store.keys()]).toEqual(["o1/brief", "o1/research", "o1/council", "o1/factcheck", "o1/write", "o1/design", "o1/review", "o1/render", "o1/deliver"]);
     for (const role of ["skeptic", "buyer-persona", "reviewer"]) {
       expect(router.calls.filter((c) => c.role === role).every((c) => c.model === "z-ai/glm-5.3-flash")).toBe(true);
     }
@@ -177,6 +177,23 @@ describe("deck pipeline", () => {
     const lying = fakeRouter({ copywriter: () => DECK.replace("[f3]", "[f9]") });
     const { d } = deps(lying);
     expect(await runPipeline(d, "o5", "seed deck please, coffee")).toMatchObject({ status: "stopped", kind: "failed_review" });
+  });
+});
+
+describe("flow 3: hiring", () => {
+  it("passes the hired fact-check to the copywriter, and continues when hiring fails", async () => {
+    const router = fakeRouter();
+    const { d, store } = deps(router);
+    const tasks: string[] = [];
+    d.hire = async (task) => { tasks.push(task); return { text: '{"verdicts":[{"id":"f2","verdict":"weak"}]}', paymentId: "7", amount: "500000", payTo: "verity.nearchant.testnet" }; };
+    await runPipeline(d, "h1", "seed deck please, coffee");
+    expect(tasks[0]).toContain('"id": "f1"');
+    expect((store.get("h1/factcheck") as any).hired.paymentId).toBe("7");
+
+    const b = deps(fakeRouter());
+    b.d.hire = async () => { throw new Error("payment waits for the owner's approval"); };
+    expect((await runPipeline(b.d, "h2", "seed deck please, coffee")).status).toBe("done");
+    expect((b.store.get("h2/factcheck") as any).skipped).toContain("approval");
   });
 });
 

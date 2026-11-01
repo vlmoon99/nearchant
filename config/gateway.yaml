@@ -11,3 +11,7 @@ token: { symbol: nUSD, decimals: 6, test: true }
 billing:                   # operator profile only (ADR 0005); free-local has no billing
   margin_bps: 1000         # 10% on top of provider cost, shown on statements
   units_per_usd: 1000000   # nUSD/USDC base units per USD
+hiring:                    # flow 3 (docs/swarm.md): agents this operator's sellers may hire
+  factcheck:
+    a2a_url: http://127.0.0.1:8787/h/verity/a2a/v1   # demo: the fact-checker seller on the same gateway
+    max_units: "2000000"   # refuse terms above 2 nUSD (the escrow policy enforces its own limits too)

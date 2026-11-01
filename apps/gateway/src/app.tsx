@@ -7,7 +7,7 @@ import { formatUnits, type GatewayConfig } from "./config.js";
 import { originOf, publicCors } from "./cors.js";
 import { CardPage, NotFoundPage, OrderPage, SITE_CSS, type ClientConfig, type OrderView } from "./pages.js";
 import { RateLimit } from "./buyers.js";
-import type { Store } from "@nearchant/db";
+import type { Service, Store } from "@nearchant/db";
 
 export interface Deps {
   config: GatewayConfig;
@@ -26,6 +26,14 @@ export interface Deps {
   client: ClientConfig;
   /** Testnet: create + fund the implicit account of a browser key (ADR 0001). */
   sponsorBuyer?: (publicKey: string) => Promise<{ accountId: string; created?: boolean }>;
+  /** Flow 3 seller side: A2A tasks paid through escrow (docs/swarm.md). */
+  a2a?: {
+    network: string;
+    asset: string;
+    getPayment: (paymentId: string) => Promise<{ status: string; payee_id: string; amount: string; memo: string } | null>;
+    claim: (row: { paymentId: string; handle: string; taskId: string; amount: string }) => Promise<boolean>;
+    execute: (handle: HandleRecord, service: Service, text: string, paymentId: string) => Promise<string>;
+  };
   /** Job progress + files of an order (from the artifacts table). */
   progress?: (orderId: string) => Promise<{ stepsDone: string[]; files: { kind: string; url: string }[]; stopped: string | null }>;
 }
@@ -166,6 +174,46 @@ export function createApp(d: Deps) {
         prices: Object.fromEntries(services.map((s) => [s.id, s.priceUnits])),
       },
     });
+  });
+
+  // A2A endpoint (JSON-RPC SendMessage) with x402-style payment through escrow-policy (flow 3).
+  seller.post("/a2a/v1", async (c) => {
+    const h = c.get("handle");
+    const rpcErr = (id: unknown, code: number, message: string, status: 400 | 402 | 404 | 409 | 502 = 400) => c.json({ jsonrpc: "2.0", id: id ?? null, error: { code, message } }, status);
+    if (!h || !d.a2a) return rpcErr(null, -32601, "no A2A agent here", 404);
+    const body = (await c.req.json().catch(() => null)) as { id?: unknown; method?: string; params?: { message?: { messageId?: string; parts?: { kind?: string; text?: string }[] } } } | null;
+    if (!body || !["SendMessage", "message/send"].includes(body.method ?? "")) return rpcErr(body?.id, -32601, "method not supported");
+    const taskId = body.params?.message?.messageId ?? "";
+    const text = (body.params?.message?.parts ?? []).filter((p) => p.kind === "text" && p.text).map((p) => p.text).join("\n");
+    if (!/^[A-Za-z0-9._:-]{1,128}$/.test(taskId) || !text || text.length > 20_000) return rpcErr(body.id, -32602, "message needs a messageId and text (max 20k chars)");
+    const service = (await d.store.listServices(h.handle)).find((s) => s.agentEnv);
+    if (!service) return rpcErr(body.id, -32601, "this seller sells no A2A service", 404);
+
+    const header = c.req.header("x-payment");
+    if (!header) {
+      return c.json({
+        x402Version: 1,
+        error: "payment required",
+        accepts: [{ scheme: "nearchant-escrow", network: `near:${d.a2a.network}`, asset: d.a2a.asset, amount: service.priceUnits, payTo: h.account_id, resource: new URL(c.req.url).pathname }],
+      }, 402);
+    }
+    let paymentId: string;
+    try {
+      paymentId = String((JSON.parse(Buffer.from(header, "base64").toString("utf8")) as { payment_id?: unknown }).payment_id ?? "");
+    } catch {
+      return rpcErr(body.id, -32602, "bad X-PAYMENT header", 402);
+    }
+    const p = await d.a2a.getPayment(paymentId).catch(() => null);
+    if (!p || p.status !== "Paid" || p.payee_id !== h.account_id || BigInt(p.amount) < BigInt(service.priceUnits) || p.memo !== taskId) {
+      return rpcErr(body.id, -32001, "payment not found, not settled, not to this seller, too small, or for another task", 402);
+    }
+    if (!(await d.a2a.claim({ paymentId, handle: h.handle, taskId, amount: p.amount }))) return rpcErr(body.id, -32002, "payment already used", 409);
+    try {
+      const out = await d.a2a.execute(h, service, text, paymentId);
+      return c.json({ jsonrpc: "2.0", id: body.id ?? null, result: { kind: "task", id: taskId, status: { state: "completed" }, artifacts: [{ artifactId: `${taskId}:result`, parts: [{ kind: "text", text: out }] }] } });
+    } catch (e) {
+      return rpcErr(body.id, -32003, `task failed: ${(e as Error).message.slice(0, 200)}`, 502);
+    }
   });
 
   seller.get("/public/catalog", async (c) => {

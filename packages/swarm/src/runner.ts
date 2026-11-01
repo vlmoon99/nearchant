@@ -19,6 +19,7 @@ export interface JobDeps {
   render: StepContext["render"];
   deliver: StepContext["deliver"];
   search?: StepContext["search"];
+  hire?: StepContext["hire"];
   log?: (msg: string) => void;
 }
 
@@ -36,7 +37,7 @@ export async function runStep(d: JobDeps, orderId: string, brief: string, step: 
   const ctx: StepContext = {
     orderId, brief, env: d.env, router: d.router, done,
     ask: makeAsker(d.env, d.router, track, (role, model, why) => d.log?.(`${orderId} ${step}: ${role} fell back from ${model} to the main seat (${why.slice(0, 120)})`)), track,
-    media: d.media, render: d.render, deliver: d.deliver, search: d.search, log: d.log,
+    media: d.media, render: d.render, deliver: d.deliver, search: d.search, hire: d.hire, log: d.log,
     attestationRef: async () => {
       if (attestations.length) return attestations.at(-1)!;
       const prev = Object.values(done).map((a) => (a as { attestation?: string })?.attestation).filter(Boolean) as string[];

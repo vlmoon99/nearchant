@@ -196,6 +196,9 @@ importers:
       '@nearchant/providers':
         specifier: workspace:*
         version: link:../../packages/providers
+      '@nearchant/swarm':
+        specifier: workspace:*
+        version: link:../../packages/swarm
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)(postgres@4.0.0)

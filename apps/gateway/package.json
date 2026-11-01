@@ -18,6 +18,7 @@
     "@nearchant/db": "workspace:*",
     "@nearchant/near": "workspace:*",
     "@nearchant/providers": "workspace:*",
+    "@nearchant/swarm": "workspace:*",
     "drizzle-orm": "0.45.4",
     "graphile-worker": "0.18.0",
     "hono": "4.13.14",

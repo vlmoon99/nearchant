@@ -5,7 +5,8 @@ import { join, resolve } from "node:path";
 import { run, type Task } from "graphile-worker";
 import { Artifacts, Envelopes, Outbox, PgStore, Sealer, connect, runMigrations } from "@nearchant/db";
 import { Chain, loadAccounts } from "@nearchant/near";
-import { PIPELINE, loadAgentEnv, runStep, type JobDeps, type Step } from "@nearchant/swarm";
+import { PIPELINE, hireAgent, loadAgentEnv, runStep, type JobDeps, type Step } from "@nearchant/swarm";
+import { agentKey } from "@nearchant/db";
 import { parse } from "yaml";
 import { readFileSync } from "node:fs";
 import { deliver, type DeliverPayload } from "./deliver.js";
@@ -48,6 +49,17 @@ const deckStep: Task = async (payload, helpers) => {
       await helpers.addJob("outbox_drain", {}, { jobKey: "outbox_drain", runAt: new Date() });
     },
     search: process.env.SEARXNG_URL ? searxng(process.env.SEARXNG_URL) : undefined,
+    hire: gw.hiring?.factcheck ? async (task) => {
+      // Flow 3: pay from the seller's escrow campaign `<handle>-main` with its escrow function-call key.
+      const key = await agentKey({ db: conn.db, sealer }, order.handle, "escrow-key");
+      return hireAgent({
+        fetch,
+        maxAmount: BigInt(gw.hiring.factcheck.max_units),
+        pay: (payTo, amount, memo) => chain.callAs(accountId, key, accounts.escrow, "pay", { campaign_id: `${order.handle}-main`, payee_id: payTo, amount, memo }, 100),
+        paymentStatus: async (id) => (await chain.view<{ status: string } | null>(accounts.escrow, "get_payment", { payment_id: id }))?.status ?? null,
+        log: (m) => helpers.logger.info(m),
+      }, gw.hiring.factcheck.a2a_url, `${orderId}-factcheck`, task);
+    } : undefined,
     log: (m) => helpers.logger.info(m),
   };
   const out = await runStep(deps, orderId, order.brief, step);

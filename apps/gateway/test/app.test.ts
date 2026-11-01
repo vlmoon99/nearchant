@@ -70,6 +70,50 @@ describe("A2A agent card", () => {
   });
 });
 
+describe("A2A + escrow payment (flow 3)", () => {
+  const rpc = (app: any, taskId: string, payment?: string) => app.request("http://x/a2a/v1", {
+    method: "POST",
+    headers: { host: "alice.nearchant.com", "content-type": "application/json", ...(payment ? { "x-payment": payment } : {}) },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "SendMessage", params: { message: { messageId: taskId, parts: [{ kind: "text", text: "check these claims" }] } } }),
+  });
+  const pay = (id: string) => Buffer.from(JSON.stringify({ scheme: "nearchant-escrow", payment_id: id })).toString("base64");
+
+  it("asks for payment, verifies it on chain, serves once", async () => {
+    const { app, store } = await setup();
+    await store.upsertService({ id: "fc", handle: "alice", title: "Fact-check", description: "d", priceUnits: "500000", deliveryHours: 1, active: true, agentEnv: "fact-checker" });
+    const used = new Set<string>();
+    const payments: Record<string, any> = {
+      "1": { status: "Paid", payee_id: "alice.nearchant.testnet", amount: "500000", memo: "t-1" },
+      "2": { status: "Pending", payee_id: "alice.nearchant.testnet", amount: "500000", memo: "t-2" },
+      "3": { status: "Paid", payee_id: "bob.nearchant.testnet", amount: "500000", memo: "t-3" },
+    };
+    (app as any).__deps = null;
+    const app2 = (await import("../src/app.js")).createApp({
+      config, store, client: { rpcUrl: "https://rpc", orders: "o", network: "testnet" },
+      rail: { id: "fake", instruction: () => ({}) as any, status: async () => null },
+      handles: { get: async (h) => (h === "alice" ? alice : null) },
+      a2a: {
+        network: "testnet", asset: "nusd.nearchant.testnet",
+        getPayment: async (id) => payments[id] ?? null,
+        claim: async (r) => (used.has(r.paymentId) ? false : (used.add(r.paymentId), true)),
+        execute: async (_h, s, text) => `checked by ${s.agentEnv}: ${text}`,
+      },
+    });
+    const r402 = await rpc(app2, "t-1");
+    expect(r402.status).toBe(402);
+    const terms = (await r402.json() as any).accepts[0];
+    expect(terms).toMatchObject({ scheme: "nearchant-escrow", amount: "500000", payTo: "alice.nearchant.testnet", network: "near:testnet" });
+
+    const ok = await rpc(app2, "t-1", pay("1"));
+    expect(ok.status).toBe(200);
+    expect((await ok.json() as any).result.artifacts[0].parts[0].text).toContain("checked by fact-checker");
+    expect((await rpc(app2, "t-1", pay("1"))).status).toBe(409);      // replay
+    expect((await rpc(app2, "t-2", pay("2"))).status).toBe(402);      // not settled
+    expect((await rpc(app2, "t-3", pay("3"))).status).toBe(402);      // paid to someone else
+    expect((await rpc(app2, "t-9", pay("1"))).status).toBe(402);      // memo is another task
+  });
+});
+
 describe("CORS on /public/*", () => {
   it("reflects only allowlisted origins, never *", async () => {
     const { app } = await setup();

@@ -9,6 +9,8 @@ export interface Service {
   priceUnits: string;
   deliveryHours: number;
   active: boolean;
+  /** Agent Environment serving this service over A2A; absent = normal order flow. */
+  agentEnv?: string | null;
 }
 
 export type OrderState = "awaiting_payment" | "paid" | "in_progress" | "delivered" | "released" | "refunded" | "cancelled";

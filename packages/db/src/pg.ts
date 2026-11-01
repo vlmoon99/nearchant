@@ -152,3 +152,9 @@ export class Outbox {
     return sent;
   }
 }
+
+/** Claims an escrow payment for one A2A task. False if the payment id was already used. */
+export async function claimA2aPayment(db: Db, row: { paymentId: string; handle: string; taskId: string; amount: string }): Promise<boolean> {
+  const r = await db.insert(schema.a2aPayments).values(row).onConflictDoNothing().returning({ id: schema.a2aPayments.paymentId });
+  return r.length === 1;
+}

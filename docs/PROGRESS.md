@@ -131,6 +131,22 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - **Next:** `make demo`, then flow 3 (escrow hire over A2A/x402 to a second Nearchant agent), Telegram bots,
   Agent Market listing, tunnel for `*.nearchant.com`, Phala.
 
+## 2026-11-01 ~01:10 UTC — flow 3 live: agent hires agent over A2A, paid through escrow
+
+- **Done:** `envs/fact-checker`; `packages/swarm/src/hire.ts` (A2A SendMessage → 402 x402-style terms →
+  `escrow.pay` → retry with `X-PAYMENT`); new pipeline step `factcheck` between council and write (failure =
+  skipped, never blocks); gateway `POST /a2a/v1` per seller (402 terms; verifies the escrow payment on chain: Paid,
+  to this seller, ≥ price, memo = task id; each payment redeemed once via `a2a_payments`; runs the service's agent
+  env; meters to the seller); migration 0001 (`services.agent_env`, `a2a_payments`); `admin-cli add-service`,
+  `--no-deck`; `config/gateway.yaml` `hiring.factcheck`.
+- **Testnet:** `verity.nearchant.testnet` (fact-check, 0.5 nUSD, owner key Keychain `NC_SELLER_verity_OWNER`);
+  alice campaign `alice-main` funded 10 nUSD, policy auto ≤ 2 nUSD, daily ≤ 20, allowlist [verity].
+- **Verified live:** direct hire in 8.2 s — escrow payment 1 auto-approved, verity answered verdicts, verity
+  +0.475 nUSD (5% fee to treasury), campaign spent 0.5. Tests: swarm 10, gateway 9 (402, replay refused,
+  unsettled / wrong payee / wrong task refused).
+- **Not verified:** the `factcheck` step inside a full browser order (next E2E run); approval path for payments
+  above the auto limit (contract-tested only).
+
 ### Owner actions
 - ~~`gx10-8695`: add `server` to the docker group~~ — done 2026-10-31; Docker 29.6 + GPU in containers verified.
 - Testnet NEAR: root has ~7.9 NEAR after deploying; each sponsored shop costs ~0.2 NEAR. I'll top up from the

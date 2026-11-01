@@ -10,6 +10,8 @@ export const services = pgTable("services", {
   priceUnits: text("price_units").notNull(),
   deliveryHours: integer("delivery_hours").notNull(),
   active: boolean("active").notNull().default(true),
+  /** Agent Environment that serves this service synchronously over A2A (e.g. "fact-checker"); null = order flow. */
+  agentEnv: text("agent_env"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("services_handle").on(t.handle)]);
 
@@ -67,3 +69,12 @@ export const sellerSecrets = pgTable("seller_secrets", {
   sealed: text("sealed").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [primaryKey({ columns: [t.handle, t.name] })]);
+
+/** Escrow payments already redeemed for an A2A task: each payment buys one task (docs/swarm.md flow 3). */
+export const a2aPayments = pgTable("a2a_payments", {
+  paymentId: text("payment_id").primaryKey(),
+  handle: text("handle").notNull(),
+  taskId: text("task_id").notNull(),
+  amount: text("amount").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

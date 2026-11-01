@@ -1,0 +1,16 @@
+spec: nearchant.com/spec/agentenv/v1
+name: fact-checker
+version: 0.1.0
+license: MIT
+description: Checks a list of claims against their sources and returns a verdict per claim. Sold to other agents over A2A.
+requires:
+  capabilities:
+    chat: { min_context: 32000 }
+  data_class: private
+seats:
+  main: {}
+  second: { model: z-ai/glm-5.3-flash }
+roles: [fact-checker]
+pipeline: [check]
+research: { scouts: [] }
+policy: { publish: require_approval, payments: escrow_only }

@@ -4,7 +4,9 @@ import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { makeWorkerUtils, type WorkerUtils } from "graphile-worker";
 import { parse } from "yaml";
-import { Artifacts, MemoryStore, PgStore, connect, runMigrations, type Service, type Store } from "@nearchant/db";
+import { Artifacts, Envelopes, MemoryStore, PgStore, claimA2aPayment, connect, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
+import { Router } from "@nearchant/providers";
+import { loadAgentEnv, makeAsker, type AgentEnv } from "@nearchant/swarm";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
 import { createApp } from "./app.js";
 import { sponsorBuyer } from "./buyers.js";
@@ -23,8 +25,9 @@ const handles = new HandleCache(chain.view, accounts.root);
 let store: Store;
 let queue: WorkerUtils | null = null;
 let artifacts: Artifacts | null = null;
+let conn: Connection | null = null;
 if (process.env.DATABASE_URL) {
-  const conn = connect(process.env.DATABASE_URL);
+  conn = connect(process.env.DATABASE_URL);
   await runMigrations(conn.db);
   store = new PgStore(conn.db);
   artifacts = new Artifacts(conn.db);
@@ -54,6 +57,25 @@ async function anyChainQuote(amountUnits: string) {
   return q ? { ...q, label: "USDC on Solana" } : null;
 }
 
+// Flow 3 seller side: synchronous A2A tasks run with the service's Agent Environment, metered to the seller.
+let router: Router | null = null;
+const envs = new Map<string, AgentEnv>();
+async function executeA2a(handle: { account_id: string }, service: Service, text: string, paymentId: string): Promise<string> {
+  if (!router) {
+    router = Router.fromConfig(parse(readFileSync(join(configDir, "providers.yaml"), "utf8")));
+    await router.discover();
+  }
+  const name = service.agentEnv!;
+  if (!/^[a-z0-9-]+$/.test(name)) throw new Error("bad agent env name");
+  if (!envs.has(name)) envs.set(name, loadAgentEnv(join(configDir, "../envs", name)));
+  const env = envs.get(name)!;
+  const envelopes = conn ? new Envelopes(conn.db) : null;
+  const ask = makeAsker(env, router, async (e) => { await envelopes?.add(`a2a:${paymentId}`, "a2a", handle.account_id, e); });
+  const roleName = Object.keys(env.roles)[0]!;
+  const out = await ask<unknown>(roleName, `<draft>\n${text.replaceAll("</draft>", "<\\/draft>")}\n</draft>`);
+  return typeof out === "string" ? out : JSON.stringify(out, null, 1);
+}
+
 const checkoutFile = join(import.meta.dirname, "web/checkout.js");
 const app = createApp({
   config,
@@ -65,6 +87,15 @@ const app = createApp({
   checkoutJs: existsSync(checkoutFile) ? readFileSync(checkoutFile, "utf8") : undefined,
   client: { rpcUrl: config.rpc_urls[0]!, orders: accounts.orders, network: config.network },
   ...(relayerKey && config.network === "testnet" ? { sponsorBuyer: (pk: string) => sponsorBuyer({ chain, accounts }, pk) } : {}),
+  ...(conn ? {
+    a2a: {
+      network: config.network,
+      asset: accounts.nusd,
+      getPayment: (id: string) => chain.view(accounts.escrow, "get_payment", { payment_id: id }),
+      claim: (row: { paymentId: string; handle: string; taskId: string; amount: string }) => claimA2aPayment(conn!.db, row),
+      execute: executeA2a,
+    },
+  } : {}),
   progress: artifacts
     ? async (orderId) => {
         const all = (await artifacts!.all(orderId)) as Record<string, any>;

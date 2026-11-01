@@ -3,7 +3,7 @@ import type { ResultEnvelope } from "@nearchant/contracts";
 import { block, type Asker, type ModelRouter } from "./agent.js";
 import type { AgentEnv } from "./env.js";
 
-export const PIPELINE = ["brief", "research", "council", "write", "design", "review", "render", "deliver"] as const;
+export const PIPELINE = ["brief", "research", "council", "factcheck", "write", "design", "review", "render", "deliver"] as const;
 export type Step = (typeof PIPELINE)[number];
 
 export interface Brief {
@@ -41,6 +41,8 @@ export interface StepContext {
   render: (orderId: string, markdown: string) => Promise<Rendered>;
   deliver: (orderId: string, proof: ProofEntry) => Promise<void>;
   track: (e: ResultEnvelope, role: string) => Promise<void>;
+  /** Flow 3: hire another agent for a task (A2A + escrow). Absent = no hiring configured. */
+  hire?: (task: string) => Promise<{ text: string; paymentId: string; amount: string; payTo: string }>;
   /** Report hash of the latest TEE attestation among this job's envelopes (null if all calls were local). */
   attestationRef: () => Promise<string | null>;
   log?: (msg: string) => void;
@@ -136,11 +138,30 @@ export const STEPS: Record<Step, (c: StepContext) => Promise<unknown>> = {
     return { advocate, skeptic, persona, strategy };
   },
 
+  async factcheck(c) {
+    // Hiring is a bonus, never a blocker: any failure leaves a note and the deck continues (docs/swarm.md).
+    if (!c.hire) return { skipped: "no hiring configured" };
+    const { dossier } = c.done.research as { dossier: Dossier };
+    const { strategy } = c.done.council as { strategy: Strategy };
+    const used = new Set(strategy.slides.flatMap((s) => s.evidence ?? []));
+    const claims = dossier.findings.filter((f) => used.has(f.id)).map((f) => ({ id: f.id, claim: f.claim, source: f.source_url ?? f.source_title }));
+    if (claims.length === 0) return { skipped: "no cited claims to check" };
+    try {
+      const r = await c.hire(`Fact-check these pitch-deck claims and return your JSON verdicts:\n${JSON.stringify(claims, null, 1)}`);
+      return { hired: { payTo: r.payTo, amount: r.amount, paymentId: r.paymentId }, result: r.text };
+    } catch (e) {
+      c.log?.(`factcheck: hire failed, continuing without (${(e as Error).message})`);
+      return { skipped: (e as Error).message.slice(0, 300) };
+    }
+  },
+
   async write(c) {
     const brief = c.done.brief as Brief;
     const { dossier } = c.done.research as { dossier: Dossier };
     const { strategy } = c.done.council as { strategy: Strategy };
-    const md = cleanDeck(await c.ask<string>("copywriter", [block("brief", brief), block("dossier", dossier), block("draft", strategy)].join("\n\n")));
+    const fc = c.done.factcheck as { result?: string } | undefined;
+    const factcheck = fc?.result ? [block("findings", { independent_fact_check: fc.result }), "Drop or reword claims the fact-check marks unsupported; prefer its safer_wording for weak ones."] : [];
+    const md = cleanDeck(await c.ask<string>("copywriter", [block("brief", brief), block("dossier", dossier), block("draft", strategy), ...factcheck].join("\n\n")));
     return { markdown: md, problems: checkDeck(md, dossier) };
   },
 
