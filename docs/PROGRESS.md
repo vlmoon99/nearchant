@@ -421,8 +421,9 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Lesson: never run an uncapped LTX render on a machine that hosts other services.
 
 ### Owner actions
-- **URGENT: power-cycle `gx10-c3c8`** (hung at ~17:30 UTC during a Nearchant video render; Boost Content's
-  services on it are down until it reboots). Its containers come back by themselves.
+- **URGENT (1 Nov ~18:00 UTC): all three Sparks offline** (no ping/SSH; nearchant.com 530) — likely power or
+  network at the site. `gx10-c3c8` went silent first (~17:30, during a video render). Check power/network; power-
+  cycle `gx10-c3c8` if it alone stays down. All Nearchant containers restart by themselves.
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
   secret it shows (needs the public tunnel URL first).
