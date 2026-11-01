@@ -1,6 +1,7 @@
 // The content store's AI steps (ADR 0018): learn a business from its photos, find ways to sell more, write post
 // options, learn the owner's taste. Pure functions over an Asker, so tests run on a fake model.
-import { block, type Asker } from "./agent.js";
+import { createHash } from "node:crypto";
+import { block, type Asker, type ModelRouter } from "./agent.js";
 import type { SearchResult } from "./steps.js";
 
 export interface BusinessInput { name: string; kind: string; description: string; links: string[] }
@@ -174,4 +175,22 @@ export async function writeVideoScript(ask: Asker, a: { profile: StyleProfile; c
 export async function learnTaste(ask: Asker, memory: OwnerMemory, events: { kind: string; data: unknown }[]): Promise<OwnerMemory> {
   const raw = await ask<Record<string, unknown>>("learner", [block("current_memory", memory), block("events", events.slice(-60))].join("\n\n"));
   return { likes: list(raw.likes).slice(0, 8), dislikes: list(raw.dislikes).slice(0, 8), topics: list(raw.topics).slice(0, 8), voice: str(raw.voice, 300), notes: list(raw.notes).slice(0, 8) };
+}
+
+/** What a caption check found (Levanto Sage on NEAR AI): P(the caption promises something the owner never stated). */
+export interface CaptionCheck { invented_offer: number; flagged: boolean; model: string; answer_hash: string; at: string }
+export const CAPTION_FLAG_AT = 0.5;
+
+/** Asks the decision model one yes/no question about a caption before it goes live. Only public data is sent: the
+ *  caption to be published and what the store page already shows (its description, item names and prices). */
+export async function checkCaption(router: ModelRouter, a: { caption: string; storeFacts: string }): Promise<CaptionCheck> {
+  const state = `What the store owner states publicly about the store and its items:\n${a.storeFacts.slice(0, 6000)}\n\nA social media caption the AI wrote for this store, about to be published:\n${a.caption.slice(0, 2200)}`;
+  const env = await router.call({
+    capability: "decide", dataClass: "public", timeoutMs: 30_000,
+    input: { state, questions: { invented_offer: { type: "noul", instructions: "Does the caption promise anything the owner did not state: a discount, a sale price, free delivery, a gift, a deadline, limited stock, or a price different from the item's price?" } } },
+  });
+  const ans = (env.output as { answers?: Record<string, { noul?: number }> }).answers ?? {};
+  const p = Number(ans.invented_offer?.noul);
+  if (!Number.isFinite(p)) throw new Error("decide: no invented_offer probability in the answer");
+  return { invented_offer: Math.round(p * 1e4) / 1e4, flagged: p >= CAPTION_FLAG_AT, model: env.model, answer_hash: createHash("sha256").update(JSON.stringify(ans)).digest("hex"), at: new Date().toISOString() };
 }

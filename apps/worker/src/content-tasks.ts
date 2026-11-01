@@ -8,7 +8,7 @@ import type { ContentStore, Envelopes } from "@nearchant/db";
 import type { ResultEnvelope } from "@nearchant/contracts";
 import { assSubtitles, compose } from "./video-compose.js";
 import type { Tts } from "./tts.js";
-import { block, writeVideoScript, analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type StyleProfile } from "@nearchant/swarm";
+import { block, checkCaption, type CaptionCheck, writeVideoScript, analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type StyleProfile } from "@nearchant/swarm";
 
 export interface ContentTaskDeps {
   content: ContentStore;
@@ -36,13 +36,16 @@ export interface PostWriter { model: string; tier: string; reportHash?: string; 
  *  served at /attestations/<sha256>.json. */
 export function postProofEntry(p: { id: string; caption: string; imageSha256: string | null; idea: unknown }) {
   const h = (s: string) => createHash("sha256").update(s).digest("hex");
-  const { writer, ...idea } = (p.idea ?? {}) as { writer?: PostWriter } & Record<string, unknown>;
+  const { writer, check: rawCheck, ...idea } = (p.idea ?? {}) as { writer?: PostWriter; check?: CaptionCheck & { caption_hash?: string } } & Record<string, unknown>;
+  // A check only counts for the caption it read (the owner may have edited it since).
+  const check = rawCheck && rawCheck.caption_hash === h(p.caption) ? rawCheck : null;
   return {
     task_id: `post:${p.id}`, order_id: null, brief_hash: h(JSON.stringify(idea)),
     producer: `nearchant:content-store@0.1.0 (${writer?.model ?? "qwen3.6"} + qwen-image-edit-2511)`.slice(0, 200),
     output_hash: h(`${p.caption}\n${p.imageSha256 ?? ""}`),
     attestation_ref: writer?.reportHash ? `nearai:${writer.model}:${writer.reportHash}`.slice(0, 400) : null,
-    review: { passed: true, reviewer_hash: h(p.caption) },
+    // The caption check (Levanto Sage) is the review: passed = no invented offer found. No check yet → as before.
+    review: check ? { passed: !check.flagged, reviewer_hash: check.answer_hash } : { passed: true, reviewer_hash: h(p.caption) },
   };
 }
 
@@ -155,6 +158,7 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
         d.log(`render ${p.id}: ${(e as Error).message.slice(0, 160)} — using the product photo`);
       }
       await d.content.updatePost(p.id, { status: "ready", imageMediaId: imageMediaId ?? src?.id ?? null, error: imageMediaId ? null : "image engine unavailable — showing your photo" });
+      await helpers.addJob("check_post", { postId: p.id }, { jobKey: `check:${p.id}`, maxAttempts: 2 });
     }
     await helpers.addJob("learn_taste", { handle }, { jobKey: `learn:${handle}`, runAt: new Date(Date.now() + 60_000), maxAttempts: 1 });
     d.log(`posts ${handle} ${batchId}: ${drafts.length}/${batch.length} written`);
@@ -248,5 +252,27 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     }
   };
 
-  return { make_video: makeVideoTask, write_insights: writeInsightsTask, publish_post: publishPostTask, analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
+  // Caption check before going live (Levanto Sage, public data only). A failed check leaves the post as it is.
+  const checkPostTask: Task = async (payload) => {
+    const { postId } = payload as { postId: string };
+    const p = await d.content.getPost(postId);
+    if (!p?.caption) return;
+    const [b, prof, items] = await Promise.all([d.content.getBusiness(p.handle), d.content.getProfile(p.handle), d.content.listItems(p.handle)]);
+    const price = (u: string) => `${(Number(u) / 10 ** d.decimals).toFixed(2).replace(/\.00$/, "")} USD`;
+    const storeFacts = [
+      `${b?.name ?? p.handle}: ${b?.description ?? ""}`, (prof?.data as { summary?: string } | undefined)?.summary ?? "",
+      ...items.map((i) => `Item: ${i.title} — ${price(i.priceUnits)}${i.description ? ` — ${i.description}` : ""}`),
+    ].filter(Boolean).join("\n");
+    try {
+      const c = await checkCaption(d.router, { caption: p.caption, storeFacts });
+      const now = await d.content.getPost(postId); // the caption may have changed while we asked
+      if (!now || now.caption !== p.caption) return;
+      await d.content.updatePost(p.id, { idea: { ...(now.idea as object), check: { ...c, caption_hash: createHash("sha256").update(p.caption).digest("hex") } } });
+      d.log(`check ${p.id}: invented_offer ${c.invented_offer}${c.flagged ? " — FLAGGED" : ""}`);
+    } catch (e) {
+      d.log(`check ${p.id} skipped: ${(e as Error).message.slice(0, 160)}`);
+    }
+  };
+
+  return { check_post: checkPostTask, make_video: makeVideoTask, write_insights: writeInsightsTask, publish_post: publishPostTask, analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
 }

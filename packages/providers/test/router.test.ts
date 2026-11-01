@@ -76,6 +76,25 @@ describe("router", () => {
     validate("result-envelope.schema.json", a);
   });
 
+  it("routes decide questions to NEAR AI's /systemone; public data goes even when the model has no attestation", async () => {
+    const tee = await fakeOpenAI(["levanto/sage-1.4"]);
+    fakes.push(tee);
+    const r = Router.fromConfig({
+      endpoints: [{ id: "nearai", base_url: tee.url, api_key_env: "NEARAI_API_KEY", privacy_tier: "tee", attestation: "nearai", capabilities: ["decide"] }],
+      routing: { decide: ["nearai"], private_data_allowed_tiers: ["tee"] },
+      models: { decide: ["levanto/sage-1.4"] },
+    }, { ...quiet, env: { NEARAI_API_KEY: "k" } });
+    await r.discover();
+    (r as any).state.get("nearai").adapter.attest = async () => { throw new Error("503"); };
+    const q = { state: "Caption: 50% off!", questions: { invented_offer: { type: "noul", instructions: "Invented offer?" } } };
+    const env = await r.call({ capability: "decide", dataClass: "public", input: q });
+    expect((env.output as any).answers.invented_offer.noul).toBe(0.9);
+    expect(env.model).toBe("levanto-sage-2");
+    expect(tee.hits.find((h) => h.path === "/v1/systemone")!.body).toEqual({ model: "levanto/sage-1.4", ...q });
+    validate("result-envelope.schema.json", env);
+    await expect(r.call({ capability: "decide", dataClass: "private", input: q })).rejects.toThrow();
+  });
+
   it("falls back to the TEE endpoint when local fails, with attestation and cost", async () => {
     const { local, tee, config } = await two();
     local.failNext(10);

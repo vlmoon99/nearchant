@@ -17,10 +17,11 @@ endpoints:
     api_key_env: NEARAI_API_KEY
     privacy_tier: tee
     attestation: nearai
-    capabilities: [chat, vision, embed, rerank, image.generate, image.edit, asr]
+    capabilities: [chat, vision, embed, rerank, image.generate, image.edit, asr, decide]
     timeout_ms: 180000
 
 routing:
+  decide: [nearai]          # Levanto Sage: caption checks + proof review (public data only: Sage has no attestation yet)
   chat: [spark-8695, nearai]
   vision: [nearai]
   embed: [nearai]                        # one embedding family (architecture.md §6 embedding rule)
@@ -32,6 +33,7 @@ routing:
 
 # Tried in order against each endpoint's live catalog; a missing model falls to the next candidate.
 models:
+  decide: [levanto/sage-1.4]
   chat: [Qwen/Qwen3.6-35B-A3B-FP8]
   vision: [Qwen/Qwen3.6-35B-A3B-FP8]
   embed: [Qwen/Qwen3-Embedding-0.6B]

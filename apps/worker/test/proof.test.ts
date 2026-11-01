@@ -25,3 +25,15 @@ describe("postProofEntry with a TEE writer", () => {
     expect(postProofEntry({ id: "p", caption: "c", imageSha256: null, idea: { writer: { model: "qwen3.6-35b-a3b", tier: "local" } } }).attestation_ref).toBeNull();
   });
 });
+
+describe("postProofEntry review from the caption check", () => {
+  const h = (s: string) => require("node:crypto").createHash("sha256").update(s).digest("hex");
+  it("uses the check only for the caption it read", () => {
+    const check = { invented_offer: 0.99, flagged: true, model: "levanto-sage-2", answer_hash: "aa".repeat(32), at: "t", caption_hash: h("50% off!") };
+    expect(postProofEntry({ id: "p", caption: "50% off!", imageSha256: null, idea: { check } }).review).toEqual({ passed: false, reviewer_hash: "aa".repeat(32) });
+    const edited = postProofEntry({ id: "p", caption: "Soft linen.", imageSha256: null, idea: { check } });
+    expect(edited.review.passed).toBe(true); // stale check (caption edited) → not used
+    expect(edited.review.reviewer_hash).not.toBe("aa".repeat(32));
+    expect(postProofEntry({ id: "p", caption: "50% off!", imageSha256: null, idea: { check } }).brief_hash).toBe(postProofEntry({ id: "p", caption: "x", imageSha256: null, idea: {} }).brief_hash);
+  });
+});

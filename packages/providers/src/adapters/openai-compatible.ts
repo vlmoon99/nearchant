@@ -10,6 +10,7 @@ const PATHS: Partial<Record<Capability, string>> = {
   "image.generate": "/images/generations",
   "image.edit": "/images/edits",
   asr: "/audio/transcriptions",
+  decide: "/systemone",   // NEAR AI decision models (Levanto Sage): typed questions → calibrated probabilities
 };
 
 /** NEAR AI Cloud, vLLM, llama.cpp, Ollama, TEI and LiteLLM all speak this. */
@@ -59,6 +60,7 @@ export class OpenAICompatibleAdapter implements CapabilityAdapter {
     const path = PATHS[capability];
     if (!path) throw new ProviderError(`${this.endpoint.id}: ${capability} not supported by this adapter`, false);
     if (capability === "asr") return this.transcribe(input, ctx);
+    if (capability === "decide") return this.decide(input, ctx);
     const body: Record<string, unknown> = { ...(this.endpoint.extra_body ?? {}), ...input, model: ctx.model };
     // vLLM / SGLang chat templates (Qwen3, GLM) switch the thinking phase with this flag.
     if (ctx.reasoning === false && (capability === "chat" || capability === "vision")) {
@@ -93,6 +95,15 @@ export class OpenAICompatibleAdapter implements CapabilityAdapter {
         return { model: raw.model ?? ctx.model, output: { images }, usage: { images: images.length } };
       }
     }
+  }
+
+  /** input: { state: string, questions: { [id]: { type: "noul" | "choice" | "score" | "box", instructions, criteria? } } }
+   *  → output: { answers: { [id]: { type, noul?: P(yes), choice?, probabilities? } } }. */
+  private async decide(input: Record<string, unknown>, ctx: CallContext): Promise<AdapterResult> {
+    const body = { model: ctx.model, state: input.state, questions: input.questions, ...(input.assets ? { assets: input.assets } : {}) };
+    const raw = (await this.request("/systemone", { method: "POST", headers: this.headers(), body: JSON.stringify(body) }, ctx.timeoutMs, ctx.signal)) as Record<string, any>;
+    if (!raw.answers || typeof raw.answers !== "object") throw new ProviderError(`${this.endpoint.id}: no answers in decide response`, true);
+    return { model: raw.model ?? ctx.model, output: { answers: raw.answers }, usage: { inputTokens: raw.usage?.input_tokens ?? 0, outputTokens: raw.usage?.output_tokens ?? 0 } };
   }
 
   private async transcribe(input: Record<string, unknown>, ctx: CallContext): Promise<AdapterResult> {

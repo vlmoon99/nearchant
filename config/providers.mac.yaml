@@ -7,7 +7,7 @@ endpoints:
     api_key_env: NEARAI_API_KEY
     privacy_tier: tee
     attestation: nearai
-    capabilities: [chat, vision]
+    capabilities: [chat, vision, decide]
     timeout_ms: 180000
 
   - id: cloud-image                      # Comfy Cloud via our image service; product photos for public posts only
@@ -18,12 +18,14 @@ endpoints:
     timeout_ms: 300000
 
 routing:
+  decide: [nearai]
   chat: [nearai]
   vision: [nearai]
   image.generate: [cloud-image]
   private_data_allowed_tiers: [tee]
 
 models:
+  decide: [levanto/sage-1.4]
   chat: [Qwen/Qwen3.6-35B-A3B-FP8]
   vision: [Qwen/Qwen3.6-35B-A3B-FP8]
   image.generate: [qwen-image-edit]

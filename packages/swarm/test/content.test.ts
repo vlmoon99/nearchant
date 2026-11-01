@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { join } from "node:path";
-import { analyzeBusiness, factsFromProfile, findOpportunities, loadAgentEnv, shapeProfile, writePostOptions, writeVideoScript, type Asker } from "../src/index.js";
+import { analyzeBusiness, factsFromProfile, findOpportunities, loadAgentEnv, shapeProfile, writePostOptions, writeVideoScript, checkCaption, type Asker } from "../src/index.js";
 
 const env = loadAgentEnv(join(import.meta.dirname, "../../../envs/content-store"));
 
@@ -112,5 +112,22 @@ describe("writeVideoScript", () => {
   });
   it("fails on an empty script", async () => {
     await expect(writeVideoScript(fakeAsk({ "video-director": { hook: "x" } }), { profile, caption: "c", angle: "a" })).rejects.toThrow(/empty/);
+  });
+});
+
+describe("checkCaption", () => {
+  it("asks one public yes/no question and flags at 0.5", async () => {
+    const seen: any[] = [];
+    const router = { call: async (req: any) => { seen.push(req); return { model: "levanto-sage-2", output: { answers: { invented_offer: { type: "noul", noul: 0.9985 } } } } as any; } };
+    const c = await checkCaption(router, { caption: "50% off today!", storeFacts: "Linen dress — 60 nUSD" });
+    expect(seen[0].capability).toBe("decide");
+    expect(seen[0].dataClass).toBe("public");
+    expect(seen[0].input.state).toContain("50% off today!");
+    expect(c).toMatchObject({ invented_offer: 0.9985, flagged: true, model: "levanto-sage-2" });
+    expect(c.answer_hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+  it("fails when the answer has no probability", async () => {
+    const router = { call: async () => ({ model: "m", output: { answers: {} } }) as any };
+    await expect(checkCaption(router, { caption: "c", storeFacts: "f" })).rejects.toThrow(/probability/);
   });
 });

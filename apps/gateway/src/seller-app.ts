@@ -194,6 +194,7 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     const caption = String((await json(c)).caption ?? "").slice(0, 2200);
     await d.content.updatePost(p.id, { caption });
     await d.content.addSignal(handle, p.id, "edited", { before: p.caption, after: caption });
+    await d.enqueue("check_post", { postId: p.id }, `check:${p.id}`); // the new caption gets its own check
     return c.json({ ok: true });
   }));
   // A 10–15 s video of a post (step 13b): 3 picture credits; the worker writes, renders, voices and cuts it.

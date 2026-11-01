@@ -17,7 +17,8 @@ export const schemas = {
           "image.edit",
           "video.generate",
           "asr",
-          "attest"
+          "attest",
+          "decide"
         ]
       },
       "PrivacyTier": {

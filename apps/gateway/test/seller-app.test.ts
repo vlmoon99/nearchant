@@ -187,4 +187,11 @@ describe("seller API", () => {
     expect((await app.request("http://x/attestations/..%2Fsecret.json")).status).toBe(404);
     expect((await app.request(`http://x/attestations/${"cd".repeat(32)}.json`)).status).toBe(404);
   });
+
+  it("a caption edit queues a fresh caption check", async () => {
+    const { app, cookie, db, jobs } = setup();
+    db.posts.push({ id: "c0", handle: "nova", status: "ready", caption: "old", idea: {} });
+    expect((await app.request("http://x/api/app/posts/c0/caption", post({ caption: "50% off today!" }, cookie))).status).toBe(200);
+    expect(jobs.at(-1)).toEqual({ task: "check_post", payload: { postId: "c0" } });
+  });
 });

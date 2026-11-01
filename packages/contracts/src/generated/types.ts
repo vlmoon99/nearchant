@@ -1,7 +1,16 @@
 // GENERATED from spec/schemas by packages/contracts/scripts/gen.mjs — do not edit.
 
 export type Capability =
-  "chat" | "vision" | "embed" | "rerank" | "image.generate" | "image.edit" | "video.generate" | "asr" | "attest";
+  | "chat"
+  | "vision"
+  | "embed"
+  | "rerank"
+  | "image.generate"
+  | "image.edit"
+  | "video.generate"
+  | "asr"
+  | "attest"
+  | "decide";
 
 export type PrivacyTier = "tee" | "local" | "public";
 
@@ -53,9 +62,29 @@ export interface Endpoint {
    * @minItems 1
    */
   capabilities: [
-    "chat" | "vision" | "embed" | "rerank" | "image.generate" | "image.edit" | "video.generate" | "asr" | "attest",
+    (
+      | "chat"
+      | "vision"
+      | "embed"
+      | "rerank"
+      | "image.generate"
+      | "image.edit"
+      | "video.generate"
+      | "asr"
+      | "attest"
+      | "decide"
+    ),
     ...(
-      "chat" | "vision" | "embed" | "rerank" | "image.generate" | "image.edit" | "video.generate" | "asr" | "attest"
+      | "chat"
+      | "vision"
+      | "embed"
+      | "rerank"
+      | "image.generate"
+      | "image.edit"
+      | "video.generate"
+      | "asr"
+      | "attest"
+      | "decide"
     )[]
   ];
   discover_models?: boolean;
@@ -85,7 +114,16 @@ export interface Routing {
 
 export interface ResultEnvelope {
   capability:
-    "chat" | "vision" | "embed" | "rerank" | "image.generate" | "image.edit" | "video.generate" | "asr" | "attest";
+    | "chat"
+    | "vision"
+    | "embed"
+    | "rerank"
+    | "image.generate"
+    | "image.edit"
+    | "video.generate"
+    | "asr"
+    | "attest"
+    | "decide";
   /**
    * Capability-specific output (chat message, vectors, image refs, transcript).
    */
@@ -142,7 +180,16 @@ export interface UsageRecord {
    */
   accountId: string;
   capability:
-    "chat" | "vision" | "embed" | "rerank" | "image.generate" | "image.edit" | "video.generate" | "asr" | "attest";
+    | "chat"
+    | "vision"
+    | "embed"
+    | "rerank"
+    | "image.generate"
+    | "image.edit"
+    | "video.generate"
+    | "asr"
+    | "attest"
+    | "decide";
   endpointId: string;
   model: string;
   usage: Usage;

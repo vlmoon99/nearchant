@@ -6,7 +6,7 @@
   "$defs": {
     "Capability": {
       "type": "string",
-      "enum": ["chat", "vision", "embed", "rerank", "image.generate", "image.edit", "video.generate", "asr", "attest"]
+      "enum": ["chat", "vision", "embed", "rerank", "image.generate", "image.edit", "video.generate", "asr", "attest", "decide"]
     },
     "PrivacyTier": {
       "description": "tee = attested confidential compute; local = the operator's own machines; public = anything else.",

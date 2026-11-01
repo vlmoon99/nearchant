@@ -37,3 +37,25 @@ describe("make_video", () => {
     expect(refunds).toEqual([]);
   });
 });
+
+describe("check_post", () => {
+  it("stores the check with the caption it read, using only public store facts", async () => {
+    const post: any = { id: "p1", handle: "nova", caption: "50% off today!", idea: { angle: "a" } };
+    const seen: any[] = [];
+    const d = {
+      content: {
+        getPost: async () => post, getBusiness: async () => ({ name: "Nova", description: "Linen made in Kyiv" }), getProfile: async () => ({ data: { summary: "Relaxed clothes" } }),
+        listItems: async () => [{ title: "Linen dress", priceUnits: "60000000", description: "" }],
+        updatePost: async (_id: string, patch: any) => { Object.assign(post, patch); },
+      },
+      router: { call: async (req: any) => { seen.push(req); return { model: "levanto-sage-2", output: { answers: { invented_offer: { noul: 0.97 } } } }; } },
+      env: loadAgentEnv(join(import.meta.dirname, "../../../envs/content-store")), decimals: 6, log: () => {}, outbox: { enqueue: async () => {} }, envelopes: { add: async () => {} }, mediaDir: "/tmp", accountOf: (h: string) => h,
+    } as unknown as ContentTaskDeps;
+    await makeContentTasks(d).check_post!({ postId: "p1" }, {} as never);
+    expect(seen[0].dataClass).toBe("public");
+    expect(seen[0].input.state).toContain("Item: Linen dress — 60 USD");
+    expect(post.idea.angle).toBe("a");
+    expect(post.idea.check).toMatchObject({ invented_offer: 0.97, flagged: true });
+    expect(post.idea.check.caption_hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+});

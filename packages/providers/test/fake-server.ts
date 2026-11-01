@@ -35,6 +35,10 @@ export async function fakeOpenAI(models: string[], reply = "ok"): Promise<Fake> 
         usage: { prompt_tokens: 10, completion_tokens: 2 },
       }));
     }
+    if (path === "/v1/systemone") {
+      const answers = Object.fromEntries(Object.entries(body.questions ?? {}).map(([id, q]: [string, any]) => [id, q.type === "noul" ? { type: "noul", noul: 0.9 } : { type: q.type, choice: Object.keys(q.criteria ?? {})[0] }]));
+      return res.end(JSON.stringify({ model: "levanto-sage-2", answers, usage: { input_tokens: 42, output_tokens: 0 } }));
+    }
     if (path === "/v1/embeddings") {
       return res.end(JSON.stringify({ model: body.model, data: [{ embedding: [0.1, 0.2, 0.3] }], usage: { prompt_tokens: 3 } }));
     }
