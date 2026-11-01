@@ -136,4 +136,10 @@ describe("checkCaption", () => {
     const router = { call: async () => ({ model: "m", output: { answers: {} } }) as any };
     await expect(checkCaption(router, { caption: "c", storeFacts: "f" })).rejects.toThrow(/probability/);
   });
+
+  it("replaces a motion that brings hands or people into the clip", async () => {
+    const { CAMERA_ONLY } = await import("../src/index.js");
+    const s = await writeVideoScript(fakeAsk({ "video-director": { hook: "Feel it", voiceover: "Soft and warm.", video_prompt: "Hands gently smooth the sweater on the table" } }), { profile: shapeProfile(PROFILE, "Nova", 2), caption: "c", angle: "a" });
+    expect(s.video_prompt).toBe(CAMERA_ONLY);
+  });
 });

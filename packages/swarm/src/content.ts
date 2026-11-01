@@ -173,6 +173,8 @@ export function shortVoiceover(text: string, maxWords = 22): string {
   return words.length > maxWords ? words.slice(0, maxWords).join(" ").replace(/[,;:]$/, "") + "." : joined;
 }
 
+export const CAMERA_ONLY = "Photorealistic product shot: one slow, steady camera push-in toward the product while soft natural light shifts gently across it. The product and the scene stay exactly as they are; nothing enters the frame — no people, no hands, no text.";
+
 export interface VideoScript { hook: string; voiceover: string; video_prompt: string }
 
 /** A short video's script for one post (advertisment_system short-form director, ported): hook, voiceover, motion. */
@@ -182,6 +184,8 @@ export async function writeVideoScript(ask: Asker, a: { profile: StyleProfile; c
   const voiceover = str(raw.voiceover, 400).replace(/\s*[^.!?]*\d[^.!?]*[.!?]?/g, "").trim();
   const s = { hook: str(raw.hook, 60).split(/\s+/).slice(0, 5).join(" "), voiceover: shortVoiceover(voiceover), video_prompt: str(raw.video_prompt, 600) };
   if (!s.voiceover || !s.video_prompt) throw new Error("video-director: empty voiceover or video prompt");
+  // The fast video model ignores negative prompts: a motion that brings people or hands in is replaced.
+  if (/\b(hands?|fingers?|arms?|people|person|woman|man|model|someone|touch\w*|holds?|holding|wearing|smooth\w*)\b/i.test(s.video_prompt)) s.video_prompt = CAMERA_ONLY;
   return s;
 }
 
