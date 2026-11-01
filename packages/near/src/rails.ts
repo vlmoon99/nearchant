@@ -49,7 +49,7 @@ export class TestnetDirectRail implements PaymentRail {
         msg: JSON.stringify({ order_id: o.orderId, seller_handle: o.sellerHandle }),
       },
       depositYocto: "1",
-      gasTgas: 150,
+      gasTgas: 100,
     };
   }
 

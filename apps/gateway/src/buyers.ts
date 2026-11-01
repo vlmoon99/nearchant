@@ -29,7 +29,7 @@ export class RateLimit {
  * Testnet buyer sponsorship (ADR 0001): the buyer's browser makes a key; the relayer funds its implicit account
  * with a little NEAR for gas and asks the nUSD faucet for test money. The buyer keeps the only key.
  */
-export async function sponsorBuyer(d: { chain: Chain; accounts: PlatformAccounts }, publicKey: string, gasNear = "0.05") {
+export async function sponsorBuyer(d: { chain: Chain; accounts: PlatformAccounts }, publicKey: string, gasNear = "0.2") {
   const accountId = implicitAccountId(publicKey);
   const exists = await d.chain.provider.viewAccount({ accountId, finality: "optimistic" } as never).then(() => true, () => false);
   if (!exists) await d.chain.transferFromRelayer(accountId, gasNear);
