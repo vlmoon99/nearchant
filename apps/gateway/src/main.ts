@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { makeWorkerUtils, type WorkerUtils } from "graphile-worker";
 import { parse } from "yaml";
-import { Artifacts, ContentStore, Envelopes, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
+import { Artifacts, ContentStore, Envelopes, Outbox, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
 import { TelegramApi, handleUpdate, type TgUpdate } from "./telegram.js";
 import { marketOrderId, type HireCreated } from "./market.js";
 import { formatUnits } from "./config.js";
@@ -233,8 +233,29 @@ const app = createApp({
         return { stepsDone: Object.keys(all).filter((k) => k !== "revision_note"), files, stopped: all.stopped ? `${all.stopped.kind}: ${all.stopped.reason}`.slice(0, 400) : null };
       }
     : undefined,
+  ...(conn ? { storefront: async (handle: string) => {
+    const cs = new ContentStore(conn!.db);
+    const b = await cs.getBusiness(handle);
+    if (!b) return null;
+    const prof = (await cs.getProfile(handle))?.data as { summary?: string } | undefined;
+    const items = await cs.listItems(handle);
+    const posts = (await cs.listPosts(handle, { status: ["published"], limit: 8 }));
+    const fmt = (u: string) => `${formatUnits(u, config.token.decimals)} ${config.token.symbol}`;
+    return {
+      handle, name: b.name, account: `${handle}.${accounts.root}`, summary: prof?.summary ?? b.description, orders: 0,
+      items: items.map((i) => ({ id: i.id, title: i.title, description: i.description, price: fmt(i.priceUnits), kind: i.kind, options: i.options as string[], img: i.photoMediaId ? `/files/${handle}/public/item-${i.id}.jpg` : null })),
+      posts: posts.map((p) => ({ caption: p.caption ?? "", img: (p.idea as { publicImage?: string }).publicImage ? `/files/${(p.idea as { publicImage: string }).publicImage}` : null, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null })),
+    };
+  } } : {}),
   onPaid: async (id) => {
     if (!queue) return console.warn(`[gateway] order ${id} paid, but there is no queue (DATABASE_URL unset)`);
+    const order = await store.getOrder(id);
+    if (order?.serviceId.startsWith("i-")) {
+      // A store item (ADR 0018): no AI job — the seller ships, then marks it shipped; the sale feeds analytics.
+      if (conn) await new ContentStore(conn.db).addEvent({ handle: order.handle, kind: "sale", itemId: order.serviceId, orderId: id, data: { amount: order.amount } });
+      console.info(`[gateway] order ${id} paid on chain → item sale for ${order.handle}`);
+      return;
+    }
     await queue.addJob("deck_step", { orderId: id, step: "brief" }, { jobKey: `${id}:brief`, maxAttempts: 5 });
     console.info(`[gateway] order ${id} paid on chain → swarm job queued`);
   },
@@ -244,6 +265,11 @@ const app = createApp({
 if (conn && process.env.NEARCHANT_SECRET_KEY) {
   mountSellerApp(app, {
     content: new ContentStore(conn.db), handles, isOwnerKey, mediaDir,
+    mirrorService: (x) => store.upsertService({ ...x, deliveryHours: 7 * 24, active: true }),
+    orders: {
+      list: (h) => store.listOrders(h, 50),
+      ship: async (h, orderId, note) => { await new Outbox(conn.db).enqueue(`ship:${orderId}`, "item.ship", { orderId, handle: h, note }); },
+    },
     enqueue: async (task, payload, jobKey) => {
       if (!queue) throw new Error("no job queue (DATABASE_URL unset)");
       await queue.addJob(task, payload, { ...(jobKey ? { jobKey } : {}), maxAttempts: 3 });
@@ -263,6 +289,7 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     js: existsSync(appFile) ? readFileSync(appFile, "utf8") : undefined, sessionKey,
     ...(conn ? { content: new ContentStore(conn.db) } : {}),
     accountOf: (h) => `${h}.${accounts.root}`,
+    orders: (h) => store.listOrders(h, 50),
     explorer: (a) => `https://${config.network === "mainnet" ? "" : "testnet."}nearblocks.io/address/${a}`,
   });
 }

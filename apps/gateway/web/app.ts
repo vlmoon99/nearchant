@@ -245,6 +245,18 @@ function sellerApp() {
     } catch (err) { btn.disabled = false; $("#create-out").textContent = (err as { code?: string }).code === "quota_exceeded" ? "You used this month’s free posts. Pro gives 150 a month." : (err as Error).message; }
   });
 
+  // Home: sell an AI-found product (set a price), mark an order shipped.
+  $$("[data-add-item]").forEach((b) => b.addEventListener("click", async () => {
+    const row = b.closest<HTMLElement>("[data-suggest]")!;
+    const price = Number(row.querySelector<HTMLInputElement>("input")!.value);
+    if (!(price > 0)) { row.querySelector<HTMLInputElement>("input")!.focus(); return; }
+    try { await api("/api/app/items", { title: row.dataset.suggest, description: row.dataset.desc, price, photoMediaId: row.dataset.photo || null }); location.reload(); } catch (e) { alert((e as Error).message); }
+  }));
+  $$("[data-ship]").forEach((b) => b.addEventListener("click", async () => {
+    const id = b.dataset.ship!;
+    try { await api(`/api/app/orders/${id}/ship`, { note: document.querySelector<HTMLInputElement>(`[data-ship-note="${id}"]`)?.value ?? "" }); location.reload(); } catch (e) { alert((e as Error).message); }
+  }));
+
   // Post detail: save caption, schedule.
   document.querySelector("#save-caption")?.addEventListener("click", async (e) => {
     const id = (e.currentTarget as HTMLElement).dataset.post!;

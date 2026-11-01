@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 // Worker: one graphile-worker task per pipeline step (docs/swarm.md), plus the outbox drain.
 // env: DATABASE_URL, NEARCHANT_SECRET_KEY, NEAR_RELAYER_KEY, NEARAI_API_KEY / NC_LOCAL_LLM_KEY (or REPLAY_DIR),
 //      SEARXNG_URL?, RENDERER_URL, MEDIA_DIR, MEDIA_PUBLIC
@@ -102,6 +103,16 @@ const outboxDrain: Task = async (_p, helpers) => {
       const p = payload as { batch_id: string; merkle_root: string; entries: unknown[] };
       if (p.entries.length === 0) return { skipped: "no charges" };
       return { charged: await chain.call<string>(accounts.billing, "settle_batch", p, { gasTgas: 150 }) };
+    }
+    if (kind === "item.ship") {
+      // The seller shipped a store item: proof of the shipping note, then mark_delivered so the buyer can confirm.
+      const p = payload as { orderId: string; handle: string; note: string };
+      const h = (x: string) => createHash("sha256").update(x).digest("hex");
+      await store.transitionOrder(p.orderId, "paid", "in_progress");
+      return deliver({ chain, accounts, db: conn.db, sealer, store, publicUrl: process.env.PUBLIC_URL }, { orderId: p.orderId, handle: p.handle, proof: {
+        task_id: `ship:${p.orderId}`, order_id: p.orderId, brief_hash: h(p.orderId), producer: `${p.handle} (shipped by the seller)`,
+        output_hash: h(p.note || "shipped"), attestation_ref: null, review: { passed: true, reviewer_hash: h(p.note || "shipped") },
+      } as never });
     }
     if (kind === "post.proof") {
       // A published post's proof, signed by the store's own proofs agent key (function-call only).

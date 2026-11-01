@@ -12,6 +12,7 @@ export interface UiDeps {
   content?: ContentStore;
   accountOf: (handle: string) => string;
   explorer: (accountId: string) => string;
+  orders?: (handle: string) => Promise<{ orderId: string; serviceId: string; amount: string; brief: string; state: string }[]>;
 }
 
 export function mountUi(app: Hono<any>, d: UiDeps): void {
@@ -36,7 +37,18 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const [posts, opps, events, usage, b] = await Promise.all([content.listPosts(s.handle, { limit: 50 }), content.listOpportunities(s.handle), content.eventCounts(s.handle, 7), content.usage(s.handle), content.getBusiness(s.handle)]);
     const sum = (k: string) => events.filter((e) => e.kind === k).reduce((a, e) => a + e.n, 0);
     const shown = posts.filter((p) => p.status !== "failed" && (p.chosenAt || p.status !== "ready"));
-    return c.html(<HomePage cfg={d.cfg} test={d.test} store={s} posts={shown} img={img} opps={opps}
+    const items = await content.listItems(s.handle);
+    const prof = (await content.getProfile(s.handle))?.data as { products?: { name: string; photo: number | null; description: string }[] } | undefined;
+    const photos = (await content.listMedia(s.handle, "photo")).slice(0, 8);
+    const taken = new Set(items.map((i) => i.title.toLowerCase()));
+    const suggestions = (prof?.products ?? []).filter((p) => !taken.has(p.name.toLowerCase())).slice(0, 6).map((p) => {
+      const m = p.photo ? photos[p.photo - 1] : undefined;
+      return { title: p.name, description: p.description, photoMediaId: m?.id ?? null, img: m ? `/files/${m.key}` : null };
+    });
+    const fmt = (u: string) => `${(Number(u) / 10 ** d.cfg.decimals).toLocaleString("en", { maximumFractionDigits: 2 })} ${d.cfg.token}`;
+    const titles = new Map(items.map((i) => [i.id, i.title]));
+    const orders = d.orders ? (await d.orders(s.handle)).filter((o) => o.serviceId.startsWith("i-") && ["paid", "in_progress", "delivered"].includes(o.state)).map((o) => ({ orderId: o.orderId, title: titles.get(o.serviceId) ?? "Item", amount: fmt(o.amount), brief: o.brief, state: o.state })) : [];
+    return c.html(<HomePage cfg={d.cfg} test={d.test} store={s} posts={shown} img={img} opps={opps} suggestions={suggestions} orders={orders} items={items.map((i) => ({ title: i.title, price: fmt(i.priceUnits) }))}
       stats={{ views: sum("view"), sales: sum("sale"), salesUnits: 0, proofs: posts.filter((p) => p.proof).length, postsMonth: usage.posts, postsLimit: PLAN_LIMITS[b?.plan ?? "free"]!.posts }}
       checklist={checklistFor(b, posts, sum("sale"))} />);
   }));

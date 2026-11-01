@@ -13,7 +13,7 @@ import { verifySellerSignature } from "./telegram.js";
 /** The parts of the content store the API uses (a fake in tests, Postgres in the gateway). */
 export type SellerContent = Pick<ContentStore,
   "upsertBusiness" | "getBusiness" | "completeOnboarding" | "getProfile" | "setProfile" | "addMedia" | "listMedia" | "getMedia" |
-  "upsertItem" | "listItems" | "listOpportunities" | "chooseOpportunities" | "createPosts" | "listPosts" | "getPost" | "updatePost" |
+  "upsertItem" | "listItems" | "getItem" | "listOpportunities" | "chooseOpportunities" | "createPosts" | "listPosts" | "getPost" | "updatePost" |
   "choosePosts" | "addSignal" | "usage">;
 
 export interface SellerAppDeps {
@@ -26,6 +26,10 @@ export interface SellerAppDeps {
   /** HMAC key for session cookies (derived from NEARCHANT_SECRET_KEY). */
   sessionKey: Buffer;
   secureCookies: boolean;
+  /** Mirror an item as an orderable service, so the existing escrow checkout sells it. */
+  mirrorService?: (s: { id: string; handle: string; title: string; description: string; priceUnits: string }) => Promise<void>;
+  /** Paid item orders of a store + queue "shipped" (proof + mark_delivered via the outbox). */
+  orders?: { list: (handle: string) => Promise<{ orderId: string; serviceId: string; amount: string; brief: string; state: string; createdAt: string }[]>; ship: (handle: string, orderId: string, note: string) => Promise<void> };
   /** Token decimals for prices (nUSD: 6). */
   decimals: number;
   now?: () => number;
@@ -182,6 +186,17 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     return c.json({ status: "scheduled", at: when.toISOString() });
   }));
 
+  // Orders of store items: the owner ships, then marks it shipped (recorded on NEAR; the buyer then confirms).
+  app.get("/api/app/orders", (c) => authed(c, async (handle) => c.json({ orders: d.orders ? (await d.orders.list(handle)).filter((o) => o.serviceId.startsWith("i-")) : [] })));
+  app.post("/api/app/orders/:id/ship", (c) => authed(c, async (handle) => {
+    if (!d.orders) return c.json({ error: "orders are off on this gateway" }, 404);
+    const o = (await d.orders.list(handle)).find((x) => x.orderId === c.req.param("id"));
+    if (!o || !o.serviceId.startsWith("i-")) return c.json({ error: "not found" }, 404);
+    if (o.state !== "paid") return c.json({ error: `order is ${o.state}` }, 409);
+    await d.orders.ship(handle, o.orderId, String((await json(c)).note ?? "").slice(0, 300));
+    return c.json({ status: "shipping" }, 202);
+  }));
+
   // Items the store sells (products or services).
   app.get("/api/app/items", (c) => authed(c, async (handle) => c.json({ items: await d.content.listItems(handle, false) })));
   app.post("/api/app/items", (c) => authed(c, async (handle) => {
@@ -189,7 +204,15 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     const title = String(b.title ?? "").trim(), price = Number(b.price);
     if (title.length < 2 || title.length > 120) return c.json({ error: "title: 2–120 characters" }, 400);
     if (!(price > 0 && price <= 10_000)) return c.json({ error: "price must be above 0" }, 400);
-    const id = await d.content.upsertItem({ id: b.id ? String(b.id) : undefined, handle, kind: b.kind === "service" ? "service" : "product", title, description: String(b.description ?? "").slice(0, 1000), priceUnits: String(Math.round(price * 10 ** d.decimals)), options: (Array.isArray(b.options) ? b.options : []).map(String).slice(0, 20), photoMediaId: b.photoMediaId ? String(b.photoMediaId) : null });
+    const priceUnits = String(Math.round(price * 10 ** d.decimals)), description = String(b.description ?? "").slice(0, 1000);
+    const photoMediaId = b.photoMediaId ? String(b.photoMediaId) : null;
+    const id = await d.content.upsertItem({ id: b.id ? String(b.id) : undefined, handle, kind: b.kind === "service" ? "service" : "product", title, description, priceUnits, options: (Array.isArray(b.options) ? b.options : []).map(String).slice(0, 20), photoMediaId });
+    // The item's photo is shown on the public storefront: publish a copy (the original stays private).
+    if (photoMediaId) {
+      const m = await d.content.getMedia(photoMediaId);
+      if (m && m.handle === handle) { await mkdir(join(d.mediaDir, handle, "public"), { recursive: true }); await writeFile(join(d.mediaDir, handle, "public", `item-${id}.jpg`), await readFile(join(d.mediaDir, m.key))); }
+    }
+    await d.mirrorService?.({ id, handle, title, description, priceUnits });
     return c.json({ id }, 201);
   }));
 }
