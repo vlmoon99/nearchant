@@ -285,6 +285,8 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   this exact case; one missing part still fails the gate). Trailing punctuation no longer breaks word matching.
 - Not done: a reviewer prompt rule ("a fix never asks for numbers not in the brief/dossier") — it changes the
   replay keys, so it needs a fresh `fixtures/replay/deck` recording; deferred.
+- Verified after the fix: browser order on the Spark `o-3c3d20b4-…`: paid → hire verity (escrow payment 9) →
+  review passed → delivered on chain (776 s) → accepted → `Released`.
 
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
