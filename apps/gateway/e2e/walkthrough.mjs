@@ -67,7 +67,7 @@ await segment("3-buyer", { width: 393, height: 852 }, async (p, ctx) => {
 // Join: desktop as is; phone parts centred on 1440×900; onboarding sped up ×6 (it waits for the AI).
 const ff = (args) => execFileSync("ffmpeg", ["-y", "-hide_banner", "-loglevel", "error", ...args]);
 const norm = (name, speed = 1, phone = false) => {
-  const vf = [speed !== 1 ? `setpts=PTS/${speed}` : null, phone ? "scale=-2:860,pad=1440:900:(ow-iw)/2:(oh-ih)/2:color=0x121916" : "scale=1440:900", "fps=30,format=yuv420p"].filter(Boolean).join(",");
+  const vf = [speed !== 1 ? `setpts=PTS/${speed}` : null, phone ? "scale=-2:860,pad=1440:900:(ow-iw)/2:(oh-ih)/2:color=0x121916" : "scale=1440:900", "setsar=1,fps=30,format=yuv420p"].filter(Boolean).join(",");
   ff(["-i", join(outDir, `${name}.webm`), "-vf", vf, "-an", "-c:v", "libx264", "-crf", "22", "-preset", "veryfast", join(outDir, `${name}.mp4`)]);
 };
 norm("1-desktop"); norm("2-onboarding", 6, true); norm("3-buyer", 1, true);

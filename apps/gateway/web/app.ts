@@ -174,7 +174,7 @@ function onboarding() {
       const { posts } = res;
       const mine = posts.filter((p) => ids.includes(p.id));
       $("#first-posts").innerHTML = mine.map((p) => `<div class="card" style="flex-direction:row;gap:12px;padding:12px;align-items:center">
-        <div style="width:72px;height:72px;border-radius:12px;flex:none;background:var(--grouped) center/cover${p.imageUrl ? ` url('${p.imageUrl}')` : ""}"></div>
+        <div style="width:72px;height:72px;border-radius:12px;flex:none;background:var(--grouped) center/cover${p.imageUrl ? ` url('${p.imageUrl}?w=320')` : ""}"></div>
         <div class="stack" style="gap:6px;min-width:0"><span class="foot b clamp2">${esc(p.caption ?? (p.status === "failed" ? "Could not make this one" : "Writing…"))}</span><span class="cap muted clamp1">${esc(p.status === "ready" ? (p.idea?.angle ?? "Ready") : p.status === "failed" ? "skipped" : "AI is making it…")}</span></div></div>`).join("");
       const edit = document.querySelector<HTMLAnchorElement>("#edit-first"); if (edit) edit.href = `/app/posts?batch=${encodeURIComponent(batchId)}`;
       const ready = mine.filter((p) => p.status === "ready");

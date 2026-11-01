@@ -229,4 +229,19 @@ describe("seller API", () => {
     expect((await app.request("http://x/api/wallet/verify", post(once))).status).toBe(200);
     expect((await app.request("http://x/api/wallet/verify", post(once))).status).toBe(401);           // nonce replay
   });
+
+  it("serves a resized WebP of a picture with ?w=, cached on disk", async () => {
+    const { app, cookie, mediaDir } = setup();
+    const { mkdirSync, writeFileSync, existsSync } = await import("node:fs");
+    const sharp = (await import("sharp")).default;
+    mkdirSync(join(mediaDir, "nova", "gen"), { recursive: true });
+    writeFileSync(join(mediaDir, "nova", "gen", "p1.png"), await sharp({ create: { width: 1024, height: 1280, channels: 3, background: "#a83232" } }).png().toBuffer());
+    const r = await app.request("http://x/files/nova/gen/p1.png?w=320", { headers: { cookie } });
+    expect(r.headers.get("content-type")).toBe("image/webp");
+    const meta = await sharp(Buffer.from(await r.arrayBuffer())).metadata();
+    expect([meta.width, meta.height]).toEqual([320, 400]);
+    expect(existsSync(join(mediaDir, ".thumbs", "nova/gen/p1.png.320.webp"))).toBe(true);
+    expect((await app.request("http://x/files/nova/gen/p1.png?w=320")).status).toBe(403);   // still private
+    expect((await app.request("http://x/files/nova/gen/p1.png?w=999", { headers: { cookie } })).headers.get("content-type")).toBe("image/png");
+  });
 });

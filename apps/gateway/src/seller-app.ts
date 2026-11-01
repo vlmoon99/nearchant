@@ -3,6 +3,7 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, normalize } from "node:path";
+import sharp from "sharp";
 import type { Context, Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { ContentStore } from "@nearchant/db";
@@ -126,6 +127,20 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     const m = key.match(/^([a-z0-9_-]+)\/(photos|gen|public)\/[\w.-]+\.(jpg|png|webp|mp4)$/);
     if (!m) return c.notFound();
     if (m[2] !== "public" && seller(c) !== m[1]) return c.json({ error: "private" }, 403);
+    // ?w=320|640|1024: a resized WebP of a picture (grids and thumbnails load ~50 KB instead of a 1.3 MB PNG),
+    // made once and kept next to the media.
+    const w = Number(c.req.query("w"));
+    if ([320, 640, 1024].includes(w) && m[3] !== "mp4") {
+      const thumb = join(d.mediaDir, ".thumbs", `${key}.${w}.webp`);
+      let out: Uint8Array | null = await readFile(thumb).catch(() => null);
+      if (!out) {
+        const src = await readFile(join(d.mediaDir, key)).catch(() => null);
+        if (!src) return c.notFound();
+        out = new Uint8Array(await sharp(src).rotate().resize(w, w * 2, { fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toBuffer());
+        await mkdir(join(thumb, ".."), { recursive: true }); await writeFile(thumb, out);
+      }
+      return c.body(out as Uint8Array<ArrayBuffer>, 200, { "content-type": "image/webp", "cache-control": m[2] === "public" ? "public, max-age=86400" : "private, max-age=3600", "x-content-type-options": "nosniff" });
+    }
     const bytes = await readFile(join(d.mediaDir, key)).catch(() => null);
     if (!bytes) return c.notFound();
     const type = m[3] === "jpg" ? "image/jpeg" : m[3] === "mp4" ? "video/mp4" : `image/${m[3]}`;
