@@ -300,6 +300,10 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Verified: `make demo` replays all 21 calls in 3 s with the identical deck hash (`19be6ef7…`); fixture scanned for
   the real key values (none); all package tests green.
 
+### Owner decision (2026-11-01)
+- Phala, Cloudflare tunnel and Telegram are done **at the end**, after the owner's local testing on the tailnet.
+  Keep a buffer: start the Phala deploy by ~11 Nov (cloud-only config already verified locally).
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
