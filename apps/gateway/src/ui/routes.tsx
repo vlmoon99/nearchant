@@ -79,7 +79,7 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
   }));
   app.get("/app/posts", (c) => withStore(c, async (s, img) => {
     const f = ["ready", "scheduled", "published"].includes(c.req.query("f") ?? "") ? c.req.query("f")! : "all";
-    return c.html(<PostsPage cfg={d.cfg} test={d.test} store={s} posts={(await content.listPosts(s.handle, { limit: 100 })).filter((p) => p.status !== "failed")} img={img} filter={f} />);
+    return c.html(<PostsPage cfg={d.cfg} test={d.test} store={s} posts={(await content.listPosts(s.handle, { limit: 100 })).filter((p) => p.status !== "failed")} img={img} filter={f} {...(c.req.query("batch") ? { batch: c.req.query("batch")! } : {})} />);
   }));
   app.get("/app/posts/:id", (c) => withStore(c, async (s, img) => {
     const p = await content.getPost(c.req.param("id"));

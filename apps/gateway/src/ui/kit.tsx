@@ -93,3 +93,10 @@ export const Stat: FC<{ label: string; value: string; delta?: string; bars?: num
 export const PageHead: FC<PropsWithChildren<{ kicker: string; title: string }>> = ({ kicker, title, children }) => (
   <div class="head"><div><div class="kicker">{kicker}</div><h1 class="t1">{title}</h1></div><div class="row" style="align-items:center;gap:12px">{children}</div></div>
 );
+
+/** Create flow steps (Figma Web · Create 1–3): Photos & idea → AI makes it → Review & publish. */
+export const CreateSteps: FC<{ step: 1 | 2 | 3 }> = ({ step }) => (
+  <div class="csteps">{["Photos & idea", "AI makes it", "Review & publish"].map((t, i) => (
+    <>{i ? <span class="csteps-line"></span> : null}<span class={`csteps-s ${i + 1 === step ? "on" : i + 1 < step ? "done" : ""}`}><i>{i + 1 < step ? "✓" : i + 1}</i>{t}</span></>
+  ))}</div>
+);

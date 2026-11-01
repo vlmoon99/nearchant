@@ -1,7 +1,7 @@
 // Seller app pages (Figma "Web app (seller)" + "Mobile web" rows): Home, Create, Posts, Post detail with the proof.
 import type { FC } from "hono/jsx";
 import type { Business, Media, Opportunity, Post } from "@nearchant/db";
-import { Badge, Icon, PageHead, Shell, Stat, UiPage, type UiConfig } from "./kit.js";
+import { Badge, CreateSteps, Icon, PageHead, Shell, Stat, UiPage, type UiConfig } from "./kit.js";
 
 export interface StoreView { handle: string; name: string; account: string; balance?: string }
 type Img = (id: string | null) => string | null;
@@ -84,6 +84,7 @@ export const HomePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; post
 export const CreatePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; photos: Media[]; opps: Opportunity[]; usage: { posts: number; limit: number } }> = ({ cfg, test, store, photos, opps, usage }) => (
   <Page cfg={cfg} test={test} title="Create" active="Create" store={store}>
     <PageHead kicker="New post" title="Create" />
+    <CreateSteps step={1} />
     <div class="cols">
       <div class="stack">
         <label class="dropzone"><span class="dot" style="width:52px;height:52px;background:var(--bg)"><Icon n="upload" s={24} c="#007AFF" /></span><span class="t4">Add photos of your item</span><span class="foot muted">JPG or PNG · we never post them without your OK</span><input type="file" id="create-photos" accept="image/*" multiple class="hidden" /></label>
@@ -104,12 +105,16 @@ export const CreatePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; ph
   </Page>
 );
 
-export const PostsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; posts: Post[]; img: Img; filter: string }> = ({ cfg, test, store, posts, img, filter }) => {
-  const shown = filter === "all" ? posts : posts.filter((p) => p.status === filter);
-  const pending = posts.some((p) => ["queued", "writing", "rendering"].includes(p.status));
+export const PostsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; posts: Post[]; img: Img; filter: string; batch?: string }> = ({ cfg, test, store, posts, img, filter, batch }) => {
+  // ?batch=… right after Create: only that batch, with step 2 (AI making it) or 3 (review & publish).
+  const inBatch = batch ? posts.filter((p) => p.batchId === batch) : [];
+  const shown = inBatch.length ? inBatch : filter === "all" ? posts : posts.filter((p) => p.status === filter);
+  const pending = (inBatch.length ? inBatch : posts).some((p) => ["queued", "writing", "rendering"].includes(p.status));
   return (
     <Page cfg={cfg} test={test} title="Posts" active="Posts" store={store}>
-      <PageHead kicker={`Library · ${posts.length} posts`} title="Posts"><a class="btn" href="/app/create"><Icon n="plus" />Create post</a></PageHead>
+      {inBatch.length ? <><PageHead kicker="New post" title={pending ? "AI is making your posts" : "Review & publish"} /><CreateSteps step={pending ? 2 : 3} />
+        <p class="sub muted" style="margin:0">{pending ? "Writing captions and making pictures — usually under two minutes." : "Open the ones you like, edit if you want, then post now or at the best time."}</p></>
+      : <PageHead kicker={`Library · ${posts.length} posts`} title="Posts"><a class="btn" href="/app/create"><Icon n="plus" />Create post</a></PageHead>}
       <div class="row" style="gap:8px;flex-wrap:wrap">{[["all", "All"], ["ready", "Ready"], ["scheduled", "Scheduled"], ["published", "Posted"]].map(([k, l]) => <a class={`chip ${filter === k ? "on" : ""}`} href={`/app/posts?f=${k}`}>{l}</a>)}</div>
       {pending ? <p class="foot muted" data-refresh="4000">AI is still making some posts — this page refreshes by itself.</p> : null}
       {shown.length ? <div class="grid4">{shown.map((p) => <PostCard p={p} img={img} />)}</div> : <p class="sub muted">Nothing here yet.</p>}

@@ -175,3 +175,12 @@ svg { flex-shrink: 0; }
 
 /* The sidebar column stays grey below the sticky sidebar (long pages, full-page captures). */
 @media (min-width: 900px) { .app { background: linear-gradient(to right, var(--bg-2) 248px, var(--bg) 248px); } }
+
+/* Create flow steps (Figma Web · Create 1–3). */
+.csteps { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.csteps-s { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; font-size: 13px; color: var(--label-2); }
+.csteps-s i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-weight: 600; font-size: 12px; background: var(--track); color: var(--label-2); }
+.csteps-s.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; } .csteps-s.on i { background: var(--accent); color: #fff; }
+.csteps-s.done i { background: var(--ok); color: #fff; }
+.csteps-line { width: 28px; height: 2px; background: var(--track); border-radius: 1px; }
+@media (max-width: 899px) { .csteps-line { display: none; } }

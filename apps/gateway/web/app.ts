@@ -240,8 +240,8 @@ function sellerApp() {
   document.querySelector("#create-go")?.addEventListener("click", async (e) => {
     const btn = e.currentTarget as HTMLButtonElement; btn.disabled = true;
     try {
-      await api("/api/app/posts", { n: 3, opportunityIds: opp ? [opp] : [], about: document.querySelector<HTMLInputElement>("#create-about")?.value ?? "" });
-      location.href = "/app/posts";
+      const r = await api<{ batchId: string }>("/api/app/posts", { n: 3, opportunityIds: opp ? [opp] : [], about: document.querySelector<HTMLInputElement>("#create-about")?.value ?? "" });
+      location.href = `/app/posts?batch=${encodeURIComponent(r.batchId)}`;
     } catch (err) { btn.disabled = false; $("#create-out").textContent = (err as { code?: string }).code === "quota_exceeded" ? "You used this month’s free posts. Pro gives 150 a month." : (err as Error).message; }
   });
 
