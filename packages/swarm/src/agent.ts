@@ -49,7 +49,9 @@ export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultE
     ];
     let maxTokens = role.max_tokens;
     let seatModel = model;
-    for (let attempt = 0; attempt < 2; attempt++) {
+    let lengthRetried = false;
+    let parseFailures = 0;
+    for (let calls = 0; calls < 5; calls++) {
       const req = { capability: "chat" as const, dataClass: "private" as const, input: { messages, temperature: role.temperature, max_tokens: maxTokens } };
       let e: ResultEnvelope;
       try {
@@ -63,8 +65,9 @@ export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultE
       }
       await track(e, roleName);
       const text = contentOf(e);
-      // Reasoning models can spend the whole budget thinking: retry the same request with more room.
-      if ((e.output as { finish_reason?: string }).finish_reason === "length" && attempt === 0) {
+      // Reasoning models can spend the whole budget thinking: retry once with more room (not a parse failure).
+      if ((e.output as { finish_reason?: string }).finish_reason === "length" && !lengthRetried) {
+        lengthRetried = true;
         maxTokens = Math.min(maxTokens * 2, 16_000);
         continue;
       }
@@ -72,7 +75,19 @@ export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultE
       try {
         return extractJson(text) as T;
       } catch (err) {
-        messages.push({ role: "assistant", content: text.slice(0, 4000) }, { role: "user", content: `That was not valid JSON (${(err as Error).message}). Reply with only the JSON object.` });
+        parseFailures++;
+        if (parseFailures === 1) {
+          messages.push({ role: "assistant", content: text.slice(0, 4000) }, { role: "user", content: `That was not valid JSON (${(err as Error).message}). Reply with only the JSON object.` });
+        } else if (seatModel) {
+          // The second-seat model can't produce the format: let the main seat answer the original request.
+          onDegrade?.(roleName, seatModel, "no valid JSON from the second seat");
+          seatModel = undefined;
+          messages.splice(2);
+          lengthRetried = false;
+          maxTokens = role.max_tokens;
+        } else {
+          break;
+        }
       }
     }
     throw new Error(`${roleName}: no valid JSON after a retry`);

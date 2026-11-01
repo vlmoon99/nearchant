@@ -214,6 +214,23 @@ describe("degraded modes", () => {
   });
 });
 
+describe("format failures", () => {
+  it("falls back to the main seat when the second seat keeps returning bad JSON", async () => {
+    const router = fakeRouter();
+    const inner = router.call.bind(router);
+    router.call = async (req) => {
+      const env = await inner(req);
+      if (req.model && (req.input.messages as { content: string }[])[0]!.content.includes("You review a finished")) {
+        return { ...env, output: { message: { role: "assistant", content: "Sure, here are my thoughts…" } } };
+      }
+      return env;
+    };
+    const { d } = deps(router);
+    expect((await runPipeline(d, "j1", "seed deck please, coffee")).status).toBe("done");
+    expect(router.calls.some((c) => c.role === "reviewer" && c.model === undefined)).toBe(true);
+  });
+});
+
 describe("helpers", () => {
   it("counts slides and citations", () => {
     expect(slideCount(DECK)).toBe(7);
