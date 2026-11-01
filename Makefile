@@ -7,6 +7,8 @@ help: ## list targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
 
 demo: export NEARCHANT_SECRET_KEY = demo-not-used-0000000000000000000000
+demo: export DEMO_UID := $(shell id -u)
+demo: export DEMO_GID := $(shell id -g)
 demo: ## full deck pipeline on recorded model answers (Docker only) → .media/demo-deck/deck.{pdf,pptx,html}
 	mkdir -p .media
 	$(COMPOSE) --profile demo run --rm --build demo
