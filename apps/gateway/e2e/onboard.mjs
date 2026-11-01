@@ -2,15 +2,18 @@
 //   node e2e/onboard.mjs [baseUrl] [photosDir] [shotsDir]
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { chromium } from "playwright-core";
+import { chromium, webkit } from "playwright-core";
 
 const base = process.argv[2] ?? "https://nearchant.com";
 const photosDir = process.argv[3];
 const shots = process.argv[4] ?? "/tmp/nc-onb";
-const browser = await chromium.launch({ channel: "chrome", headless: true });
-const page = await browser.newPage({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 2 });
+// ENGINE=webkit (Safari's engine) and VIEWPORT=1440x900 for the desktop card layout; default Chrome at phone size.
+const [vw, vh] = (process.env.VIEWPORT ?? "393x852").split("x").map(Number);
+const browser = process.env.ENGINE === "webkit" ? await webkit.launch({ headless: true }) : await chromium.launch({ channel: "chrome", headless: true });
+const page = await browser.newPage({ viewport: { width: vw, height: vh }, deviceScaleFactor: 2 });
 const errors = [];
-page.on("pageerror", (e) => errors.push(e.message));
+page.on("pageerror", (e) => { errors.push(e.message); console.log("PAGE ERROR:", e.message); });
+page.on("console", (m) => { if (m.type() === "error") console.log("console error:", m.text()); });
 const t0 = Date.now();
 const log = (m) => console.log(`[${Math.round((Date.now() - t0) / 1000)}s] ${m}`);
 const shot = (n) => page.screenshot({ path: `${shots}/${n}.png`, fullPage: true });
@@ -38,6 +41,10 @@ log("opportunities");
 await shot("5-opps");
 await page.click("#make-posts");
 await visible("posts", 60_000);
+for (let i = 0; i < 20 && process.env.DEBUG_POSTS; i++) {
+  console.log("posts step:", JSON.stringify(await page.evaluate(() => { const b = document.querySelector("#schedule-all"); const r = b.getBoundingClientRect(); return { disabled: b.disabled, display: getComputedStyle(b).display, vis: getComputedStyle(b).visibility, h: Math.round(r.height), y: Math.round(r.y), title: document.querySelector("#posts-title")?.textContent, cards: document.querySelectorAll("#first-posts .card").length }; })));
+  await page.waitForTimeout(30_000);
+}
 await page.waitForSelector("#schedule-all:not([disabled])", { timeout: 900_000 });
 log("posts ready");
 console.log("thumb check:", await page.evaluate(async () => {

@@ -133,7 +133,13 @@ function onboarding() {
   // 5: opportunities with honest estimates
   let chosen = new Set<string>();
   async function opportunities() {
-    const { opportunities: ops } = await api<{ opportunities: { id: string; kind: string; title: string; why: string; estimateUnits: string; data: { action?: string } }[] }>("/api/app/opportunities");
+    type Opp = { id: string; kind: string; title: string; why: string; estimateUnits: string; data: { action?: string } };
+    let ops: Opp[] = [];
+    for (let i = 0; i < 5; i++) {   // retried: one failed request must not leave the step empty
+      const r = await api<{ opportunities: Opp[] }>("/api/app/opportunities").catch(() => null);
+      if (r) { ops = r.opportunities; break; }
+      await sleep(2000);
+    }
     chosen = new Set(ops.map((o) => o.id));
     const color: Record<string, string> = { trend: "#FF9500", upsell: "#AF52DE", price: "#007AFF", channel: "#34C759" };
     const total = () => ops.filter((o) => chosen.has(o.id)).reduce((s, o) => s + Number(o.estimateUnits), 0);
@@ -162,7 +168,10 @@ function onboarding() {
   // 6: first posts appear as they are written and rendered
   async function watchPosts(batchId: string, ids: string[]) {
     for (let i = 0; i < 240; i++) {
-      const { posts } = await api<{ posts: { id: string; status: string; caption: string | null; imageUrl: string | null; idea: { angle?: string } }[] }>("/api/app/posts");
+      // A blip (deploy, network) must not stop the watch: the button would stay disabled forever.
+      const res = await api<{ posts: { id: string; status: string; caption: string | null; imageUrl: string | null; idea: { angle?: string } }[] }>("/api/app/posts").catch(() => null);
+      if (!res) { await sleep(3000); continue; }
+      const { posts } = res;
       const mine = posts.filter((p) => ids.includes(p.id));
       $("#first-posts").innerHTML = mine.map((p) => `<div class="card" style="flex-direction:row;gap:12px;padding:12px;align-items:center">
         <div style="width:72px;height:72px;border-radius:12px;flex:none;background:var(--grouped) center/cover${p.imageUrl ? ` url('${p.imageUrl}')` : ""}"></div>
