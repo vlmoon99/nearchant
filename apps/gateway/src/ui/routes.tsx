@@ -59,7 +59,16 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const titles = new Map(items.map((i) => [i.id, i.title]));
     const orders = d.orders ? (await d.orders(s.handle)).filter((o) => o.serviceId.startsWith("i-") && ["paid", "in_progress", "delivered"].includes(o.state)).map((o) => ({ orderId: o.orderId, title: titles.get(o.serviceId) ?? "Item", amount: fmt(o.amount), brief: o.brief, state: o.state })) : [];
     const firstSale = d.orders ? (await d.orders(s.handle)).filter((o) => o.serviceId.startsWith("i-") && o.state !== "awaiting_payment").at(-1) : undefined;
-    return c.html(<HomePage cfg={d.cfg} test={d.test} store={s} posts={shown} img={img} opps={opps} suggestions={suggestions} orders={orders} items={items.map((i) => ({ title: i.title, price: fmt(i.priceUnits) }))}
+    // 7-day bars (oldest → today), scaled to the busiest day; payments: the latest paid item orders.
+    const days = Array.from({ length: 7 }, (_, i) => new Date(Date.now() - (6 - i) * 86_400_000).toISOString().slice(0, 10));
+    const bars = (xs: number[]) => { const mx = Math.max(...xs, 1); return xs.map((x) => Math.round((x / mx) * 100)); };
+    const perDay = (k: string) => days.map((day) => events.filter((e) => e.kind === k && e.day === day).reduce((a, e) => a + e.n, 0));
+    const proofDays = days.map((day) => posts.filter((p) => p.proof && p.publishedAt && p.publishedAt.toISOString().slice(0, 10) === day).length);
+    const series = { views: bars(perDay("view")), sales: bars(perDay("sale")), proofs: bars(proofDays) };
+    const STATE: Record<string, string> = { paid: "in escrow", in_progress: "in escrow", delivered: "shipped · in escrow", released: "paid out" };
+    const payments = d.orders ? (await d.orders(s.handle)).filter((o) => o.serviceId.startsWith("i-") && STATE[o.state]).slice(0, 3)
+      .map((o) => ({ title: titles.get(o.serviceId) ?? "Item", amount: fmt(o.amount), when: new Date(o.createdAt).toLocaleDateString("en", { day: "numeric", month: "short" }), state: STATE[o.state]! })) : [];
+    return c.html(<HomePage cfg={d.cfg} test={d.test} store={s} posts={shown} img={img} opps={opps} suggestions={suggestions} orders={orders} payments={payments} series={series} items={items.map((i) => ({ title: i.title, price: fmt(i.priceUnits) }))}
       top={firstSale && !(await content.getSetting(`celebrated:${s.handle}`)) ? <Celebration amount={fmt(firstSale.amount)} item={titles.get(firstSale.serviceId) ?? "an item"} store={s} /> : null}
       stats={{ views: sum("view"), sales: sum("sale"), salesUnits: Number((await content.salesSince(s.handle, 7)).units), proofs: posts.filter((p) => p.proof).length, postsMonth: usage.posts, postsLimit: PLAN_LIMITS[b?.plan ?? "free"]!.posts }}
       checklist={checklistFor(b, posts, sum("sale"))} />);

@@ -167,3 +167,8 @@ label.field { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
 
 /* Icons keep their size inside flex rows (they were squeezed in cards with long text). */
 svg { flex-shrink: 0; }
+
+/* Home header: the store's NEAR account and balance (Figma Web · Home). */
+.acct-pill { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--sep); color: var(--label); background: var(--bg); }
+.acct-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+@media (max-width: 899px) { .acct-pill { display: none; } }
