@@ -20,6 +20,9 @@ describe("ContentStore", () => {
     expect(sc.proofs).toBeGreaterThanOrEqual(2);
     expect(sc.stores).toBeGreaterThanOrEqual(1);
     expect(typeof sc.paidOrders).toBe("number");
+    await c.setSetting("showcase_hidden", ["show"]);
+    expect((await c.showcase(3)).posts.filter((p) => p.handle === "show")).toEqual([]);
+    await c.setSetting("showcase_hidden", []);
   });
 
   it("keeps a business, its profile and the facts found while analysing", async () => {

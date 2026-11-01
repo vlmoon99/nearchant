@@ -172,7 +172,9 @@ export class ContentStore {
       (select count(*) from orders where state in ('paid', 'in_progress', 'delivered', 'released'))::int as paid_orders`)) as unknown as { proofs: number; stores: number; paid_orders: number }[];
     const rows = await this.db.select({ id: s.posts.id, handle: s.posts.handle, caption: s.posts.caption, idea: s.posts.idea, proof: s.posts.proof, name: s.businesses.name })
       .from(s.posts).innerJoin(s.businesses, eq(s.businesses.handle, s.posts.handle))
-      .where(and(eq(s.posts.status, "published"), sql`${s.posts.proof} is not null`, sql`${s.posts.idea}->>'publicImage' is not null`))
+      .where(and(eq(s.posts.status, "published"), sql`${s.posts.proof} is not null`, sql`${s.posts.idea}->>'publicImage' is not null`,
+        // Test stores the owner hid from the public pages (setting "showcase_hidden": [handles]).
+        sql`${s.posts.handle} not in (select jsonb_array_elements_text(coalesce((select value from settings where key = 'showcase_hidden'), '[]'::jsonb)))`))
       .orderBy(desc(s.posts.publishedAt)).limit(limit);
     return {
       proofs: counts?.proofs ?? 0, stores: counts?.stores ?? 0, paidOrders: counts?.paid_orders ?? 0,

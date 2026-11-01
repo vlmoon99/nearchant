@@ -47,7 +47,7 @@ export const VerifyPage: FC<{ cfg: UiConfig; test: boolean; v: VerifyView | null
             <Row ok={v.attestation ? v.attestation.ok : null} title={v.attestation ? `Written by ${v.attestation.model} in a NEAR AI TEE` : `Made by ${v.producer ?? "the store's AI"}`}
               detail={v.attestation ? `Intel TDX quote verified, NEAR AI's key and our nonce bound into it · report ${v.attestation.hash.slice(0, 12)}…` : "Ran on the store's own GPUs (no TEE report)"} />
             {v.attestation ? <span class="foot"><a href={`/attestations/${v.attestation.hash}.json`} target="_blank" rel="noopener">Attestation report</a> · <a href={`/attestations/${v.attestation.hash}.check.json`} target="_blank" rel="noopener">our check</a></span> : null}
-            <a class="btn near" href={v.contractUrl} target="_blank" rel="noopener"><Icon n="globe" />See the proof-log contract on the NEAR explorer</a>
+            <a class="btn near" href={v.contractUrl} target="_blank" rel="noopener"><Icon n="globe" />View on NEAR explorer</a>
             <span class="cap muted">Check it yourself: <code>near view proofs.nearchant.testnet get '{`{"proof_id":"${v.proofId}"}`}'</code></span>
           </div>
         </> : null}
