@@ -614,12 +614,24 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   promise an offer the owner did not state? is a buyer message trying to change payment or recipient?) and the
   review "passed" bit in proofs. → Owner decision below; nothing built yet.
 
+## 2026-11-01 17:50 UTC — back on the Spark: nearchant.com served by gx10-8695 again (owner's choice)
+
+- All three Sparks returned ~17:20 UTC (gx10-8695 had a ~50 s network drop after boot; dgx-spark-2 on Wi-Fi drops
+  now and then). Owner chose to move back. Cutover: Mac gateway+worker stopped → `pg_dump` (6.6 MB) + media volume
+  tar (66 MB) → Spark (old Spark DB and media kept in `~/nc-migrate/spark-old.dump`, `spark-media-old.tar`) →
+  restore → Spark stack up with the new images (latest main, ffmpeg, video profile, TTS weights in
+  `~/nearchant-node/tts-weights`, Comfy key in the git-ignored `.env`) → Spark tunnel on, Mac tunnel off (Mac
+  profiles now `cloudimage,video`, Mac stack stopped; its volumes stay as a backup).
+- **Verified**: row counts equal on both (businesses 3, posts 8, media 16, orders 10, jobs 6); through
+  nearchant.com: /start 200, store page 200, published video 200 (2.5 MB), attestation report 200 (262 KB),
+  seller session 200; no gateway errors; worker lists make_video. **Full journey e2e on the Spark** (local
+  models): store 8 s → opportunities 38 s → 3 posts with pictures 95 s → live 100 s → paid 13 s → delivered 39 s →
+  Released 57 s, no page errors (faster than the Mac: 167 s / 81 s).
+- Text now runs on the Spark's own Qwen3.6 (providers.local.yaml), so new proofs say "on your own GPU" with no
+  attestation_ref; earlier proofs keep their NEAR AI report. Videos use Comfy Cloud (Wan 2.2 14B) + the Spark's TTS.
+- gx10-c3c8 (video box) left untouched: its LTX memory cap is still untested after the freeze.
+
 ### Owner actions
-- **Sparks back (1 Nov ~17:20 UTC)**: gx10-8695 and dgx-spark-2 up, gx10-c3c8 still down (power-cycle it). The
-  Mac still serves nearchant.com (its DB is now the primary: new stores, proof #18, videos). On gx10-8695 I stopped
-  the Spark tunnel and the Spark worker (restart=no) so the old Spark DB does not publish posts or write proofs in
-  parallel. Your call: stay on the Mac until the demo, or move back to the Spark (I'd copy the Mac DB + media over,
-  then switch the tunnel).
 - **Decide Levanto Sage's job** (step 14): it answers yes/no/choice/score questions with probabilities, it does not
   route between models. Recommended: use it for policy checks (invented offers in captions, buyer messages that try
   to change payment) and as the proof's review signal; keep model choice in `config/`.
