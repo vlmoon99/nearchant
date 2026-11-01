@@ -1,6 +1,7 @@
 # Development routing: the owner's own GPU for every model; only the tiny Levanto Sage caption check goes to NEAR AI.
 # Select with PROVIDERS_FILE=providers.local.yaml. Second-seat requests for NEAR AI models find no endpoint
-# and fall back to the main seat (packages/swarm/src/agent.ts). Images go to our own ComfyUI (spark-image).
+# and fall back to the main seat (packages/swarm/src/agent.ts). Pictures and video run on Comfy Cloud only (owner,
+# 2 Nov): the image service in cloud mode answers at http://image:8102; the Sparks keep the LLMs.
 endpoints:
   - id: spark-8695                       # Nearchant's own node (gx10-8695), vLLM, Qwen3.6 (text + vision)
     base_url: http://100.64.0.13:8010/v1
@@ -24,10 +25,10 @@ endpoints:
       chat_template_kwargs: { enable_thinking: false }
     timeout_ms: 300000                   # ~23 tok/s: a 3-post batch is a few thousand tokens
 
-  - id: spark-image                      # our ComfyUI on gx10-8695 (compose profile gpu), Qwen-Image-Edit-2511
+  - id: spark-image                      # image service in Comfy Cloud mode (compose profile cloudimage), Qwen-Image-Edit-2511
     base_url: http://image:8102/v1       # pass image_b64 (product photo) to restyle it; none = paint from text
     api_key_env: IMAGE_API_KEY
-    privacy_tier: local
+    privacy_tier: public   # Comfy Cloud: only pictures for posts that will be published (public data)
     capabilities: [image.generate]
     timeout_ms: 240000
 
