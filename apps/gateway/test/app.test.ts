@@ -52,8 +52,17 @@ describe("home page", () => {
     const html = await home.text();
     expect(html).toContain("Posts that sell.");
     expect(html).toContain("18 posts");           // real counts, not the mockup's
+    expect(html.match(/Example · your post here/g)).toHaveLength(3); // no real posts → three labelled examples
     expect(html).not.toContain("See a verified post"); // no verified post yet → no button
     expect((await app.request("http://x/", host("alice.nearchant.com"))).status).toBe(200);
+  });
+});
+
+describe("landing firstLine", () => {
+  it("keeps the first sentence and cuts long ones at a word", async () => {
+    const { firstLine } = await import("../src/ui/landing.js");
+    expect(firstLine("Soft linen. Made in Kyiv.")).toBe("Soft linen.");
+    expect(firstLine("Cold mornings in Kyiv call for something that holds its shape and keeps you warm")).toBe("Cold mornings in Kyiv call for something that holds its…");
   });
 });
 

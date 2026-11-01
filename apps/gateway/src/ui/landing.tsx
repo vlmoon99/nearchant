@@ -14,7 +14,13 @@ export interface LandingData {
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 const GRADIENTS = ["linear-gradient(135deg,#c7d9ff 14%,#2b3d80 86%)", "linear-gradient(135deg,#f0dbbd 14%,#8c6b4d 86%)", "linear-gradient(135deg,#ffdbe0 14%,#b25478 86%)"];
-const firstLine = (s: string) => (s.split(/(?<=[.!?])\s/)[0] ?? s).slice(0, 60);
+/** The caption's first sentence, cut at a word boundary (≤ 60 characters). */
+export function firstLine(s: string): string {
+  const one = (s.split(/(?<=[.!?])\s/)[0] ?? s).trim();
+  if (one.length <= 60) return one;
+  return one.slice(0, 60).replace(/\s+\S*$/, "") + "…";
+}
+const plural = (n: number, one: string, many: string) => `${fmt(n)} ${n === 1 ? one : many}`;
 
 const Check: FC<{ dark?: boolean; children: unknown }> = ({ dark, children }) => (
   <span class="land-item"><Icon n="check" s={16} c={dark ? "#00ec97" : "#007a4f"} />{children}</span>
@@ -43,17 +49,18 @@ export const LandingPage: FC<{ cfg: UiConfig; test: boolean; d: LandingData }> =
           <span class="foot muted">No crypto needed: we create your NEAR account for you.</span>
 
           <div class="land-peek">
-            {(peek.length ? peek : GRADIENTS.map(() => null)).map((p, i) => (
+            {/* Real posts first; empty slots are labelled examples, never passed off as real stores. */}
+            {[0, 1, 2].map((i) => peek[i] ?? null).map((p, i) => (
               <a class="land-post" href={p?.href ?? "/start"}>
                 <div class="land-img" style={p?.img ? `background-image:url('${p.img}')` : `background:${GRADIENTS[i % 3]}`}></div>
                 <span class="sub b">{p ? firstLine(p.caption) : ["New drop: relaxed denim", "Linen season is here", "Pink knit is back"][i]}</span>
-                <span class="foot muted">{p ? p.line : "Your post here"}</span>
+                <span class="foot muted">{p ? p.line : "Example · your post here"}</span>
                 {p?.proofId ? <Badge label={`Proof #${p.proofId} on NEAR`} /> : null}
               </a>
             ))}
             <div class="land-stats">
               <span class="foot muted">On Nearchant so far</span>
-              <span class="t2">{fmt(d.stats.proofs)} posts</span>
+              <span class="t2">{plural(d.stats.proofs, "post", "posts")}</span>
               <span class="foot b okt">verified on NEAR · {fmt(d.stats.stores)} stores</span>
               <div class="land-insight"><Icon n="sparkles" s={16} c="#AF52DE" /><span class="foot">AI checks every caption for offers you never made before it goes live.</span></div>
             </div>
