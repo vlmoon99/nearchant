@@ -40,7 +40,7 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
 10. [x] **Seller app pages**: Home, Create (3 steps), Posts, Post detail + proof.
 11. [x] **Storefront**: store page from items/posts, item page, checkout (existing sponsored wallet + `orders`
     escrow), order paid page with timeline and "I got it — release payment".
-12. [ ] **Analytics + Wallet + Settings**: page-view/click/sale events, weekly charts, AI insights (LLM over the
+12. [x] **Analytics + Wallet + Settings**: page-view/click/sale events, weekly charts, AI insights (LLM over the
     numbers), first-week goal + checklist, first-sale celebration, Monday report; wallet from chain views.
 13. [ ] **Public URL + polish**: tunnel routes live (owner adds hostnames), end-to-end browser test of onboarding →
     post → buy → release; `make demo` replay updated to the new story; README + demo script.

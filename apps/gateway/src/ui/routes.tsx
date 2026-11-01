@@ -33,7 +33,11 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     if (!b) return c.redirect("/start", 302);
     const media = new Map((await content.listMedia(handle)).map((m) => [m.id, m.key]));
     const img = (id: string | null) => (id && media.get(id) ? `/files/${media.get(id)}` : null);
-    return fn({ handle, name: b.name, account: d.accountOf(handle) }, img);
+    const account = d.accountOf(handle);
+    // Sidebar balance: best effort, never slows a page by more than 1.5 s.
+    const bal = d.balances ? await Promise.race([d.balances(account).catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 1500))]) : null;
+    const balance = bal ? `${(Number(bal.wallet) / 10 ** d.cfg.decimals).toLocaleString("en", { maximumFractionDigits: 2 })} ${d.cfg.token}` : undefined;
+    return fn({ handle, name: b.name, account, ...(balance ? { balance } : {}) }, img);
   };
 
   app.get("/app", (c) => withStore(c, async (s, img) => {

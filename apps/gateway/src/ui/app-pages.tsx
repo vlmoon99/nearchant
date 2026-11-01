@@ -31,7 +31,7 @@ export const HomePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; post
   <Page cfg={cfg} test={test} title="Home" active="Home" store={store}>
     <PageHead kicker={`Hello, ${store.name}`} title="Home"><a class="btn" href="/app/create"><Icon n="plus" />Create post</a></PageHead>
     {(top as never) ?? null}
-    <a class="dropzone" href="/app/create" style="grid-template-columns:auto 1fr auto;text-align:left;align-items:center;color:inherit">
+    <a class="dropzone banner" href="/app/create">
       <span class="dot" style="width:56px;height:56px;background:var(--bg)"><Icon n="image" s={26} c="#007AFF" /></span>
       <span class="stack s8"><span class="t4">New post from photos</span><span class="sub muted">Pick photos of your item. AI writes the caption, designs the post and picks the best time — every post gets a proof on NEAR.</span></span>
       <span class="btn">Choose photos</span>

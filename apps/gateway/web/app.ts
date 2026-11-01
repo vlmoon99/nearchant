@@ -190,8 +190,8 @@ function onboarding() {
     const url = storeUrl(handle);
     const a = $<HTMLAnchorElement>("#store-url"); a.href = url; a.textContent = url.replace(/^https?:\/\//, "");
     $("#copy-link").onclick = () => void navigator.clipboard?.writeText(url);
-    $<HTMLAnchorElement>("#share-tg").href = `https://t.me/share/url?url=${encodeURIComponent(url)}`;
-    $<HTMLAnchorElement>("#share-wa").href = `https://wa.me/?text=${encodeURIComponent(url)}`;
+    $<HTMLAnchorElement>("#share-tg").href = `https://t.me/share/url?url=${encodeURIComponent(url + "?ref=telegram")}`;
+    $<HTMLAnchorElement>("#share-wa").href = `https://wa.me/?text=${encodeURIComponent(url + "?ref=whatsapp")}`;
     const acct = `${handle}.nearchant.${cfg.network === "mainnet" ? "near" : "testnet"}`;
     $("#near-account").textContent = acct;
     const k = store.get(keyOf(handle)) ?? "";

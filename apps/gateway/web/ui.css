@@ -113,6 +113,8 @@ label.field { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
 .steps-dots { display: flex; gap: 4px; } .steps-dots i { width: 8px; height: 6px; border-radius: 3px; background: var(--track); } .steps-dots i.on { background: var(--accent); } .steps-dots i.cur { width: 22px; }
 .thumbs { display: flex; gap: 10px; flex-wrap: wrap; } .thumbs .th { width: 88px; height: 88px; border-radius: 12px; background: var(--grouped) center/cover; position: relative; }
 .dropzone { border: 1.5px dashed color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-soft); border-radius: var(--r-lg); padding: 32px 24px; display: grid; justify-items: center; gap: 10px; text-align: center; cursor: pointer; }
+.dropzone.banner { grid-template-columns: auto 1fr auto; text-align: left; align-items: center; color: inherit; }
+@media (max-width: 899px) { .dropzone.banner { grid-template-columns: 1fr; justify-items: start; } }
 .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--label); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px; z-index: 20; }
 .hidden { display: none !important; }
 .onb { max-width: 480px; margin: 0 auto; padding: 16px 20px 140px; display: flex; flex-direction: column; gap: 16px; }

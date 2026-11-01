@@ -501,6 +501,22 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Not yet: the order page still has the old deck-shop styling; storefront order counter is 0 (wire to orders).
 - Next: step 12 (analytics, wallet, settings; first-sale celebration; weekly report).
 
+## 2026-11-01 ~22:40 UTC — M1 step 12: Analytics, Wallet, Settings, weekly report, first-sale celebration
+
+- Analytics (`/app/analytics`, 7/30/90 days): store views (tracked on store + item pages, source from `?ref=` share
+  links), sales count + revenue from sale events, posts published, proofs, daily views/sales bars, view sources,
+  "What AI noticed" from the `write_insights` worker task (insight-writer over the real numbers, cached in settings).
+- Wallet (`/app/wallet`): nUSD balance read from chain, held in escrow, AI usage (billing contract), transactions
+  from orders; sidebar shows the balance (1.5 s best effort). Settings: store profile, brand wishes (kept across
+  re-analysis, feed the idea writer), NEAR key export from the browser, plan usage. Weekly report (`/app/report`)
+  with earned / sales / views / badges / next opportunities. First-sale celebration card on Home (once).
+- **Verified** on the Mac stack (NEAR AI + chain): 6 tracked visits (telegram 3, instagram 2, direct 1); AI
+  insights honest about thin data ("A quiet start — two sales brought in $90"); wallet 145 nUSD from chain, 45 in
+  escrow, both sales listed; celebration shown on Home; screenshots desktop + mobile, no page errors. Fixed: mobile
+  Home banner layout, share links carry `?ref`.
+- Next: step 13 (polish: order page in the new style, store order counter, README + demo script, `make demo` for
+  the new story), video shorts (13b), step 14.
+
 ### Owner actions
 - **URGENT (1 Nov ~18:00 UTC): all three Sparks offline** (no ping/SSH; nearchant.com 530) — likely power or
   network at the site. `gx10-c3c8` went silent first (~17:30, during a video render). Check power/network; power-

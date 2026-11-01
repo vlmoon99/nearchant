@@ -124,6 +124,6 @@ export const Celebration: FC<{ amount: string; item: string; store: StoreView }>
     <span class="sub muted">Someone bought <b>{item}</b>.</span>
     <span class="t1 okt" style="font-size:40px">+{amount}</span>
     <span class="foot muted">Safe in escrow on NEAR — yours as soon as the buyer confirms.</span>
-    <div class="row" style="gap:10px;flex-wrap:wrap;justify-content:center"><a class="btn" href={`https://t.me/share/url?url=${encodeURIComponent(`https://nearchant.com/h/${store.handle}/`)}`} target="_blank" rel="noopener"><Icon n="send" />Share your verified store</a><button class="btn secondary" id="dismiss-celebration">Thanks!</button></div>
+    <div class="row" style="gap:10px;flex-wrap:wrap;justify-content:center"><a class="btn" href={`https://t.me/share/url?url=${encodeURIComponent(`https://nearchant.com/h/${store.handle}/?ref=telegram`)}`} target="_blank" rel="noopener"><Icon n="send" />Share your verified store</a><button class="btn secondary" id="dismiss-celebration">Thanks!</button></div>
   </div>
 );
