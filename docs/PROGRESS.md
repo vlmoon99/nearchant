@@ -774,6 +774,15 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   no hands. Swarm tests 35.
 - Next: mobile seller screens vs Figma, then "Connect a NEAR wallet".
 
+## 2026-11-01 22:10 UTC — Figma audit, part 3: mobile seller screens
+
+- Compared Mobile web · Home / Analytics / Wallet (393 px) with nearchant.com. Fixed: bottom bar order
+  Home · Posts · (+) · Analytics · Wallet as in Figma; no duplicate "Create post" button on phones (the + is it);
+  wallet amounts stay on one line; AI usage shows 0 instead of "—". **Verified** in Chrome at 393 px, no errors.
+- Differences kept on purpose: no "Engagement"/"Followers" stats (we have no social account data), Wallet has no
+  Receive/Withdraw buttons yet (not built), the app keeps its own top bar (the Figma frame shows the browser's).
+- Next: "Connect a NEAR wallet" (Figma onboarding 1).
+
 ### Owner actions
 - Email sign-up (Figma onboarding 1): say if you want it, and give an email provider key (e.g. Resend or Postmark)
   — I'll add "Continue with email" login links. "Connect a NEAR wallet" I can build without anything from you.
