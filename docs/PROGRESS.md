@@ -715,6 +715,20 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Still from the audit: "Continue with email" (owner: email provider) and "Connect a NEAR wallet" (next);
   mobile seller screens not compared yet.
 
+## 2026-11-01 20:45 UTC — light-only UI; no skull anywhere
+
+- Owner (screenshot from a dark-mode browser): store page background wrong — the page went black while the hero
+  card stayed light, so the white title vanished. The Figma is light-only: dropped the dark palette from
+  `ui.css` and `pages.tsx`, `color-scheme: light`. Verified in Chrome with `colorScheme: dark`: white page, dark title.
+- Owner: remove the skull. New `fixtures/replay/store/photos/photo-1.jpg` (Qwen-Image-Edit 2511 removed the
+  rhinestone skull; same jacket, hanger, light). `make demo` recording redone (no "skull" in any envelope; replay
+  identical). The demo now paints a post without a product photo with Qwen-Image 2512 (the edit model needs a
+  photo — that was the repeated `non_retryable_error`) and keeps already-recorded pictures. Live test stores
+  (novatestaegk, novatestl21q, novatestgnpn): item renamed "Dark denim jacket", photo replaced (private + public
+  copy), two scheduled skull posts removed. Item photo URLs carry `?v=` so Cloudflare's day-long cache can't show
+  the old picture. e2e journey lists "Dark denim jacket".
+- Store page: "1 order" (was "1 orders").
+
 ### Owner actions
 - Email sign-up (Figma onboarding 1): say if you want it, and give an email provider key (e.g. Resend or Postmark)
   — I'll add "Continue with email" login links. "Connect a NEAR wallet" I can build without anything from you.
