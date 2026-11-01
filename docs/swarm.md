@@ -73,3 +73,26 @@ continue).
   backoff (max 5 attempts), then the job is `failed` and the seller is notified. Orders auto-refund after the
   delivery deadline (`orders.refund_undelivered`), so a dead job never traps the buyer's money.
 - Worker crash mid-step → the step is re-leased; artifacts make it a no-op if it had finished.
+
+## Hiring another agent (flow 3, M0 Tier 2)
+
+Between `council` and `write`, the deck job may hire a **fact-checker** from another Nearchant seller (demo:
+`verity.nearchant.testnet`) to check the dossier claims the strategy relies on.
+
+1. **Discover.** The hiring agent reads the seller's A2A card (`/.well-known/agent-card.json`) for the skill id,
+   price and A2A URL.
+2. **Ask.** `POST <a2a url>` JSON-RPC `SendMessage` with the task text. With no payment attached the seller answers
+   **402** and x402-style terms: `{ x402Version, accepts: [{ scheme: "nearchant-escrow", network: "near:testnet",
+   asset: <nUSD>, amount, payTo: <seller account>, resource }] }`.
+3. **Pay.** The hiring agent calls `escrow.pay(campaign_id, payee, amount, memo = <A2A task id>)` signed by the
+   seller's escrow function-call key. The contract enforces the policy (auto limit, daily limit, allowlist); a
+   payment over the auto limit waits for the owner's approval and the step waits (it re-checks on retry).
+4. **Prove and get the work.** It retries `SendMessage` with header `X-PAYMENT: <base64 JSON {scheme, network,
+   payment_id}>`. The seller reads `escrow.get_payment(payment_id)` and serves the task only if the payment is
+   `Paid`, to itself, for at least the price, with a memo matching this task — and each payment id is used once.
+5. **Use.** The result (Markdown with per-claim verdicts) is stored in the `factcheck` artifact; the copywriter
+   gets it so weak claims are dropped or labelled.
+
+The payee pays the 5% agent-economy fee to the treasury (`escrow-policy`, ADR 0009). The hire is metered like any
+other call on the *seller's* side (their own billing balance). If anything in the hire fails, the deck job
+continues without a fact-check and says so in the artifact — hiring is a bonus, never a blocker.
