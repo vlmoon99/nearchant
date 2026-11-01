@@ -77,6 +77,8 @@ export interface OrderView {
   stepsDone: string[];
   files: { kind: string; url: string }[];
   stopped: string | null;
+  /** A store item (ADR 0018): shipped by the seller, no AI steps or files. */
+  item?: boolean;
 }
 
 const STEP_LABELS: Record<string, string> = {
@@ -96,7 +98,21 @@ export const OrderPage: FC<{ o: OrderView; base: string; cfg: ClientConfig; test
         <p class="account">Order {o.orderId} · {o.amountDisplay} · escrow: {o.chainStatus ?? "not paid yet"}</p>
       </section>
       {o.stopped ? <section class="service"><h2>Stopped</h2><p>{o.stopped}</p><p class="muted">Your payment stays in escrow and is refundable after the delivery deadline.</p></section> : null}
-      {working ? (
+      {o.item ? (
+        <section class="service" {...(o.chainStatus === "Held" ? { "data-poll-order": o.orderId } : {})}>
+          <h2>{o.chainStatus === "Held" ? "Paid — the store is packing your order" : o.chainStatus === "Delivered" ? "Shipped — confirm when you get it" : o.chainStatus === "Released" ? "Done" : "Your order"}</h2>
+          <ol class="steps">
+            <li class="done">Paid — the money is held in escrow on NEAR</li>
+            <li class={["Delivered", "Released"].includes(o.chainStatus ?? "") ? "done" : ""}>Shipped by {o.handle.card.name} (recorded on NEAR)</li>
+            <li class={o.chainStatus === "Released" ? "done" : ""}>You confirm — the payment goes to the store</li>
+          </ol>
+          {o.chainStatus === "Delivered" ? <p class="actions"><button data-order-action="accept" data-order={o.orderId}>I got it — release payment</button><button class="secondary" data-order-action="request_refund" data-order={o.orderId}>Problem — request a refund</button></p> : null}
+          {o.chainStatus === "Released" ? <p>Thank you! The payment was released to {o.handle.account_id}.</p> : null}
+          {o.chainStatus === "Held" ? <p class="muted">This page refreshes by itself. If it isn’t shipped before the deadline, you get your money back automatically.</p> : null}
+          <output id="order-msg"></output>
+        </section>
+      ) : null}
+      {working && !o.item ? (
         <section class="service" data-poll-order={o.orderId}>
           <h2>Agents are working</h2>
           {revising ? <p>Revision requested — the agents are reworking your deck. It is redelivered with a new proof.</p> : null}

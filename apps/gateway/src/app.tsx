@@ -209,7 +209,7 @@ export function createApp(d: Deps) {
     const o: OrderView = {
       orderId: row.orderId, handle: h, serviceTitle: service?.title ?? "Order", amountDisplay: price(row.amount), state: row.state,
       chainStatus: chain?.status ?? null, revisionsLeft: ((chain as { revisions_used?: number } | undefined)?.revisions_used ?? 0) < 1,
-      stepsDone: p.stepsDone, files: p.files, stopped: p.stopped,
+      stepsDone: p.stepsDone, files: p.files, stopped: p.stopped, item: row.serviceId.startsWith("i-"),
     };
     const base = c.req.path.startsWith("/h/") ? `/h/${h.handle}/` : "/";
     return c.html(<OrderPage o={o} base={base} cfg={d.client} testToken={d.config.token.test} />);

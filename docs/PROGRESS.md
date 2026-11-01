@@ -486,6 +486,21 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Next: step 11 storefront; later more video variants (Wan 2.2 I2V 14B + lightx2v 4-step LoRAs, LTX-2.x) and the
   short assembly (English Kokoro voiceover + captions, docs/video-plan.md).
 
+## 2026-11-01 ~21:30 UTC — M1 step 11: storefront + full item sale on NEAR testnet
+
+- Store page (Figma storefront: header with "Store verified on NEAR", shop grid, latest posts with proof ids,
+  "Safe to buy") and item page with the existing escrow checkout (sponsored test wallet → nUSD into `orders`).
+  Classic deck shops keep their card.
+- Owner side: Home lists the products the AI found in the photos — set a price → item (mirrored as an orderable
+  service, photo copied to public); "Orders to ship" with "Mark shipped" → outbox `item.ship` → proof (shipping note
+  hash) + `mark_delivered` with the store's agent keys. Item orders skip the AI pipeline and record a `sale` event.
+  Order page has an item variant (paid → shipped → you confirm).
+- **Verified** (`e2e/buy-item.mjs`, Chrome at phone size, Mac stack): paid 12 s → shipped → delivered on chain
+  55 s → buyer "I got it" → `Released` 73 s, no page errors. First attempt left one order Delivered whose buyer key
+  was in a closed test browser — the escrow timer releases it after the timeout.
+- Not yet: the order page still has the old deck-shop styling; storefront order counter is 0 (wire to orders).
+- Next: step 12 (analytics, wallet, settings; first-sale celebration; weekly report).
+
 ### Owner actions
 - **URGENT (1 Nov ~18:00 UTC): all three Sparks offline** (no ping/SSH; nearchant.com 530) — likely power or
   network at the site. `gx10-c3c8` went silent first (~17:30, during a video render). Check power/network; power-
