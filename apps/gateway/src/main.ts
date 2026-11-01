@@ -150,7 +150,7 @@ const landingCfg = { base: "/", rpcUrl: config.rpc_urls[0] ?? "", network: confi
 const landing = conn ? async () => {
   const sc = await new ContentStore(conn.db).showcase(3);
   const posts = sc.posts.map((p) => ({ caption: p.caption, img: p.publicImage ? `/files/${p.publicImage}?w=640` : null, proofId: p.proofId, store: p.storeName, href: `/h/${p.handle}/`, line: `${p.storeName}${p.proofId ? ` · proof #${p.proofId}` : ""}` }));
-  return LandingPage({ cfg: landingCfg, test: config.token.test, d: { posts, stats: { proofs: sc.proofs, paidOrders: sc.paidOrders, stores: sc.stores }, verifyHref: posts[0]?.href ?? null, limits: { free: PLAN_LIMITS.free!, pro: PLAN_LIMITS.pro! } } });
+  return LandingPage({ cfg: landingCfg, test: config.token.test, d: { posts, stats: { proofs: sc.proofs, paidOrders: sc.paidOrders, stores: sc.stores }, verifyHref: posts[0]?.proofId ? `/verify/${posts[0].proofId}` : "/verify", limits: { free: PLAN_LIMITS.free!, pro: PLAN_LIMITS.pro! } } });
 } : undefined;
 
 const checkoutJs = existsSync(checkoutFile) ? readFileSync(checkoutFile, "utf8") : undefined;
@@ -316,6 +316,8 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
       return { wallet, billing };
     },
     explorer: (a) => `https://${config.network === "mainnet" ? "" : "testnet."}nearblocks.io/address/${a}`,
+    proof: (id) => chain.view(accounts.proofs, "get", { proof_id: id }),
+    proofsContract: accounts.proofs, mediaDir,
   });
 }
 

@@ -33,7 +33,7 @@ export const LandingPage: FC<{ cfg: UiConfig; test: boolean; d: LandingData }> =
       <div class="land">
         <nav class="land-nav">
           <a class="land-logo" href="/"><Mark />Nearchant</a>
-          <span class="land-links sub"><a href="#how">How it works</a>{d.verifyHref ? <a href={d.verifyHref}>Verify a post</a> : null}<a href="#pricing">Pricing</a></span>
+          <span class="land-links sub"><a href="#how">How it works</a><a href="/verify">Verify a post</a><a href="#pricing">Pricing</a></span>
           <span class="row" style="gap:16px;align-items:center"><a class="sub" href="/app">Sign in</a><a class="btn" href="/start">Create your store</a></span>
         </nav>
 
@@ -112,7 +112,7 @@ export const LandingPage: FC<{ cfg: UiConfig; test: boolean; d: LandingData }> =
 
         <footer class="land-foot foot muted">
           <span>© 2026 Nearchant · open source (MIT) · built on NEAR</span>
-          <span class="row" style="gap:24px;flex-wrap:wrap">{d.verifyHref ? <a href={d.verifyHref}>Verify a post</a> : null}<a href="https://github.com/vlmoon99/nearchant">GitHub</a></span>
+          <span class="row" style="gap:24px;flex-wrap:wrap"><a href="/verify">Verify a post</a><a href="https://github.com/vlmoon99/nearchant">GitHub</a></span>
         </footer>
       </div>
     </UiPage>

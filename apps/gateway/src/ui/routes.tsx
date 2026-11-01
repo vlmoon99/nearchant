@@ -8,8 +8,18 @@ import { createHash } from "node:crypto";
 import { UiPage, assetV, type UiConfig } from "./kit.js";
 import { AnalyticsPage, Celebration, ReportPage, SettingsPage, WalletPage, type Insights } from "./more-pages.js";
 import { readSession } from "../seller-app.js";
+import { VerifyPage, type VerifyView } from "./verify.js";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
+/** A proof-log entry as the contract returns it. */
+export interface ProofEntry { proof_id: string; task_id: string; author_id: string; output_hash: string; producer: string; attestation_ref: string | null; review: { passed: boolean } | null; created_at: string }
 
 export interface UiDeps {
+  /** proofs.get on NEAR (null = no such proof). */
+  proof?: (id: string) => Promise<ProofEntry | null>;
+  proofsContract?: string;
+  mediaDir?: string;
   cfg: UiConfig; test: boolean; css: string; js: string | undefined; sessionKey: Buffer;
   content?: ContentStore;
   accountOf: (handle: string) => string;
@@ -25,6 +35,40 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
   app.get("/assets/ui.css", (c) => c.body(d.css, 200, { "content-type": "text/css; charset=utf-8", "cache-control": "public, max-age=300" }));
   app.get("/assets/app.js", (c) => (d.js ? c.body(d.js, 200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=300" }) : c.text("app.js not built", 503)));
   app.get("/start", (c) => c.html(<OnboardingPage cfg={d.cfg} test={d.test} />));
+  // Verify a post: the proof from NEAR, the fingerprint recomputed from the published caption + picture file.
+  const verify = async (c: Context, id: string | undefined) => {
+    const latest = d.content ? (await d.content.showcase(8)).posts.filter((p) => p.proofId).map((p) => ({ id: p.proofId!, store: p.storeName, caption: p.caption })) : [];
+    let v: VerifyView | null = null;
+    if (id !== undefined && /^\d{1,12}$/.test(id) && d.proof) {
+      const e = await d.proof(id).catch(() => null);
+      v = { proofId: id, found: !!e, contractUrl: d.explorer(d.proofsContract ?? "proofs.nearchant.testnet") };
+      if (e) {
+        const created = new Date(Number(BigInt(e.created_at) / 1_000_000n));
+        Object.assign(v, { author: e.author_id, producer: e.producer, outputHash: e.output_hash, createdAt: created.toUTCString().replace(" GMT", " UTC"), reviewPassed: e.review ? e.review.passed : null, recomputed: null, match: null });
+        const postId = e.task_id.startsWith("post:") ? e.task_id.slice(5) : null;
+        const post = postId && d.content ? await d.content.getPost(postId) : null;
+        const pub = (post?.idea as { publicImage?: string } | undefined)?.publicImage;
+        if (post && pub && d.mediaDir) {
+          const bytes = await readFile(join(d.mediaDir, pub)).catch(() => null);
+          if (bytes) {
+            const h = (b: string | Buffer) => createHash("sha256").update(b).digest("hex");
+            v.recomputed = h(`${post.caption ?? ""}\n${h(bytes)}`);
+            v.match = v.recomputed === e.output_hash;
+          }
+          const b = await d.content!.getBusiness(post.handle);
+          v.post = { caption: post.caption ?? "", img: `/files/${pub}?w=320`, store: b?.name ?? post.handle, href: `/h/${post.handle}/` };
+        }
+        const a = /^nearai:(.+):([0-9a-f]{64})$/.exec(e.attestation_ref ?? "");
+        if (a) {
+          const check = d.mediaDir ? await readFile(join(d.mediaDir, "attestations", `${a[2]}.check.json`), "utf8").then((x) => JSON.parse(x) as { ok?: boolean }, () => null) : null;
+          v.attestation = { model: a[1]!, hash: a[2]!, ok: check ? !!check.ok : null };
+        }
+      }
+    }
+    return c.html(<VerifyPage cfg={d.cfg} test={d.test} v={v} latest={latest} />);
+  };
+  app.get("/verify", (c) => verify(c, c.req.query("id")?.trim() || undefined));
+  app.get("/verify/:id", (c) => verify(c, c.req.param("id")));
   const content = d.content;
   if (!content) return;
 
