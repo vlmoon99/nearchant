@@ -842,6 +842,18 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   original; grids, store, landing and onboarding use it. **Verified**: 1.29 MB PNG → 119 KB WebP; tests 38.
   (The first recording showed an empty picture box: the 1.3 MB PNG had not loaded yet.)
 
+## 2026-11-02 03:30 UTC — night: regression green; "Verify a post"; hidden test stores
+
+- **Regression**: journey e2e on nearchant.com (posts 128 s, paid → shipped → Released 64 s, no page errors),
+  `make demo` in Docker, CI green on every push tonight; WebKit + desktop onboarding checked earlier.
+- **Walkthrough video** committed: `docs/media/walkthrough.mp4` (72 s, 2.1 MB), linked from the README.
+- **Verify a post** (`/verify`, `/verify/<n>`; landing nav + footer): reads the proof from `proofs.nearchant.testnet`,
+  recomputes the fingerprint from the published caption + the published picture file (so a later edit shows as
+  "changed"), shows the publishing account, the caption check, and the TEE attestation (model + our report check),
+  plus the `near view` command to check it yourself. **Verified** live: proofs #18, #21, #23 "unchanged"; tests 40.
+- Public pages show only the demo store: setting `showcase_hidden` lists the 13 other test stores (Kyiv/skull era
+  and test runs); "Kyiv" no longer appears on nearchant.com's home or verify pages.
+
 ### Owner actions
 - Try "Connect a NEAR wallet": Settings → NEAR wallet in your store (testnet MyNearWallet account), then sign in
   with it from another browser. Tell me if MyNearWallet shows an error.

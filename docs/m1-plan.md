@@ -65,7 +65,7 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
 3. [x] Step 14 remainder: verify NEAR AI attestation reports ourselves (as far as possible without Phala).
 4. [x] Submission: README + demo script up to date; an automated walkthrough video of the full flow.
 5. [x] Full regression: journey e2e (Chrome + WebKit), make demo, CI, phone/desktop pass over every page.
-7. [ ] "Verify a post" page: proof from NEAR + fingerprint recomputed from the published post + attestation check.
+7. [x] "Verify a post" page: proof from NEAR + fingerprint recomputed from the published post + attestation check.
 8. [ ] Wallet: Receive (account + copy) and Withdraw (nUSD to the owner's NEAR account, signed in the browser).
 6. [ ] Morning report in PROGRESS.md: done / verified / owner actions.
 
