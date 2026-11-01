@@ -439,6 +439,23 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - **When the Sparks come back**: their tunnel container restarts too — two connectors with different databases
   would split traffic. Stop one side first (keep the Mac until the Spark DB is reconciled, or move back).
 
+## 2026-11-01 ~19:40 UTC — admin image lab (tailnet only) + first model comparison on Comfy Cloud
+
+- Owner has ~7,300 Comfy Cloud credits until 11 Nov and wants to test models before choosing. Built an admin
+  image lab: a second listener on :8790 published only on the Mac's tailnet address (`ADMIN_BIND=100.64.0.8`) —
+  the public tunnel only forwards to :8787 (verified: tailnet 200, public 404). Upload a product photo + prompt →
+  render with several Comfy Cloud models side by side (2 at a time) → rate → "Use in production" stores the
+  default in `settings.image_variant`. Variants live in `config/image-lab.yaml` + workflow files
+  (`config/image-lab/`), so adding a model is a file, not code. TypeScript Comfy Cloud client ported from the
+  image service (plain errors for wrong key / out of credits; a 402 stops the batch). Tests: every variant fills
+  without leftover placeholders and its overrides hit real nodes.
+- **First comparison** (denim jacket photo, "worn on a sunny Kyiv street in autumn"): all 6 rendered (17–38 s).
+  Qwen-Image-Edit 2511 Lightning 4-step kept the rhinestone skull exactly — best product fidelity, 21.6 s;
+  2511 full 20-step turned the model to the front (product lost); 2509 altered the skull and denim; Qwen-Image
+  2512 text-to-image is generic (no product). Current default confirmed for now.
+- Next: more model families in the lab (FLUX.2 Klein 4B edit, HiDream E1.1, video: Wan 2.2 i2v / LTX on Comfy
+  Cloud), wire `settings.image_variant` into post rendering, step 11 storefront.
+
 ### Owner actions
 - **URGENT (1 Nov ~18:00 UTC): all three Sparks offline** (no ping/SSH; nearchant.com 530) — likely power or
   network at the site. `gx10-c3c8` went silent first (~17:30, during a video render). Check power/network; power-
