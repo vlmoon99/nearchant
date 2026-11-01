@@ -56,9 +56,20 @@ export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView;
   </Page>
 );
 
-export const WalletPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; balance: string; escrow: string; escrowCount: number; aiMonth: string; aiBalance: string; rows: { when: string; what: string; state: string; amount: string; sign: string }[]; explorer: string }> = ({ cfg, test, store, balance, escrow, escrowCount, aiMonth, aiBalance, rows, explorer }) => (
+export const WalletPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; balance: string; escrow: string; escrowCount: number; aiMonth: string; aiBalance: string; rows: { when: string; what: string; state: string; amount: string; sign: string }[]; explorer: string; withdrawTo?: string | null }> = ({ cfg, test, store, balance, escrow, escrowCount, aiMonth, aiBalance, rows, explorer, withdrawTo }) => (
   <Page cfg={cfg} test={test} title="Wallet" active="Wallet" store={store}>
     <PageHead kicker={`${store.account} · NEAR account`} title="Wallet"><a class="btn secondary" href={explorer} target="_blank" rel="noopener"><Icon n="globe" />Explorer</a></PageHead>
+    <div class="row" style="gap:10px;flex-wrap:wrap">
+      <button class="btn secondary" data-receive={store.account}><Icon n="arrow" />Receive</button>
+      <button class="btn near" data-withdraw-open><Icon n="send" />Withdraw</button>
+    </div>
+    <div class="card hidden" id="receive-card"><span class="headline">Receive</span><span class="foot">Send {cfg.token} on NEAR to your store account:</span>
+      <div class="spread"><b style="word-break:break-all">{store.account}</b><button class="btn secondary" data-copy={store.account}><Icon n="copy" />Copy</button></div></div>
+    <form class="card hidden" id="withdraw-form"><span class="headline">Withdraw {cfg.token}</span>
+      <span class="foot muted">Sends from your store account to any NEAR account, signed in this browser with your store key. If the account never held {cfg.token}, the store pays its one-time registration (0.00125 NEAR).</span>
+      <label class="field">To NEAR account<input class="input" name="to" required placeholder="you.testnet" value={withdrawTo ?? ""} autocomplete="off" /></label>
+      <label class="field">Amount ({cfg.token})<input class="input" name="amount" required inputmode="decimal" placeholder="10" /></label>
+      <button class="btn" type="submit"><Icon n="send" />Send</button><output class="foot" id="withdraw-out"></output></form>
     <div class="grid3">
       <div class="card dark" style="gap:8px"><span class="foot">Available balance</span><span class="t1" style="font-size:40px">{balance}</span><span class="tag" style="background:var(--near);color:var(--near-ink)">{store.account}</span><span class="cap">Your own NEAR account — Nearchant can’t move your money.</span></div>
       <div class="stat"><span class="foot muted">Held in escrow</span><span class="metric">{escrow}</span><span class="foot muted">{escrowCount} order{escrowCount === 1 ? "" : "s"} wait for the buyer to confirm</span></div>

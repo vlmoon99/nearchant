@@ -302,7 +302,7 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
   const sessionKey = createHash("sha256").update(`nearchant-session:${process.env.NEARCHANT_SECRET_KEY ?? "dev"}`).digest();
   const storeBase = config.public_url.startsWith("https://") ? new URL(config.public_url).host : "";
   mountUi(app, {
-    cfg: { base: "/", rpcUrl: config.rpc_urls[0] ?? "", network: config.network, token: config.token.symbol, decimals: config.token.decimals, storeBase },
+    cfg: { base: "/", rpcUrl: config.rpc_urls[0] ?? "", network: config.network, token: config.token.symbol, decimals: config.token.decimals, storeBase, tokenContract: accounts.nusd, accountSuffix: accounts.root },
     test: config.token.test, css: readFileSync(join(import.meta.dirname, "../web/ui.css"), "utf8"),
     js: existsSync(appFile) ? readFileSync(appFile, "utf8") : undefined, sessionKey,
     ...(conn ? { content: new ContentStore(conn.db) } : {}),

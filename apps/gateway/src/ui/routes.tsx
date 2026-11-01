@@ -158,7 +158,7 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const held = orders.filter((o) => ["paid", "in_progress", "delivered"].includes(o.state));
     const rows = orders.filter((o) => o.state !== "awaiting_payment").slice(0, 20).map((o) => ({ when: o.createdAt.slice(0, 16).replace("T", " "), what: titles.get(o.serviceId) ?? "Order", state: o.state === "released" ? "paid out" : o.state === "delivered" ? "shipped, in escrow" : o.state === "refunded" ? "refunded" : "in escrow", amount: fmtU(o.amount), sign: o.state === "refunded" ? "" : "+" }));
     return c.html(<WalletPage cfg={d.cfg} test={d.test} store={s} balance={bal ? fmtU(bal.wallet) : "—"} escrow={fmtU(held.reduce((a, o) => a + BigInt(o.amount), 0n))} escrowCount={held.length}
-      aiMonth={fmtU(bal?.billing?.spent_month ?? "0")} aiBalance={bal?.billing ? fmtU(bal.billing.balance) : "none yet"} rows={rows} explorer={d.explorer(s.account)} />);
+      aiMonth={fmtU(bal?.billing?.spent_month ?? "0")} aiBalance={bal?.billing ? fmtU(bal.billing.balance) : "none yet"} rows={rows} explorer={d.explorer(s.account)} withdrawTo={await content.getSetting<string>(`walletOf:${s.handle}`)} />);
   }));
 
   app.get("/app/settings", (c) => withStore(c, async (s) => {

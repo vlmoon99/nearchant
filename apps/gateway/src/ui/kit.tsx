@@ -30,7 +30,7 @@ export const Icon: FC<{ n: string; s?: number; c?: string }> = ({ n, s = 18, c }
 export const assetV: Record<"css" | "js" | "checkout", string> = { css: "", js: "", checkout: "" };
 export const asset = (path: string, k: keyof typeof assetV) => (assetV[k] ? `${path}?v=${assetV[k]}` : path);
 
-export interface UiConfig { base: string; rpcUrl: string; network: string; token: string; decimals: number; storeBase: string }
+export interface UiConfig { base: string; rpcUrl: string; network: string; token: string; decimals: number; storeBase: string; tokenContract?: string; accountSuffix?: string }
 
 /** HTML page with the UI stylesheet, the client config and the app script. */
 export const UiPage: FC<PropsWithChildren<{ title: string; cfg: UiConfig; page: string; test?: boolean }>> = ({ title, cfg, page, test, children }) => (

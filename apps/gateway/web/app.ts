@@ -1,6 +1,7 @@
 // Seller app + onboarding client (ADR 0018). The store's NEAR key is made and kept in this browser (testnet);
 // the gateway sponsors the account. After one signature the session cookie carries the rest.
-import { KeyPair, type KeyPairString } from "near-api-js";
+import { Account, JsonRpcProvider, KeyPair, KeyPairSigner, type KeyPairString } from "near-api-js";
+import { toUnits } from "./units.js";
 
 interface Cfg { base: string; rpcUrl: string; network: string; token: string; decimals: number; storeBase: string; page: string }
 const cfg: Cfg = JSON.parse(document.getElementById("nc-config")!.textContent!);
@@ -310,6 +311,45 @@ async function signinPage() {
   const h1 = document.querySelector("h1"); if (h1) h1.textContent = "Sign in";
   $("#signin-msg").textContent = "No store key in this browser. Sign in with the NEAR wallet you linked, create a store, or open Nearchant in the browser where you made it.";
 }
+
+// ── Wallet: Receive / Withdraw (nUSD from the store account, signed here with the store key) ─────────────────────
+async function rpcQuery<T>(params: Record<string, unknown>): Promise<T | null> {
+  const r = await fetch(cfg.rpcUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "query", params: { finality: "final", ...params } }) }).then((x) => x.json()).catch(() => null);
+  return r?.result ?? null;
+}
+const viewCall = async <T>(contract: string, method: string, args: unknown): Promise<T | null> => {
+  const r = await rpcQuery<{ result: number[] }>({ request_type: "call_function", account_id: contract, method_name: method, args_base64: btoa(JSON.stringify(args)) });
+  return r ? JSON.parse(new TextDecoder().decode(new Uint8Array(r.result))) as T : null;
+};
+document.querySelector<HTMLElement>("[data-receive]")?.addEventListener("click", () => $("#receive-card").classList.toggle("hidden"));
+document.querySelectorAll<HTMLElement>("[data-copy]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); void navigator.clipboard?.writeText(b.dataset.copy!); b.textContent = "Copied"; }));
+document.querySelector<HTMLElement>("[data-withdraw-open]")?.addEventListener("click", () => $("#withdraw-form").classList.toggle("hidden"));
+document.querySelector<HTMLFormElement>("#withdraw-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.currentTarget as HTMLFormElement, out = $("#withdraw-out"), btn = f.querySelector("button")!;
+  const to = (f.elements.namedItem("to") as HTMLInputElement).value.trim().toLowerCase();
+  const handle = store.get(CUR), key = handle ? store.get(keyOf(handle)) : null;
+  if (!handle || !key) { out.textContent = "Your store key is not in this browser — open Nearchant where you made the store, or import the key."; return; }
+  if (!cfg.tokenContract || !cfg.accountSuffix) { out.textContent = "Withdrawals are not set up on this server."; return; }
+  btn.disabled = true;
+  try {
+    const units = toUnits((f.elements.namedItem("amount") as HTMLInputElement).value, cfg.decimals);
+    if (units <= 0n) throw new Error("amount must be above 0");
+    if (!(await rpcQuery({ request_type: "view_account", account_id: to }))) throw new Error(`${to} does not exist on NEAR ${cfg.network}`);
+    const accountId = `${handle}.${cfg.accountSuffix}`;
+    const balance = BigInt((await viewCall<string>(cfg.tokenContract, "ft_balance_of", { account_id: accountId })) ?? "0");
+    if (units > balance) throw new Error(`the store has ${money(String(balance))}`);
+    const account = new Account(accountId, new JsonRpcProvider({ url: cfg.rpcUrl }), new KeyPairSigner(KeyPair.fromString(key as KeyPairString)));
+    if (!(await viewCall(cfg.tokenContract, "storage_balance_of", { account_id: to }))) {
+      out.textContent = `Registering ${to} with ${cfg.token}…`;
+      await account.callFunction({ contractId: cfg.tokenContract, methodName: "storage_deposit", args: { account_id: to, registration_only: true }, deposit: 1_250_000_000_000_000_000_000n, gas: 30n * 10n ** 12n });
+    }
+    out.textContent = `Sending ${money(String(units))} to ${to}…`;
+    await account.callFunction({ contractId: cfg.tokenContract, methodName: "ft_transfer", args: { receiver_id: to, amount: units.toString(), memo: "Nearchant withdrawal" }, deposit: 1n, gas: 30n * 10n ** 12n });
+    out.textContent = `Sent ${money(String(units))} to ${to} on NEAR.`;
+    setTimeout(() => location.reload(), 2500);
+  } catch (err) { out.textContent = (err as Error).message.slice(0, 200); btn.disabled = false; }
+});
 
 // ── NEAR wallet (NEP-413 sign message via MyNearWallet) ───────────────────────────────────────────────────────────
 const WALLET = cfg.network === "mainnet" ? "https://app.mynearwallet.com" : "https://testnet.mynearwallet.com";
