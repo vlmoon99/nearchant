@@ -26,7 +26,7 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
    events, opportunities; quota helpers (reserve/refund) from Boost Content's plans (free: 12 posts/month).
 3. [x] **Uploads + business API**: create business (what you sell, name), photo upload (multipart → media),
    link field; JSON endpoints used by the pages.
-4. [ ] **Analyze pipeline** (worker): vision profile prompt (port of Boost Content `profile`), facts streamed to
+4. [x] **Analyze pipeline** (worker): vision profile prompt (port of Boost Content `profile`), facts streamed to
    the "Getting to know you" screen; replay fixture + tests.
 5. [ ] **Opportunities pipeline**: trend (SearXNG), price (similar items), upsell bundle, channel — each with an
    estimate and the "estimates, not promises" rule; tests.

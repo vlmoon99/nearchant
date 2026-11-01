@@ -318,6 +318,27 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Cloudflare tunnel connected from the Spark (cloudflared 2026.10.7, 4 connections); public hostnames not yet
   added in the dashboard.
 
+## 2026-11-01 ~14:10 UTC — M1 steps 2–4: data model, seller API, business analysis
+
+- **Step 2 data model** (`packages/db/src/content.ts`, migration 0003): businesses, profiles, items, media,
+  opportunities, posts, signals, events, monthly quota (free 12/12, pro 150/300; reserve/refund). 6 tests.
+  Migrations now take a Postgres advisory lock (gateway and worker raced on deploy; race test added).
+- **Step 3 seller API** (`apps/gateway/src/seller-app.ts`): session cookie after one signature with a full-access
+  key of the store account; business, private photo uploads (served only to the owner, path-traversal safe),
+  analyze, opportunities, posts (402 on quota), items. 8 tests. Live on the Spark (401/403 as expected).
+- **Step 4 analysis** (`envs/content-store`, `packages/swarm/src/content.ts`, worker `analyze_business` →
+  `find_opportunities`): prompts ported from Boost Content (profile p2, ideas i4, learn k1, localize l1) plus new
+  opportunity + insight prompts; the asker now sends photos to the vision route. **Verified on the Spark** with 3
+  real clothing photos and local Qwen3.6: products recognised correctly (rhinestone denim jacket, two-tone linen
+  dress, Fair Isle sweater), 5 facts for the "Getting to know you" screen, 3 opportunities.
+- Found: SearXNG returned 0 results (engines rate-limited / timing out while the model download fills the link),
+  so the "trend" was a guess. Fixed: a trend now needs a real search result or it is dropped; search timeouts
+  raised to 8 s. Re-test the trend path when the download is done.
+- Image engine: ComfyUI + image service built on `gx10-8695`; Qwen-Image-Edit weights still downloading
+  (~4 MB/s home link).
+- pnpm 12 refused sharp's install script in frozen installs → listed in `allowBuilds`.
+- Next: step 1 render test once weights land; step 5 trend path with live search; step 6 posts pipeline.
+
 ### Owner actions
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +

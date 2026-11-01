@@ -108,7 +108,7 @@ export async function findOpportunities(ask: Asker, p: StyleProfile, items: { ti
   })).filter((o) => {
     if (!o.title || !o.why || seen.has(o.kind)) return false;
     // A trend must rest on a real search result; a price claim needs the store's own prices.
-    if (o.kind === "trend" && results.length && !urls.has(o.source)) return false;
+    if (o.kind === "trend" && !urls.has(o.source)) return false;
     if (o.kind === "price" && !items.length) return false;
     seen.add(o.kind);
     return true;

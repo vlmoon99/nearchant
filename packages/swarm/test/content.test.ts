@@ -69,6 +69,11 @@ describe("findOpportunities", () => {
     expect(opportunities).toEqual([]);
   });
 
+  it("drops trends entirely when the web search found nothing", async () => {
+    const { opportunities } = await findOpportunities(fakeAsk({ "opportunity-analyst": answer }), profile, [], async () => []);
+    expect(opportunities.map((o) => o.kind)).toEqual(["upsell", "channel"]);
+  });
+
   it("allows a price opportunity when the store has prices", async () => {
     const { opportunities } = await findOpportunities(fakeAsk({ "opportunity-analyst": answer }), profile, [{ title: "Denim jacket", price: "45 nUSD" }], async () => results);
     expect(opportunities.map((o) => o.kind)).toContain("price");

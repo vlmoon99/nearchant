@@ -44,7 +44,7 @@ services:
       - sh
       - -c
       - >-
-        printf 'use_default_settings: true\nserver:\n  limiter: false\n  image_proxy: false\n  secret_key: "%s"\nsearch:\n  formats: [html, json]\n'
+        printf 'use_default_settings: true\nserver:\n  limiter: false\n  image_proxy: false\n  secret_key: "%s"\nsearch:\n  formats: [html, json]\noutgoing:\n  request_timeout: 8.0\n  max_request_timeout: 12.0\n'
         "$$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')" > /etc/searxng/settings.yml;
         exec /usr/local/searxng/entrypoint.sh
     restart: unless-stopped
