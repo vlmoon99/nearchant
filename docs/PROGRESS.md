@@ -764,6 +764,16 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   (re-recorded, replay identical). Tests: worker 18, gateway 34, swarm 34.
 - Seen: Wan 2.2 added hands to one clip although the prompt said no people → prompt now says "no people, no hands".
 
+## 2026-11-01 21:50 UTC — onboarding first short verified; camera-only video motion
+
+- **Verified**: a new store (`novatestytz5`) through the full journey got its first short automatically (7.45 s:
+  hook box "FEEL THIS WEIGHT.", darker caption box, bigger end-card with the store link). No page errors.
+- The clip still showed hands ("feel this" invites touching). Wan 2.2 Lightning runs at cfg 1, so negative prompts
+  do nothing: the director now writes camera-only motion, and a motion prompt mentioning hands/people/touching is
+  replaced by a fixed camera push-in (`CAMERA_ONLY`). **Verified**: next live short (7.75 s, "BUILT TO LAST") has
+  no hands. Swarm tests 35.
+- Next: mobile seller screens vs Figma, then "Connect a NEAR wallet".
+
 ### Owner actions
 - Email sign-up (Figma onboarding 1): say if you want it, and give an email provider key (e.g. Resend or Postmark)
   — I'll add "Continue with email" login links. "Connect a NEAR wallet" I can build without anything from you.
