@@ -114,11 +114,11 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
   // NEAR AI TEE attestation reports cited by proofs on NEAR (attestation_ref "nearai:<model>:<sha256>"): public,
   // and the bytes hash to the name, so anyone can check the proof's report.
   app.get("/attestations/:file", async (c) => {
-    const m = /^([0-9a-f]{64})\.json$/.exec(c.req.param("file"));
+    const m = /^([0-9a-f]{64})(\.check)?\.json$/.exec(c.req.param("file"));
     if (!m) return c.notFound();
-    const bytes = await readFile(join(d.mediaDir, "attestations", `${m[1]}.json`)).catch(() => null);
+    const bytes = await readFile(join(d.mediaDir, "attestations", `${m[1]}${m[2] ?? ""}.json`)).catch(() => null);
     if (!bytes) return c.notFound();
-    return c.body(bytes, 200, { "content-type": "application/json", "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" });
+    return c.body(bytes, 200, { "content-type": "application/json", "cache-control": m[2] ? "public, max-age=300" : "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" });
   });
 
   app.get("/files/*", async (c) => {

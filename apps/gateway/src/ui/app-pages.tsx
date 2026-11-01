@@ -165,7 +165,7 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
             {check && !proof?.proofId ? <span class="foot muted">AI check: {check.flagged ? "may promise an offer you didn’t state" : "no invented offers found"} — recorded in the proof when it goes live.</span> : null}
             {proof?.proofId ? <>
               {[["Proof", `#${proof.proofId}`], ["Fingerprint (SHA-256)", `${proof.outputHash?.slice(0, 10)}…${proof.outputHash?.slice(-8)}`], ["Made by", madeBy(p)], ["Owner", store.account], ["Contract", proof.contract ?? ""]].map(([k, v]) => <div class="spread"><span class="foot muted">{k}</span><span class="foot b">{v}</span></div>)}
-              {writerOf(p)?.reportHash ? <a class="foot" href={`/attestations/${writerOf(p)!.reportHash}.json`} target="_blank" rel="noopener">TEE attestation report (SHA-256 {writerOf(p)!.reportHash!.slice(0, 10)}…)</a> : null}
+              {writerOf(p)?.reportHash ? <span class="foot">TEE attestation: <a href={`/attestations/${writerOf(p)!.reportHash}.json`} target="_blank" rel="noopener">report</a> · <a href={`/attestations/${writerOf(p)!.reportHash}.check.json`} target="_blank" rel="noopener">our check</a> (Intel TDX quote verified, NEAR AI's key and our nonce bound into it)</span> : null}
               <a class="btn near" href={explorer} target="_blank" rel="noopener"><Icon n="globe" />View on NEAR explorer</a>
             </> : <span class="foot">When this post goes live we record its fingerprint, the time and the AI that made it on NEAR — buyers can verify it’s really from {store.name}.</span>}
           </div>

@@ -17,6 +17,7 @@ import { KeyPair, type KeyPairString } from "near-api-js";
 import type { ResultEnvelope } from "@nearchant/contracts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { makeRouter } from "./router.js";
+import { checkNearAiReport } from "@nearchant/providers";
 import { makeTts } from "./tts.js";
 import { makeContentTasks } from "./content-tasks.js";
 import { ComfyCloud, fillWorkflow, type LabVariant } from "@nearchant/providers";
@@ -39,7 +40,10 @@ const router = await makeRouter(join(root, "config", process.env.PROVIDERS_FILE 
   onAttestationReport: async (ref, _model, raw) => {
     const dir = join(process.env.MEDIA_DIR ?? join(root, ".media"), "attestations");
     await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, `${ref.reportHash}.json`), raw, { flag: "wx" }).catch((e) => { if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e; });
+    const fresh = await writeFile(join(dir, `${ref.reportHash}.json`), raw, { flag: "wx" }).then(() => true, (e) => { if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e; return false; });
+    // Our own check of the report (nonce, key binding, TDX quote via Phala): published next to it, once.
+    if (fresh && ref.nonce) void checkNearAiReport(raw, ref.nonce).then((c) => writeFile(join(dir, `${ref.reportHash}.check.json`), JSON.stringify(c, null, 1)))
+      .then(() => console.info(`[attest] report ${ref.reportHash.slice(0, 10)} checked`), (e) => console.warn(`[attest] check failed: ${(e as Error).message}`));
   },
 });
 const media = localMedia(process.env.MEDIA_DIR ?? join(root, ".media"), process.env.MEDIA_PUBLIC ?? "/media");
