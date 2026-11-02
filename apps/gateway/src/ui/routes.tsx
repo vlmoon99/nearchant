@@ -177,7 +177,8 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const [b, prof, usage] = await Promise.all([content.getBusiness(s.handle), content.getProfile(s.handle), content.usage(s.handle)]);
     const data = (prof?.data ?? {}) as { tone?: string; brand_colors?: string[]; wishes?: string };
     return c.html(<SettingsPage cfg={d.cfg} test={d.test} store={s} b={{ name: b!.name, kind: b!.kind, description: b!.description, links: (b!.links as string[]) ?? [] }}
-      tone={data.tone ?? ""} colors={data.brand_colors ?? []} wishes={data.wishes ?? ""} usage={{ posts: usage.posts, limit: PLAN_LIMITS[b?.plan ?? "free"]!.posts }} wallet={await content.getSetting<string>(`walletOf:${s.handle}`)} />);
+      tone={data.tone ?? ""} colors={data.brand_colors ?? []} wishes={data.wishes ?? ""} usage={{ posts: usage.posts, limit: PLAN_LIMITS[b?.plan ?? "free"]!.posts }} wallet={await content.getSetting<string>(`walletOf:${s.handle}`)}
+      plan={b?.plan ?? "free"} created={b!.createdAt.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "America/New_York" })} telegramBot={await content.getSetting<string>(`telegramBot:${s.handle}`)} />);
   }));
 
   app.get("/app/report", (c) => withStore(c, async (s) => {

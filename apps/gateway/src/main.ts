@@ -198,6 +198,8 @@ const app = createApp({
         await putSecret({ db: conn!.db, sealer: sealer! }, handle, "telegram-secret", secret);
         if (useWebhooks) await api.call("setWebhook", { url: webhookUrl, secret_token: secret, allowed_updates: ["message"] });
         else { await api.call("deleteWebhook", {}); startPolling(handle); }
+        // Shown in Settings → Where posts go.
+        await new ContentStore(conn!.db).setSetting(`telegramBot:${handle}`, me.username);
         return { username: me.username };
       },
       secretFor: (handle: string) => getSecret({ db: conn!.db, sealer: sealer! }, handle, "telegram-secret"),

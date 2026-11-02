@@ -109,7 +109,7 @@ export const WalletPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; ba
   </Page>
 );
 
-export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; b: { name: string; kind: string; description: string; links: string[] }; tone: string; colors: string[]; wishes: string; usage: { posts: number; limit: number }; wallet?: string | null }> = ({ cfg, test, store, b, tone, colors, wishes, usage, wallet }) => (
+export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; b: { name: string; kind: string; description: string; links: string[] }; tone: string; colors: string[]; wishes: string; usage: { posts: number; limit: number }; wallet?: string | null; plan: string; created: string; telegramBot?: string | null }> = ({ cfg, test, store, b, tone, colors, wishes, usage, wallet, plan, created, telegramBot }) => (
   <Page cfg={cfg} test={test} title="Settings" active="Settings" store={store}>
     <PageHead kicker={store.name} title="Settings" />
     <div class="cols">
@@ -127,19 +127,34 @@ export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
           <label class="field">Your wishes for posts and pictures<textarea class="input" name="wishes" maxlength={500} placeholder="e.g. show the clothes on a person, outdoors, warm light; no discounts">{wishes}</textarea></label>
           <button class="btn" type="submit">Save</button><output class="foot"></output>
         </form>
+        <div class="card" style="gap:10px"><span class="headline">Where posts go</span>
+          {[["store", "Store page", `Live · nearchant.com/h/${store.handle}`, true, "Open", `/h/${store.handle}/`],
+            ["send", "Telegram bot", telegramBot ? `Connected · @${telegramBot} · takes orders in chat` : "Not connected — your own bot takes orders in chat", !!telegramBot, telegramBot ? "Settings" : "Connect", `/h/${store.handle}/manage`],
+            ["camera", "Instagram", "Copy a ready post with its picture from the post page", false, "Posts", "/app/posts"]].map(([ic, t, d, on, act, href]) =>
+            <div class="card white" style="flex-direction:row;gap:12px;align-items:center;padding:12px 14px">
+              <span class="dot" style="background:var(--bg);border-radius:10px;width:36px;height:36px;flex:none"><Icon n={ic as string} s={18} /></span>
+              <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="callout b">{t}</span><span class="foot" style={on ? "color:#248a3d" : "color:var(--label2)"}>{d}</span></span>
+              <a class="sub" style="color:#007AFF" href={href as string}>{act}</a>
+            </div>)}
+        </div>
       </div>
       <div class="stack">
         <div class="card dark" style="gap:10px"><div class="row" style="align-items:center;gap:8px"><span class="mark" style="background:var(--near);color:var(--near-ink)">N</span><span class="headline">NEAR account</span></div>
-          <span class="t2" style="color:var(--near)">{store.account}</span><span class="foot">Created for you — no seed phrase. Posts, proofs and payments live here.</span>
+          <span class="t2" style="color:var(--near);overflow-wrap:anywhere">{store.account}</span><span class="foot">Created for you — no seed phrase. Posts, proofs and payments live here.</span>
+          <div class="spread foot"><span>Agent keys</span><b>limited keys · can’t move money</b></div>
+          <div class="spread foot"><span>Created</span><b>{created}</b></div>
           <a class="btn secondary" id="export-key" href="#" style="color:var(--label)"><Icon n="copy" />Export my key</a><Badge label="Store verified on NEAR" /></div>
         <div class="card" id="wallet"><span class="headline">NEAR wallet</span>
           {wallet ? <span class="foot">Linked: <b>{wallet}</b> — you can sign in with it from any browser.</span>
             : <span class="foot muted">Link your own NEAR wallet (MyNearWallet) to sign in from any browser. It signs a one-time message: no transaction, no fee.</span>}
           <button class="btn near" data-wallet="link"><Icon n="wallet" />{wallet ? "Link another wallet" : "Connect a NEAR wallet"}</button>
           <output class="foot" id="wallet-out"></output></div>
-        <div class="card"><span class="headline">Plan</span><div class="spread"><span class="foot">Free · {usage.posts} of {usage.limit} posts this month</span></div>
+        <div class="card"><span class="headline">Plan</span><div class="spread"><span class="foot">{plan === "pro" ? "Pro" : "Free"} · {usage.posts} of {usage.limit} posts this month</span></div>
           <div class="progress"><i style={`width:${Math.min(100, (usage.posts / usage.limit) * 100)}%`}></i></div>
-          <span class="foot muted">Pro — 150 posts a month, paid from your balance on NEAR (coming soon).</span></div>
+          <span class="foot muted">{plan === "pro" ? "You are on Pro." : "Pro — 150 posts a month, paid from your balance on NEAR (coming soon)."}</span></div>
+        <div class="card" style="gap:10px"><span class="headline">Your data</span>
+          <a class="spread sub" href="/api/app/export" download style="color:inherit">Download all my data<Icon n="download" s={18} c="#007AFF" /></a>
+          <span class="cap muted">Records already on NEAR stay public (they hold hashes, not your photos or texts).</span></div>
       </div>
     </div>
   </Page>

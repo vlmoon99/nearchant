@@ -170,6 +170,15 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     return c.json({ handle, business, profile: profile && { status: profile.status, facts: profile.facts, data: profile.data, error: profile.error }, usage });
   }));
 
+  // "Download all my data" (Settings → Your data): everything Nearchant keeps about the store, as one JSON file.
+  app.get("/api/app/export", (c) => authed(c, async (handle) => {
+    const [business, profile, items, posts, media, orders] = await Promise.all([d.content.getBusiness(handle), d.content.getProfile(handle), d.content.listItems(handle, false),
+      d.content.listPosts(handle, { limit: 1000 }), d.content.listMedia(handle), d.orders ? d.orders.list(handle) : []]);
+    const body = JSON.stringify({ exportedAt: new Date(d.now?.() ?? Date.now()).toISOString(), handle, business, profile, items, posts, orders,
+      files: media.map((m) => ({ id: m.id, kind: m.kind, url: `/files/${m.key}` })) }, null, 2);
+    return c.body(body, 200, { "content-type": "application/json; charset=utf-8", "content-disposition": `attachment; filename="nearchant-${handle}.json"`, "cache-control": "no-store" });
+  }));
+
   app.post("/api/app/business", (c) => authed(c, async (handle) => {
     const b = await json(c);
     const name = String(b.name ?? "").trim(), kind = String(b.kind ?? "products"), description = String(b.description ?? "").trim();

@@ -22,6 +22,8 @@ function fakeContent() {
     listMedia: async (h, k) => db.media.filter((m) => m.handle === h && (!k || m.kind === k)),
     usage: async () => ({ posts: 12 - db.quota, images: 0 }),
     createPosts: async (h, ideas, plan) => { db.lastPlan = plan; if (ideas.length > db.quota) throw new QuotaExceeded("posts", 12); db.quota -= ideas.length; const ids = ideas.map((_, i) => `p${db.posts.length + i}`); ids.forEach((id) => db.posts.push({ id, handle: h, status: "ready" })); return { batchId: "b1", ids }; },
+    listItems: async () => [],
+    listPosts: async (h) => db.posts.filter((p) => p.handle === h),
     getPost: async (id) => db.posts.find((p) => p.id === id) ?? null,
     updatePost: async (id, p) => { Object.assign(db.posts.find((x) => x.id === id), p); },
     addSignal: async (h, postId, kind) => { db.signals.push({ h, postId, kind }); },
@@ -94,6 +96,18 @@ describe("seller API", () => {
     const r = await app.request("http://x/api/app/business", post({ name: "Nova Wear", kind: "products", description: "Relaxed clothes", links: ["instagram.com/novawear", ""] }, cookie));
     expect(r.status).toBe(200);
     expect(db.business.get("nova").links).toEqual(["instagram.com/novawear"]);
+  });
+
+  it("downloads all of the store's data only for its owner", async () => {
+    const { app, cookie } = setup();
+    expect((await app.request("http://x/api/app/export")).status).toBe(401);
+    await app.request("http://x/api/app/business", post({ name: "Nova Wear", kind: "products", description: "Relaxed clothes" }, cookie));
+    const r = await app.request("http://x/api/app/export", { headers: { cookie } });
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-disposition")).toContain('nearchant-nova.json');
+    const j = await r.json() as { handle: string; business: { name: string }; posts: unknown[]; files: unknown[] };
+    expect(j.handle).toBe("nova"); expect(j.business.name).toBe("Nova Wear");
+    expect(Array.isArray(j.posts) && Array.isArray(j.files)).toBe(true);
   });
 
   it("stores photos privately and serves them only to the owner", async () => {
