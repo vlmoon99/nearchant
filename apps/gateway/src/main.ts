@@ -340,9 +340,13 @@ async function understand(q: string): Promise<SearchIntent> {
   const ask = makeAsker(envs.get("content-store")!, r, async () => {});
   const plan = await Promise.race([planSearch(ask, q), new Promise<never>((_, rej) => setTimeout(() => rej(new Error("planner timeout")), 15_000))]).catch(() => null);
   const text = plan ? [plan.goods.join(", "), plan.terms.join(" ")].filter(Boolean).join("\n") : q;
-  const vector = await r.call({ capability: "embed", dataClass: "public", timeoutMs: 10_000, input: { input: [text || q] } })
-    .then((e) => (e.output as { vectors?: number[][] }).vectors?.[0] ?? null).catch(() => null);
-  const v: SearchIntent = { goods: plan?.goods ?? [], summary: plan?.summary || q, terms: plan?.terms.length ? plan.terms : q.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1), city: plan?.city ?? null, country: plan?.country ?? null, vector };
+  // One embedding call: the whole query plus each good on its own ("stores that sell 1, 2, 3, 4").
+  const goods = (plan?.goods ?? []).slice(0, 6);
+  const vectors = await r.call({ capability: "embed", dataClass: "public", timeoutMs: 10_000, input: { input: [text || q, ...goods] } })
+    .then((e) => (e.output as { vectors?: number[][] }).vectors ?? null).catch(() => null);
+  const vector = vectors?.[0] ?? null;
+  const goodVectors = vectors && vectors.length === goods.length + 1 ? goods.map((name, i) => ({ name, vector: vectors[i + 1]! })) : [];
+  const v: SearchIntent = { goodVectors, goods: plan?.goods ?? [], summary: plan?.summary || q, terms: plan?.terms.length ? plan.terms : q.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1), city: plan?.city ?? null, country: plan?.country ?? null, vector };
   if (intentCache.size > 500) intentCache.clear();
   intentCache.set(key, { at: Date.now(), v });
   return v;

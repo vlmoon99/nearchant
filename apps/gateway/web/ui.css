@@ -212,3 +212,6 @@ svg { flex-shrink: 0; }
 .sheet-x{position:absolute;right:12px;top:8px;border:0;background:none;font-size:24px;color:var(--label2,#6e6e73);cursor:pointer}
 .feed-tile video{background:#000}
 .follow[aria-pressed="true"]{background:var(--label);color:var(--bg);border-color:var(--label)}
+.store-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.store-card{gap:10px;padding:14px}
+@media(max-width:640px){.store-row{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}.store-card{flex:0 0 78%;scroll-snap-align:start}}

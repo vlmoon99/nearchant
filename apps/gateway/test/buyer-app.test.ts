@@ -97,6 +97,13 @@ describe("buyers", () => {
     const r = await feedFor({ feed, understand: async () => ({ summary: "Protein in New York", terms: ["protein", "whey"], city: "New York", country: "US", vector: [0.1, 0.2] }) }, "protein nyc", "b1");
     expect(seen).toMatchObject({ terms: ["protein", "whey"], city: "New York", country: "US", vector: [0.1, 0.2], buyerId: "b1" });
     expect(r.intent).toMatchObject({ summary: "Protein in New York", vector: null }); // the vector is not sent to the page
+    // "Stores that sell 1, 2": each good's vector goes to the store matcher; vectors never reach the page.
+    let matched: unknown = null;
+    const feed2 = { feed: async () => [], storesFor: async (g: unknown) => { matched = g; return [{ handle: "gym", matched: 2 }]; } } as unknown as FeedStore;
+    const r2 = await feedFor({ feed: feed2, understand: async () => ({ summary: "s", terms: ["whey"], city: null, country: null, vector: [1], goodVectors: [{ name: "protein", vector: [0.1] }, { name: "creatine", vector: [0.2] }] }) }, "protein and creatine", null);
+    expect(matched).toEqual([{ name: "protein", vector: [0.1] }, { name: "creatine", vector: [0.2] }]);
+    expect(r2.stores).toEqual([{ handle: "gym", matched: 2 }]);
+    expect(JSON.stringify(r2.intent)).not.toContain("0.1");
     // The City box reaches the planner, so a city alone still finds its country.
     const asked: string[] = [];
     await feedFor({ feed, understand: async (q) => { asked.push(q); return { summary: q, terms: ["whey"], city: "Austin", country: "US", vector: null }; } }, "whey", null, 0, { city: "Austin" });

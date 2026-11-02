@@ -2,7 +2,7 @@
 // The buyer cookie is separate from the seller cookie and signed with its own key.
 import type { Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
-import { REPORT_REASONS, type FeedPost, type FeedStore, type ReportReason } from "@nearchant/db";
+import { REPORT_REASONS, type FeedPost, type FeedStore, type ReportReason, type StoreMatch } from "@nearchant/db";
 import { RateLimit, clientIp } from "./buyers.js";
 import { emailHtml, normEmail, readEmailToken, signEmailToken, type Mailer } from "./email.js";
 import { verifyNep413 } from "./nep413.js";
@@ -12,7 +12,7 @@ export const BUYER_COOKIE = "nc_buyer";
 const BUYER_MS = 90 * 24 * 3600_000;
 
 /** What a search turns into: the AI plan + a query vector (both optional: the feed works without AI). */
-export interface SearchIntent { summary: string; terms: string[]; city: string | null; country: string | null; vector: number[] | null; goods?: string[] }
+export interface SearchIntent { summary: string; terms: string[]; city: string | null; country: string | null; vector: number[] | null; goods?: string[]; goodVectors?: { name: string; vector: number[] }[] }
 
 export interface BuyerAppDeps {
   feed: FeedStore;
@@ -174,7 +174,7 @@ export function mountBuyerApp(app: Hono<any>, d: BuyerAppDeps): void {
 }
 
 /** Runs a search (or "For you" without a query). Without AI it still works on words. */
-export async function feedFor(d: Pick<BuyerAppDeps, "feed" | "understand">, q: string, buyerId: string | null, offset = 0, place: { city?: string | undefined; country?: string | undefined; visitorCountry?: string | null } = {}): Promise<{ intent: SearchIntent | null; posts: FeedPost[] }> {
+export async function feedFor(d: Pick<BuyerAppDeps, "feed" | "understand">, q: string, buyerId: string | null, offset = 0, place: { city?: string | undefined; country?: string | undefined; visitorCountry?: string | null } = {}): Promise<{ intent: SearchIntent | null; posts: FeedPost[]; stores: StoreMatch[] }> {
   const query = q.trim().slice(0, 200), cityIn = place.city?.trim().slice(0, 60) || "";
   let intent: SearchIntent | null = null;
   if (query) {
@@ -194,5 +194,8 @@ export async function feedFor(d: Pick<BuyerAppDeps, "feed" | "understand">, q: s
   if (query && offset === 0 && intent && typeof d.feed.logSearch === "function") {
     void d.feed.logSearch({ q: query, goods: (intent as SearchIntent & { goods?: string[] }).goods?.length ? (intent as SearchIntent & { goods: string[] }).goods : [query.toLowerCase()], city, country, results: posts.length, handles: posts.map((p) => p.handle) }).catch(() => {});
   }
-  return { intent: intent ? { ...intent, city, country, vector: null } : null, posts };
+  // "Stores that sell …": per searched good, which stores sell it (first page only).
+  const stores = offset === 0 && intent?.goodVectors?.length && typeof d.feed.storesFor === "function" ? await d.feed.storesFor(intent.goodVectors, { city, country }).catch(() => []) : [];
+  const { goodVectors: _gv, ...pub } = intent ?? ({} as SearchIntent);
+  return { intent: intent ? { ...pub, city, country, vector: null } : null, posts, stores };
 }

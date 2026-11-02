@@ -50,6 +50,17 @@ describe("FeedStore", () => {
     expect(forYou[0]!.id).toBe(denim);
     expect(forYou[0]!.liked).toBe(true);
 
+    // "Stores that sell protein and denim": per good, which stores sell it; more goods covered ranks first.
+    await c.upsertBusiness({ handle: "bothny", name: "Both NY", description: "gym and denim" });
+    const bothPost = await store(c, f, "bothny", "Both NY", { city: "New York", country: "US", ships: "local" }, "Whey and denim", 1);
+    await f.putVector("store", "bothny", "bothny", "h2", v(2));
+    const stores = await f.storesFor([{ name: "protein", vector: v(1) }, { name: "denim", vector: v(2) }], { country: "US", city: "New York" });
+    expect(stores[0]).toMatchObject({ handle: "bothny", matched: 2 });
+    expect(stores[0]!.goods.map((x) => x.match)).toEqual([true, true]);
+    expect(stores.find((x) => x.handle === "denimny")!.goods.map((x) => x.match)).toEqual([false, true]);
+    expect(stores.map((x) => x.handle)).not.toContain("gymla"); // local store in another city
+    void bothPost;
+
     // A visitor from Ukraine sees the Kyiv store that ships worldwide first in the default feed.
     expect((await f.feed({ preferCountry: "UA" }))[0]!.handle).toBe("gymworld");
 

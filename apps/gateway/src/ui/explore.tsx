@@ -4,6 +4,8 @@
 import type { FC } from "hono/jsx";
 import { Badge, Icon, Mark, UiPage, type UiConfig } from "./kit.js";
 
+export interface StoreCard { handle: string; name: string; place: string | null; img: string | null; goods: { name: string; match: boolean }[]; matched: number; followers: number }
+
 export interface FeedTile { id: string; handle: string; caption: string; img: string; video: string | null; proofId: string | null; storeName: string; place: string | null; likes: number; liked: boolean; why?: string | null }
 
 const playIcon = <span class="dot" style="position:absolute;top:10px;right:10px;width:30px;height:30px;background:rgba(0,0,0,.55)"><Icon n="play" s={14} c="#fff" /></span>;
@@ -26,7 +28,7 @@ export const FeedTiles: FC<{ posts: FeedTile[]; next: string | null }> = ({ post
   </>
 );
 
-export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: string; summary: string | null; posts: FeedTile[]; next: string | null; suggestions: string[]; forYou: boolean; liked?: boolean; following?: boolean }> = ({ cfg, test, q, city, summary, posts, next, suggestions, forYou, liked, following }) => (
+export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: string; summary: string | null; posts: FeedTile[]; next: string | null; suggestions: string[]; forYou: boolean; liked?: boolean; following?: boolean; stores?: StoreCard[] }> = ({ cfg, test, q, city, summary, posts, next, suggestions, forYou, liked, following, stores = [] }) => (
   <UiPage title={q ? `${q} · Nearchant` : "Shop feed · Nearchant"} cfg={cfg} page="feed" test={test} buyer>
     <div class="land">
       <nav class="land-nav"><a class="land-logo" href="/"><Mark />Nearchant</a>
@@ -44,6 +46,13 @@ export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: st
         {following && !posts.length ? <div class="card"><span class="headline">{forYou ? "You don't follow any store yet" : "Sign in to see the stores you follow"}</span><span class="foot muted">Open a store and tap Follow — its new posts show up here.</span>{forYou ? null : <a class="btn" href="#" data-buyer-me>Sign in</a>}</div> : null}
         {liked && !posts.length ? <div class="card"><span class="headline">{forYou ? "Nothing liked yet" : "Sign in to see what you liked"}</span><span class="foot muted">Tap ♥ on posts you like — your feed learns from them.</span>{forYou ? null : <a class="btn" href="#" data-buyer-me>Sign in</a>}</div> : null}
         {q && !posts.length ? <div class="card"><span class="headline">No stores sell that here yet</span><span class="foot muted">Try other words, another city — or <a href="/start">open the first store for it</a>.</span></div> : null}
+        {stores.length ? <div class="stack" style="gap:10px"><span class="headline">Stores that sell {stores[0]!.goods.length > 1 ? "it" : stores[0]!.goods[0]!.name}</span>
+          <div class="store-row">{stores.map((st) => <a class="card white store-card" href={`/h/${st.handle}/?ref=feed`} style="color:inherit">
+            <div class="row" style="gap:10px;align-items:center"><span style={`width:44px;height:44px;border-radius:12px;flex:none;background:#eee center/cover ${st.img ? `url('${st.img}')` : ""}`}></span>
+              <span class="stack" style="gap:0;min-width:0"><span class="callout b clamp1">{st.name}</span><span class="cap muted">{[st.place, st.followers ? `${st.followers} follower${st.followers === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ") || "Nearchant store"}</span></span></div>
+            {st.goods.length > 1 ? <div class="row" style="gap:6px;flex-wrap:wrap">{st.goods.map((g) => <span class={`chip ${g.match ? "on" : ""}`} style={`padding:3px 9px;font-size:12px;${g.match ? "" : "opacity:.5"}`}>{g.match ? "✓ " : ""}{g.name}</span>)}</div> : null}
+            {st.goods.length > 1 ? <span class="cap muted">Sells {st.matched} of {st.goods.length}</span> : null}
+          </a>)}</div></div> : null}
         <div class="grid4" data-feed-grid><FeedTiles posts={posts} next={null} /></div>
         {next ? <div data-feed-more={next} class="foot muted" style="text-align:center;padding:20px">Loading more…</div> : null}
         <p class="cap muted" style="margin:0">Every post has a proof on NEAR; you pay into escrow and the store is paid when you confirm. Posts are checked by AI moderation; we keep the IP address, email and wallet of accounts that break the rules.</p>

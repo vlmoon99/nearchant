@@ -10,6 +10,12 @@ export type Violator = typeof s.violators.$inferSelect;
 export const REPORT_REASONS = ["scam", "illegal", "sexual", "violence", "hate", "counterfeit", "spam", "other"] as const;
 export type ReportReason = (typeof REPORT_REASONS)[number];
 export const SHIPS = ["local", "country", "world"] as const;
+/** A store sells a searched good when its best item/post/profile is at least this close in meaning. */
+export const STORE_MATCH_AT = 0.5;
+export interface StoreMatch {
+  handle: string; name: string; city: string | null; country: string | null; ships: string | null;
+  goods: { name: string; match: boolean; sim: number }[]; matched: number; score: number; image: string | null; followers: number;
+}
 
 export interface FeedQuery {
   /** Query embedding (null → no semantic part). */
@@ -183,6 +189,47 @@ export class FeedStore {
     const perStore = new Map<string, number>(), out: FeedPost[] = [], later: FeedPost[] = [];
     for (const p of scored) { const n = perStore.get(p.handle) ?? 0; (n < 3 ? out : later).push(p); perStore.set(p.handle, n + 1); }
     return [...out, ...later].slice(q.offset ?? 0, (q.offset ?? 0) + Math.min(q.limit ?? 24, 60));
+  }
+
+  /**
+   * "Stores that sell 1, 2, 3, 4": for each searched good, the best match (meaning) among a store's items, posts and
+   * profile; stores that sell more of the list come first. Region rules as in the feed.
+   */
+  async storesFor(goods: { name: string; vector: number[] }[], o: { city?: string | null; country?: string | null; limit?: number } = {}): Promise<StoreMatch[]> {
+    if (!goods.length) return [];
+    const country = o.country?.toUpperCase().slice(0, 2) || null, city = o.city?.trim().toLowerCase() || null;
+    const g = sql.join(goods.slice(0, 8).map((x, i) => sql`(${i}::int, ${vec(x.vector)}::vector)`), sql`, `);
+    const region = country
+      ? sql`(b.ships = 'world' or b.country is null or (b.country = ${country} and (b.ships = 'country' or b.ships is null or ${city}::text is null or lower(b.city) = ${city})))`
+      : sql`true`;
+    const rows = (await this.db.execute(sql`
+      with g(i, v) as (values ${g})
+      select b.handle, b.name, b.city, b.country, b.ships, g.i, max(1 - (cv.embedding <=> g.v)) as sim
+      from businesses b join content_vectors cv on cv.handle = b.handle cross join g
+      where b.suspended_at is null and ${region}
+        and (cv.kind <> 'post' or exists (select 1 from posts p where p.id = cv.ref_id and p.status = 'published' and p.removed_at is null))
+        and (cv.kind <> 'item' or exists (select 1 from items it where it.id = cv.ref_id and it.active))
+        and b.handle not in (select jsonb_array_elements_text(coalesce((select value from settings where key = 'showcase_hidden'), '[]'::jsonb)))
+        and exists (select 1 from posts p where p.handle = b.handle and p.status = 'published' and p.removed_at is null)
+      group by b.handle, b.name, b.city, b.country, b.ships, g.i
+    `)) as unknown as { handle: string; name: string; city: string | null; country: string | null; ships: string | null; i: number; sim: number }[];
+    const by = new Map<string, StoreMatch>();
+    for (const r of rows) {
+      const m = by.get(r.handle) ?? { handle: r.handle, name: r.name, city: r.city, country: r.country, ships: r.ships, goods: goods.map((x) => ({ name: x.name, match: false, sim: 0 })), matched: 0, score: 0, image: null, followers: 0 };
+      const sim = Number(r.sim);
+      m.goods[Number(r.i)] = { name: goods[Number(r.i)]!.name, match: sim >= STORE_MATCH_AT, sim: Math.round(sim * 1000) / 1000 };
+      by.set(r.handle, m);
+    }
+    const list = [...by.values()].map((m) => ({ ...m, matched: m.goods.filter((x) => x.match).length, score: m.goods.reduce((a, x) => a + x.sim, 0) / m.goods.length }))
+      .filter((m) => m.matched > 0)
+      .sort((a, b) => b.matched - a.matched || (city && String(b.city ?? "").toLowerCase() === city ? 1 : 0) - (city && String(a.city ?? "").toLowerCase() === city ? 1 : 0) || b.score - a.score)
+      .slice(0, o.limit ?? 6);
+    for (const m of list) {
+      const [img] = (await this.db.execute(sql`select p.idea->>'publicImage' as img from posts p where p.handle = ${m.handle} and p.status = 'published' and p.removed_at is null and p.idea->>'publicImage' is not null order by p.published_at desc limit 1`)) as unknown as { img: string | null }[];
+      m.image = img?.img ?? null;
+      m.followers = await this.followers(m.handle);
+    }
+    return list;
   }
 
   /** "More like this": posts from any store closest in meaning to this one. */

@@ -100,7 +100,8 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     if (!d.feedStore) return c.notFound();
     const { q, city, offset } = feedQuery(c), buyer = d.buyerKey ? readSession(d.buyerKey, getCookie(c, "nc_buyer")) : null;
     const r = await feedFor({ feed: d.feedStore, ...(d.understand ? { understand: d.understand } : {}) }, q, buyer, offset, { city, visitorCountry: process.env.TRUST_PROXY === "cloudflare" ? c.req.header("cf-ipcountry") ?? null : null });
-    return c.html(<ExplorePage cfg={d.cfg} test={d.test} q={q} city={city} summary={r.intent?.summary ?? null} posts={tilesOf(r.posts)} next={nextOf(q, city, offset, r.posts.length)}
+    const stores = r.stores.map((st) => ({ handle: st.handle, name: st.name, place: [st.city, st.country].filter(Boolean).join(", ") || null, img: st.image ? `/files/${st.image}?w=320` : null, goods: st.goods.map((g) => ({ name: g.name, match: g.match })), matched: st.matched, followers: st.followers }));
+    return c.html(<ExplorePage cfg={d.cfg} test={d.test} q={q} city={city} summary={r.intent?.summary ?? null} posts={tilesOf(r.posts)} next={nextOf(q, city, offset, r.posts.length)} stores={stores}
       suggestions={d.suggestions ? await d.suggestions().catch(() => []) : []} forYou={!!buyer} />);
   });
   app.get("/feed/more", async (c) => {
