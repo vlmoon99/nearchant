@@ -6,6 +6,7 @@ import { OnboardingPage } from "./onboarding.js";
 import { CreatePage, HomePage, PostPage, PostsPage, SignInPage, checklistFor, type StoreView } from "./app-pages.js";
 import { createHash } from "node:crypto";
 import { UiPage, assetV, type UiConfig } from "./kit.js";
+import { ExplorePage } from "./explore.js";
 import { AnalyticsPage, Celebration, ReportPage, SettingsPage, WalletPage, type Insights } from "./more-pages.js";
 import { readSession } from "../seller-app.js";
 import { VerifyPage, type VerifyView } from "./verify.js";
@@ -72,6 +73,13 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     }
     return c.html(<VerifyPage cfg={d.cfg} test={d.test} v={v} latest={latest} />);
   };
+  app.get("/explore", async (c) => {
+    if (!d.content) return c.notFound();
+    const b = c.req.query("before"), before = b && !Number.isNaN(Date.parse(b)) ? new Date(b) : undefined;
+    const rows = await d.content.feed({ limit: 24, ...(before ? { before } : {}) });
+    const posts = rows.map((p) => ({ id: p.id, handle: p.handle, caption: p.caption, img: `/files/${p.publicImage}?w=640`, video: !!p.publicVideo, proofId: p.proofId, storeName: p.storeName }));
+    return c.html(<ExplorePage cfg={d.cfg} test={d.test} posts={posts} next={rows.length === 24 ? rows.at(-1)!.publishedAt.toISOString() : null} />);
+  });
   app.get("/verify", (c) => verify(c, c.req.query("id")?.trim() || undefined));
   app.get("/verify/:id", (c) => verify(c, c.req.param("id")));
   const content = d.content;

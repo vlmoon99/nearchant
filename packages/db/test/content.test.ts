@@ -25,8 +25,15 @@ describe("ContentStore", () => {
     const hours = await c.visitHours("show", 7);
     expect(hours.reduce((a, h) => a + h.n, 0)).toBe(3);
     expect(hours.every((h) => h.dow >= 0 && h.dow <= 6 && h.hour >= 0 && h.hour <= 23)).toBe(true);
+    const feed = (await c.feed({ limit: 60 })).filter((p) => p.handle === "show");
+    expect(feed.map((p) => p.caption).sort()).toEqual(["New", "No proof", "Old"]);
+    expect(feed.at(-1)?.caption).toBe("Old");
+    expect(feed.find((p) => p.caption === "No proof")?.proofId).toBeNull();
+    const older = (await c.feed({ limit: 60, before: feed.find((p) => p.caption === "No proof")!.publishedAt })).filter((p) => p.handle === "show");
+    expect(older.map((p) => p.caption)).toContain("Old");
     await c.setSetting("showcase_hidden", ["show"]);
     expect((await c.showcase(3)).posts.filter((p) => p.handle === "show")).toEqual([]);
+    expect((await c.feed({ limit: 60 })).filter((p) => p.handle === "show")).toEqual([]);
     await c.setSetting("showcase_hidden", []);
   });
 

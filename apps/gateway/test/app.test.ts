@@ -37,6 +37,39 @@ async function setup(chain: Record<string, OrderStatus | null> = {}) {
 
 const host = (h: string, extra: Record<string, string> = {}) => ({ headers: { host: h, ...extra } });
 
+describe("store feed", () => {
+  it("shows a store's posts, a public post page with proof, item and link preview, and counts the post's view", async () => {
+    const base = await setup();
+    const views: unknown[] = [];
+    const post = { id: "p1", itemId: "i-1", publishedAt: "2026-11-01T15:00:00Z", hashtags: ["denim"], caption: "Raw denim, up close.", img: "/files/alice/public/p1.webp?w=640", video: "/files/alice/public/p1.mp4", proofId: "21" };
+    const sf = { handle: "alice", name: "Alice Wear", account: "alice.nearchant.testnet", summary: "", orders: 0,
+      items: [{ id: "i-1", title: "Dark denim jacket", description: "", price: "40 nUSD", img: null, kind: "product", options: [] }],
+      posts: [post, ...Array.from({ length: 9 }, (_, k) => ({ ...post, id: `q${k}`, itemId: null, video: null, caption: `Post ${k}` }))] };
+    const app = createApp({ ...(base as unknown as { app: unknown }), config, store: base.store, rail: { id: "fake", instruction: () => ({}) as never, status: async () => null }, onPaid: async () => {},
+      client: { rpcUrl: "https://rpc", orders: "orders.nearchant.testnet", network: "testnet" }, handles: { get: async (h) => (h === "alice" ? alice : null) },
+      storefront: async (_h, view) => { views.push(view); return view?.postId && !sf.posts.some((p) => p.id === view.postId) ? { ...sf, posts: [] } : sf; } } as Deps);
+    const store = await (await app.request("http://x/h/alice/", host("nearchant.com"))).text();
+    expect(store).toContain('href="/h/alice/p/p1"');
+    expect(store).toContain("All 10 posts");
+    const page = await app.request("http://x/h/alice/p/p1?ref=instagram", host("nearchant.com"));
+    expect(page.status).toBe(200);
+    const html = await page.text();
+    expect(html).toContain("Raw denim, up close.");
+    expect(html).toContain('href="https://nearchant.com/verify/21"');
+    expect(html).toContain('href="/h/alice/i/i-1"'); // Buy the item the post shows
+    expect(html).toContain('property="og:image" content="https://nearchant.com/files/alice/public/p1.webp?w=1024"');
+    expect(html).toContain("<video");
+    expect(views.at(-1)).toEqual({ source: "instagram", postId: "p1" });
+    expect((await app.request("http://x/h/alice/p/nope", host("nearchant.com"))).status).toBe(404);
+    expect((await app.request("http://x/h/alice/p/..%2Fx", host("nearchant.com"))).status).toBe(404);
+    const all = await (await app.request("http://x/h/alice/posts", host("nearchant.com"))).text();
+    expect(all.match(/class="post"/g)).toHaveLength(10);
+    // On the store's own subdomain the links stay relative and the preview points at that host.
+    const sub = await (await app.request("http://x/p/p1", host("alice.nearchant.com"))).text();
+    expect(sub).toContain('content="https://alice.nearchant.com/p/p1"');
+  });
+});
+
 describe("home page", () => {
   it("serves the landing at the bare domain when one is configured, a store page on a store host", async () => {
     const { store } = await setup();

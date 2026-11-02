@@ -149,7 +149,7 @@ const mediaDir = process.env.MEDIA_DIR ?? join(configDir, "../.media");
 const landingCfg = { base: "/", rpcUrl: config.rpc_urls[0] ?? "", network: config.network, token: config.token.symbol, decimals: config.token.decimals, storeBase: config.public_url.startsWith("https://") ? new URL(config.public_url).host : "" };
 const landing = conn ? async () => {
   const sc = await new ContentStore(conn.db).showcase(3);
-  const posts = sc.posts.map((p) => ({ caption: p.caption, img: p.publicImage ? `/files/${p.publicImage}?w=640` : null, proofId: p.proofId, store: p.storeName, href: `/h/${p.handle}/`, line: `${p.storeName}${p.proofId ? ` · proof #${p.proofId}` : ""}` }));
+  const posts = sc.posts.map((p) => ({ caption: p.caption, img: p.publicImage ? `/files/${p.publicImage}?w=640` : null, proofId: p.proofId, store: p.storeName, href: `/h/${p.handle}/p/${p.id}?ref=landing`, line: `${p.storeName}${p.proofId ? ` · proof #${p.proofId}` : ""}` }));
   return LandingPage({ cfg: landingCfg, test: config.token.test, d: { posts, stats: { proofs: sc.proofs, paidOrders: sc.paidOrders, stores: sc.stores }, verifyHref: posts[0]?.proofId ? `/verify/${posts[0].proofId}` : "/verify", limits: { free: PLAN_LIMITS.free!, pro: PLAN_LIMITS.pro! } } });
 } : undefined;
 
@@ -249,20 +249,25 @@ const app = createApp({
         return { stepsDone: Object.keys(all).filter((k) => k !== "revision_note"), files, stopped: all.stopped ? `${all.stopped.kind}: ${all.stopped.reason}`.slice(0, 400) : null };
       }
     : undefined,
-  ...(conn ? { storefront: async (handle: string, view?: { source: string | null; itemId?: string }) => {
+  ...(conn ? { storefront: async (handle: string, view?: { source: string | null; itemId?: string; postId?: string }) => {
     const cs = new ContentStore(conn!.db);
     const b = await cs.getBusiness(handle);
     if (!b) return null;
-    if (view) await cs.addEvent({ handle, kind: "view", source: view.source, itemId: view.itemId ?? null }).catch(() => {});
+    // A post page view counts for that post (Analytics → Top posts "views from its link").
+    if (view) await cs.addEvent({ handle, kind: "view", source: view.source, itemId: view.itemId ?? null, postId: view.postId ?? null }).catch(() => {});
     const prof = (await cs.getProfile(handle))?.data as { summary?: string } | undefined;
     const items = await cs.listItems(handle);
-    const posts = (await cs.listPosts(handle, { status: ["published"], limit: 8 }));
+    const posts = await cs.listPosts(handle, { status: ["published"], limit: 60 });
+    if (view?.postId && !posts.some((p) => p.id === view.postId)) {
+      const one = await cs.getPost(view.postId);
+      if (one && one.handle === handle && one.status === "published" && !one.passedAt) posts.push(one);
+    }
     const fmt = (u: string) => `${formatUnits(u, config.token.decimals)} ${config.token.symbol}`;
     return {
       handle, name: b.name, account: `${handle}.${accounts.root}`, summary: prof?.summary ?? b.description,
       orders: (await store.listOrders(handle, 500)).filter((o) => ["paid", "in_progress", "delivered", "released"].includes(o.state)).length,
       items: items.map((i) => ({ id: i.id, title: i.title, description: i.description, price: fmt(i.priceUnits), kind: i.kind, options: i.options as string[], img: i.photoMediaId ? `/files/${handle}/public/item-${i.id}.jpg?w=640&v=${createHash("sha256").update(`${i.photoMediaId}|${i.title}`).digest("hex").slice(0, 8)}` : null })),
-      posts: posts.map((p) => ({ caption: p.caption ?? "", img: (p.idea as { publicImage?: string }).publicImage ? `/files/${(p.idea as { publicImage: string }).publicImage}?w=640` : null, video: (p.idea as { publicVideo?: string }).publicVideo ? `/files/${(p.idea as { publicVideo: string }).publicVideo}?v=${((p.idea as { video?: { mediaId?: string } }).video?.mediaId ?? "").slice(-8)}` : null, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null })),
+      posts: posts.map((p) => ({ id: p.id, itemId: p.itemId, publishedAt: (p.publishedAt ?? p.createdAt).toISOString(), hashtags: (p.hashtags as string[]) ?? [], caption: p.caption ?? "", img: (p.idea as { publicImage?: string }).publicImage ? `/files/${(p.idea as { publicImage: string }).publicImage}?w=640` : null, video: (p.idea as { publicVideo?: string }).publicVideo ? `/files/${(p.idea as { publicVideo: string }).publicVideo}?v=${((p.idea as { video?: { mediaId?: string } }).video?.mediaId ?? "").slice(-8)}` : null, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null })),
     };
   } } : {}),
   onPaid: async (id) => {

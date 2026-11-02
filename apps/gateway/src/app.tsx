@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Hono, type Context } from "hono";
-import { ItemOrderPage, ItemPage, StorePage } from "./ui/store.js";
+import { ItemOrderPage, ItemPage, StorePage, PostsPage, PublicPostPage } from "./ui/store.js";
 import { secureHeaders } from "hono/secure-headers";
 import { handleFromHost, type HandleRecord, type PaymentRail, type DryQuote } from "@nearchant/near";
 import { formatUnits, type GatewayConfig } from "./config.js";
@@ -63,7 +63,7 @@ export interface Deps {
   /** Content stores (ADR 0018): the buyer storefront data, or null for a classic card. */
   /** nearchant.com home page (no store in the host): rendered landing; unset → redirect to the dashboard. */
   landing?: () => Promise<unknown>;
-  storefront?: (handle: string, view?: { source: string | null; itemId?: string }) => Promise<import("./ui/store.js").StoreData | null>;
+  storefront?: (handle: string, view?: { source: string | null; itemId?: string; postId?: string }) => Promise<import("./ui/store.js").StoreData | null>;
   /** Job progress + files of an order (from the artifacts table). */
   progress?: (orderId: string) => Promise<{ stepsDone: string[]; files: { kind: string; url: string }[]; stopped: string | null }>;
 }
@@ -148,6 +148,34 @@ export function createApp(d: Deps) {
     if (sf) return c.html(<StorePage s={sf} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, network: d.client.network }} test={d.config.token.test} />);
     const services = await d.store.listServices(h.handle);
     return c.html(<CardPage handle={h} services={services} price={price} testToken={d.config.token.test} base={base} cfg={d.client} />);
+  });
+
+  const refOf = (c: Context) => (c.req.query("ref") ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20) || null;
+  /** Absolute address of a store's pages (path stores on the main host, or the store's own subdomain). */
+  const storeOrigin = (c: Context, handle: string) => (c.req.path.startsWith("/h/") ? `${d.config.public_url}/h/${handle}/` : `https://${handle}.${d.config.base_domains[0]}/`);
+  const cfgOf = (c: Context, handle: string) => ({ base: c.req.path.startsWith("/h/") ? `/h/${handle}/` : "/", rpcUrl: d.client.rpcUrl, orders: d.client.orders, network: d.client.network });
+
+  // The store's own feed: buyers follow it here; Instagram/Telegram links bring people in.
+  seller.get("/posts", async (c) => {
+    const h = c.get("handle");
+    if (!h || !d.storefront) return c.notFound();
+    const sf = await d.storefront(h.handle, { source: refOf(c) }).catch(() => null);
+    if (!sf) return c.html(<NotFoundPage testToken={d.config.token.test} />, 404);
+    return c.html(<PostsPage s={sf} cfg={cfgOf(c, h.handle)} test={d.config.token.test} />);
+  });
+
+  seller.get("/p/:id", async (c) => {
+    const h = c.get("handle");
+    const id = c.req.param("id");
+    if (!h || !d.storefront || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) return c.notFound();
+    const sf = await d.storefront(h.handle, { source: refOf(c), postId: id }).catch(() => null);
+    const p = sf?.posts.find((x) => x.id === id);
+    if (!sf || !p) return c.html(<NotFoundPage testToken={d.config.token.test} />, 404);
+    const origin = storeOrigin(c, h.handle), url = `${origin}p/${p.id}`;
+    const abs = (u: string | null) => (u ? new URL(u, origin).toString() : null);
+    return c.html(<PublicPostPage s={sf} p={p} cfg={cfgOf(c, h.handle)} test={d.config.token.test} url={url}
+      verifyUrl={p.proofId ? `${d.config.public_url}/verify/${p.proofId}` : null}
+      og={{ title: `${sf.name} on Nearchant`, description: p.caption.slice(0, 200), url, image: abs(p.img?.replace(/\?w=\d+/, "?w=1024") ?? null) }} />);
   });
 
   seller.get("/i/:id", async (c) => {

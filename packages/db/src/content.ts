@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import type { Db } from "./pg.js";
 import * as s from "./schema.js";
 
@@ -206,6 +206,20 @@ export class ContentStore {
       .from(s.events).where(and(eq(s.events.handle, handle), eq(s.events.kind, "view"), gte(s.events.createdAt, since))).groupBy(sql`1`, sql`2`);
   }
   /** Views per post (visits that came through a post's share link), since `days` ago. */
+  /** Explore (nearchant.com/explore): published posts with a public picture from every store, newest first. Hidden
+   *  test stores (setting "showcase_hidden") are left out; `before` pages by publish time. */
+  async feed(o: { limit?: number; before?: Date } = {}): Promise<{ id: string; handle: string; caption: string; publicImage: string; publicVideo: string | null; proofId: string | null; storeName: string; publishedAt: Date }[]> {
+    const rows = await this.db.select({ id: s.posts.id, handle: s.posts.handle, caption: s.posts.caption, idea: s.posts.idea, proof: s.posts.proof, name: s.businesses.name, at: s.posts.publishedAt })
+      .from(s.posts).innerJoin(s.businesses, eq(s.businesses.handle, s.posts.handle))
+      .where(and(eq(s.posts.status, "published"), sql`${s.posts.idea}->>'publicImage' is not null`, sql`${s.posts.publishedAt} is not null`,
+        o.before ? lt(s.posts.publishedAt, o.before) : undefined,
+        sql`${s.posts.handle} not in (select jsonb_array_elements_text(coalesce((select value from settings where key = 'showcase_hidden'), '[]'::jsonb)))`))
+      .orderBy(desc(s.posts.publishedAt)).limit(Math.min(o.limit ?? 24, 60));
+    return rows.map((r) => {
+      const idea = r.idea as { publicImage: string; publicVideo?: string };
+      return { id: r.id, handle: r.handle, caption: r.caption ?? "", publicImage: idea.publicImage, publicVideo: idea.publicVideo ?? null, proofId: (r.proof as { proofId?: string } | null)?.proofId ?? null, storeName: r.name, publishedAt: r.at! };
+    });
+  }
   async postViews(handle: string, days: number): Promise<Map<string, number>> {
     const since = new Date(Date.now() - days * 86_400_000);
     const rows = await this.db.select({ id: s.events.postId, n: sql<number>`count(*)::int` }).from(s.events)
