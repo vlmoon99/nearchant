@@ -1,0 +1,33 @@
+# Builds and publishes the three images the Phala CVM runs (deploy/phala/compose.yaml pins them by digest, so the
+# attestation report binds exactly this code). Run by hand: Actions → images → Run workflow.
+name: images
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { name: app, context: ., file: deploy/Dockerfile }
+          - { name: image, context: deploy/image-engine/service, file: deploy/image-engine/service/Dockerfile }
+          - { name: tts, context: deploy/video-engine/tts, file: deploy/video-engine/tts/Dockerfile }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/nearchant-${{ matrix.name }}:${{ github.sha }}
+      - name: digest
+        run: echo "nearchant-${{ matrix.name }}@${{ steps.push.outputs.digest }}" | tee -a "$GITHUB_STEP_SUMMARY"
