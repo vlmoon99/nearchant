@@ -1166,3 +1166,16 @@ undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your mach
   answer" ✓. Questions go to the seller's Analytics ("Questions shoppers asked", "for you" when the AI couldn't).
   20 questions/hour per address.
 - **Verified**: tests db 19, swarm 41, gateway 60, worker 24; live checks above.
+
+## 2026-11-02 23:44 UTC — night: budget search, smarter insights, CI fixed
+- **CI** `make demo` broke at ceaeeea (I edited the opportunity-analyst prompt; the replay is keyed by the request).
+  Reverted that prompt line (the shopper-searches instruction travels with the request instead) → CI green (0c18f9e).
+  Rule for later: prompts used by `make demo` (profiler, opportunity-analyst, idea-writer, …) change only together
+  with a re-recording.
+- **Budget search**: the planner reads "under $50"; the feed keeps posts whose item (or store) fits. Live: whey under
+  $50 → nothing (it costs 100), under $200 → Super Nutrition, denim jacket under $5 → Nova Wear.
+- **What AI noticed** reads the shop feed (likes, followers, searches that showed the store, unmet demand, shopper
+  questions the AI couldn't answer). Live for Nova: "Shoppers searched for 'denim jacket' 4 times in your country →
+  Highlight denim items", "One shopper asked if the sweater is 100% merino wool → Add wool details".
+- **Verified**: tests db 19, swarm 41, worker 24, gateway 60; live checks above. A second independent review of the
+  newer features is running.
