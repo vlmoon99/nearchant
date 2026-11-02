@@ -38,6 +38,13 @@ describe("FeedStore", () => {
     const ny2 = (await f.feed({ vector: v(1), terms: ["protein"], country: "US", city: "New York" })).map((p) => p.id);
     expect(ny2.indexOf(nowhere)).toBeGreaterThan(ny2.indexOf(whey));
 
+    // A budget: only posts whose item (or store) has something at that price.
+    await c.upsertItem({ id: "i-cheap", handle: "gymny", title: "Whey 1 kg", priceUnits: "30000000" });
+    await c.upsertItem({ id: "i-dear", handle: "gymworld", title: "Whey 5 kg", priceUnits: "90000000" });
+    const cheap = (await f.feed({ terms: ["whey"], maxPriceUnits: 50_000_000n })).map((p) => p.handle);
+    expect(cheap).toContain("gymny");
+    expect(cheap).not.toContain("gymworld");
+
     // Words alone (no embedding available) still find it.
     expect((await f.feed({ terms: ["denim"] })).map((p) => p.id)).toEqual([denim]);
 

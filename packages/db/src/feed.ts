@@ -30,6 +30,8 @@ export interface FeedQuery {
   onlyLiked?: boolean;
   /** Only posts of stores this buyer follows (the "Following" feed). */
   onlyFollowing?: boolean;
+  /** Only posts whose item (or, for posts without an item, one of the store's items) costs at most this, in base units. */
+  maxPriceUnits?: bigint | null;
   /** The visitor's country (from the CDN): a soft boost for stores there or shipping worldwide, never a filter. */
   preferCountry?: string | null;
   /** Leave these posts out (e.g. the post a "More like this" list belongs to). */
@@ -164,6 +166,8 @@ export class FeedStore {
         and p.handle not in (select jsonb_array_elements_text(coalesce((select value from settings where key = 'showcase_hidden'), '[]'::jsonb)))
         ${q.onlyLiked && q.buyerId ? sql`and exists(select 1 from likes l where l.post_id = p.id and l.buyer_id = ${q.buyerId})` : sql``}
         ${q.onlyFollowing && q.buyerId ? sql`and exists(select 1 from follows f where f.handle = p.handle and f.buyer_id = ${q.buyerId})` : sql``}
+        ${q.maxPriceUnits != null ? sql`and (case when i.id is not null and i.active then i.price_units::numeric <= ${q.maxPriceUnits.toString()}::numeric
+          else exists (select 1 from items x where x.handle = p.handle and x.active and x.price_units::numeric <= ${q.maxPriceUnits.toString()}::numeric) end)` : sql``}
         ${q.exclude?.length ? sql`and p.id not in (${sql.join(q.exclude.map((x) => sql`${x}`), sql`, `)})` : sql``}
     `)) as unknown as Record<string, unknown>[];
     const now = Date.now();

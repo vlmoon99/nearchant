@@ -12,7 +12,7 @@ export const BUYER_COOKIE = "nc_buyer";
 const BUYER_MS = 90 * 24 * 3600_000;
 
 /** What a search turns into: the AI plan + a query vector (both optional: the feed works without AI). */
-export interface SearchIntent { summary: string; terms: string[]; city: string | null; country: string | null; vector: number[] | null; goods?: string[]; goodVectors?: { name: string; vector: number[] }[] }
+export interface SearchIntent { summary: string; terms: string[]; city: string | null; country: string | null; vector: number[] | null; goods?: string[]; goodVectors?: { name: string; vector: number[] }[]; /** Budget in token base units (a string, for JSON). */ maxPriceUnits?: string | null }
 
 export interface BuyerAppDeps {
   feed: FeedStore;
@@ -189,7 +189,8 @@ export async function feedFor(d: Pick<BuyerAppDeps, "feed" | "understand">, q: s
   }
   const city = cityIn || intent?.city || null, country = place.country?.trim().toUpperCase() || intent?.country || null;
   const visitor = /^[A-Z]{2}$/.test(place.visitorCountry ?? "") && place.visitorCountry !== "XX" && place.visitorCountry !== "T1" ? place.visitorCountry! : null;
-  const posts = await d.feed.feed({ vector: intent?.vector ?? null, terms: intent?.terms ?? [], city, country, buyerId, offset, limit: 24, preferCountry: visitor });
+  const maxPriceUnits = intent?.maxPriceUnits && /^\d{1,30}$/.test(intent.maxPriceUnits) ? BigInt(intent.maxPriceUnits) : null;
+  const posts = await d.feed.feed({ vector: intent?.vector ?? null, terms: intent?.terms ?? [], city, country, buyerId, offset, limit: 24, preferCountry: visitor, maxPriceUnits });
   // Anonymous demand for sellers' Analytics: what was searched, where, what it found (no IP, no account).
   if (query && offset === 0 && intent && typeof d.feed.logSearch === "function") {
     void d.feed.logSearch({ q: query, goods: (intent as SearchIntent & { goods?: string[] }).goods?.length ? (intent as SearchIntent & { goods: string[] }).goods : [query.toLowerCase()], city, country, results: posts.length, handles: posts.map((p) => p.handle) }).catch(() => {});

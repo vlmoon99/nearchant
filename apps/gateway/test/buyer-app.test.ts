@@ -96,6 +96,8 @@ describe("buyers", () => {
     const feed = { feed: async (q: Record<string, unknown>) => { seen = q; return []; } } as unknown as FeedStore;
     const r = await feedFor({ feed, understand: async () => ({ summary: "Protein in New York", terms: ["protein", "whey"], city: "New York", country: "US", vector: [0.1, 0.2] }) }, "protein nyc", "b1");
     expect(seen).toMatchObject({ terms: ["protein", "whey"], city: "New York", country: "US", vector: [0.1, 0.2], buyerId: "b1" });
+    await feedFor({ feed, understand: async () => ({ summary: "Whey under $50", terms: ["whey"], city: null, country: null, vector: null, maxPriceUnits: "50000000" }) }, "whey under $50", null);
+    expect(seen).toMatchObject({ maxPriceUnits: 50_000_000n });
     expect(r.intent).toMatchObject({ summary: "Protein in New York", vector: null }); // the vector is not sent to the page
     // "Stores that sell 1, 2": each good's vector goes to the store matcher; vectors never reach the page.
     let matched: unknown = null;

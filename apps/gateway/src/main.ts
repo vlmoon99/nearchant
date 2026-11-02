@@ -362,7 +362,8 @@ async function understand(q: string): Promise<SearchIntent> {
     .then((e) => (e.output as { vectors?: number[][] }).vectors ?? null).catch(() => null);
   const vector = vectors?.[0] ?? null;
   const goodVectors = vectors && vectors.length === goods.length + 1 ? goods.map((name, i) => ({ name, vector: vectors[i + 1]! })) : [];
-  const v: SearchIntent = { goodVectors, goods: plan?.goods ?? [], summary: plan?.summary || q, terms: plan?.terms.length ? plan.terms : q.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1), city: plan?.city ?? null, country: plan?.country ?? null, vector };
+  const maxPriceUnits = plan?.maxPrice ? (BigInt(Math.round(plan.maxPrice * 100)) * 10n ** BigInt(config.token.decimals) / 100n).toString() : null;
+  const v: SearchIntent = { maxPriceUnits, goodVectors, goods: plan?.goods ?? [], summary: plan?.summary || q, terms: plan?.terms.length ? plan.terms : q.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1), city: plan?.city ?? null, country: plan?.country ?? null, vector };
   if (intentCache.size > 500) intentCache.clear();
   intentCache.set(key, { at: Date.now(), v });
   return v;

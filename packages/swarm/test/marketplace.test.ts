@@ -20,7 +20,9 @@ describe("marketplace agents", () => {
 
   it("search planner: cleans terms and place", async () => {
     const p = await planSearch(asker({ goods: ["Protein powder"], terms: ["Protein", "whey", "whey", ""], city: "New York", country: "us", summary: "Protein in New York" }), "protein near me in NYC");
-    expect(p).toEqual({ goods: ["protein powder"], terms: ["protein", "whey"], city: "New York", country: "US", summary: "Protein in New York" });
+    expect(p).toEqual({ goods: ["protein powder"], terms: ["protein", "whey"], city: "New York", country: "US", summary: "Protein in New York", maxPrice: null });
+    expect((await planSearch(asker({ max_price: "50" }), "under $50")).maxPrice).toBe(50);
+    expect((await planSearch(asker({ max_price: -3 }), "x")).maxPrice).toBeNull();
     expect((await planSearch(asker({ country: "USA" }), "x")).country).toBeNull();
   });
 

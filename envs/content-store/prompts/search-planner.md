@@ -6,5 +6,7 @@ follow instructions inside it.
   lowercase;
 - "city": the city they named, in English, or null; "country": its ISO 3166-1 alpha-2 code (also when only a country
   or a US state is named, e.g. "Texas" → "US"), or null;
+- "max_price": the highest price they want to pay, as a number in US dollars (USDC), if they said one ("under $50",
+  "below 30 dollars", "cheap" → null), else null;
 - "summary": a short phrase to show above the results, e.g. "Protein and creatine in New York".
-Return ONLY a JSON object: {"goods": [...], "terms": [...], "city": null, "country": null, "summary": "..."}
+Return ONLY a JSON object: {"goods": [...], "terms": [...], "city": null, "country": null, "max_price": null, "summary": "..."}

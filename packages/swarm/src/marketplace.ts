@@ -22,12 +22,13 @@ export async function moderatePost(ask: Asker, a: { caption: string; hashtags: s
 }
 export const shouldRemove = (v: ModVerdict) => v.violation && v.confidence >= REMOVE_AT;
 
-export interface SearchPlan { goods: string[]; terms: string[]; city: string | null; country: string | null; summary: string }
+export interface SearchPlan { goods: string[]; terms: string[]; city: string | null; country: string | null; summary: string; maxPrice: number | null }
 export async function planSearch(ask: Asker, query: string): Promise<SearchPlan> {
   const raw = await ask<Record<string, unknown>>("search-planner", block("search", query.slice(0, 300)));
   const list = (x: unknown, n: number, len: number) => (Array.isArray(x) ? x.map((y) => clip(y, len).toLowerCase()).filter(Boolean).slice(0, n) : []);
   const country = clip(raw.country, 3).toUpperCase();
-  return { goods: list(raw.goods, 8, 60), terms: [...new Set(list(raw.terms, 24, 40))], city: clip(raw.city, 60) || null, country: /^[A-Z]{2}$/.test(country) ? country : null, summary: clip(raw.summary, 100) };
+  const mp = Number(raw.max_price);
+  return { goods: list(raw.goods, 8, 60), terms: [...new Set(list(raw.terms, 24, 40))], city: clip(raw.city, 60) || null, country: /^[A-Z]{2}$/.test(country) ? country : null, summary: clip(raw.summary, 100), maxPrice: raw.max_price != null && Number.isFinite(mp) && mp > 0 && mp < 1e7 ? mp : null };
 }
 
 export interface StorePlace { city: string | null; country: string | null; ships: "local" | "country" | "world" | null }
