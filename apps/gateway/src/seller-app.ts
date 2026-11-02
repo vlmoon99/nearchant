@@ -44,6 +44,8 @@ export interface SellerAppDeps {
   mail?: Mailer;
   /** Origin for links in emails (config public_url). */
   publicUrl?: string;
+  /** IPs per store account, for the violators list (ADR 0022). */
+  logIp?: (kind: "store", id: string, ip: string) => Promise<void>;
   now?: () => number;
 }
 
@@ -68,9 +70,15 @@ export function readSession(key: Buffer, token: string | undefined, now = Date.n
 export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
   const now = () => (d.now ? d.now() : Date.now());
   const seller = (c: Context) => readSession(d.sessionKey, getCookie(c, COOKIE), now());
+  const seenIp = new Map<string, number>();
   const authed = async (c: Context, fn: (handle: string) => Promise<Response>) => {
     const h = seller(c);
-    return h ? fn(h) : c.json({ error: "sign in first" }, 401);
+    if (!h) return c.json({ error: "sign in first" }, 401);
+    if (d.logIp) { // at most once an hour per store and IP
+      const ip = clientIp((n) => c.req.header(n), (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket?.remoteAddress), k = `${h}|${ip}`;
+      if ((seenIp.get(k) ?? 0) < now() - 3_600_000) { seenIp.set(k, now()); if (seenIp.size > 20_000) seenIp.clear(); void d.logIp("store", h, ip).catch(() => {}); }
+    }
+    return fn(h);
   };
   const json = async (c: Context) => ((await c.req.json().catch(() => null)) ?? {}) as Record<string, unknown>;
 

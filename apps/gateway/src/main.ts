@@ -368,6 +368,7 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     videoEnabled: !!(process.env.TTS_URL && process.env.COMFY_API_KEY),
     walletRecipient: new URL(config.public_url).host,
     ...(mailer ? { mail: mailer } : {}), publicUrl: config.public_url,
+    ...(feedStore ? { logIp: (k: "store", id: string, ip: string) => feedStore.logIp(k, id, ip) } : {}),
   });
   const queueJob = async (task: string, payload: Record<string, unknown>, jobKey?: string) => {
     if (!queue) throw new Error("no job queue (DATABASE_URL unset)");
