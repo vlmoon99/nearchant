@@ -108,13 +108,20 @@ describe("FeedStore", () => {
 
   it("search demand: what shoppers want, anonymously, and which searches showed a store", async () => {
     const f = new FeedStore(conn.db);
-    await f.logSearch({ q: "whey nyc", goods: ["whey protein"], city: "New York", country: "US", results: 2, handles: ["gymny", "gymworld"] });
-    await f.logSearch({ q: "whey", goods: ["whey protein"], city: null, country: null, results: 1, handles: ["gymny"] });
-    await f.logSearch({ q: "kimchi", goods: ["kimchi"], city: "New York", country: "US", results: 0, handles: [] });
+    await f.logSearch({ goods: ["whey protein"], city: "New York", country: "US", results: 2, handles: ["gymny", "gymworld"], src: "a" });
+    await f.logSearch({ goods: ["whey protein"], city: null, country: null, results: 1, handles: ["gymny"], src: "b" });
+    for (let i = 0; i < 5; i++) await f.logSearch({ goods: ["Whey Protein"], city: null, country: null, results: 1, handles: ["gymny"], src: "b" }); // repeats don't count
+    await f.logSearch({ goods: [], city: null, country: null, results: 0, handles: [], src: "c" });                                              // nothing the planner understood: not logged
+    await f.logSearch({ goods: ["kimchi"], city: "New York", country: "US", results: 0, handles: [], src: "a" });
     const d = await f.demand({ days: 30, country: "US" });
     expect(d[0]).toEqual({ goods: "whey protein", searches: 2, empty: 0 });
     expect(d.find((x) => x.goods === "kimchi")).toEqual({ goods: "kimchi", searches: 1, empty: 1 });
     expect(await f.searchesFor("gymny", 30)).toEqual({ count: 2, goods: ["whey protein"] });
+    // Lists kept in settings grow atomically, newest first, capped.
+    const c = new ContentStore(conn.db);
+    await Promise.all(Array.from({ length: 12 }, (_, i) => c.prependSetting("list:test", { i }, 10)));
+    const list = (await c.getSetting<{ i: number }[]>("list:test"))!;
+    expect(list).toHaveLength(10);
   });
 
   it("keeps reports with their decisions and counts recent ones per reporter", async () => {

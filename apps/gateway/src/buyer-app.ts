@@ -1,5 +1,6 @@
 // Buyers (ADR 0022): accounts by email link or any NEAR wallet (NEP-413), likes, reports, the feed API.
 // The buyer cookie is separate from the seller cookie and signed with its own key.
+import { createHmac } from "node:crypto";
 import type { Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { REPORT_REASONS, type FeedPost, type FeedStore, type ReportReason, type StoreMatch } from "@nearchant/db";
@@ -29,6 +30,9 @@ export interface BuyerAppDeps {
   mail?: Mailer;
   now?: () => number;
 }
+
+/** Anonymous, unlinkable-across-days source of a search (for counting distinct shoppers, ADR 0022). */
+export const searchSource = (key: Buffer, ip: string) => createHmac("sha256", key).update(`search:${new Date().toISOString().slice(0, 10)}:${ip}`).digest("base64url").slice(0, 22);
 
 /** Where a buyer may be sent back to after signing in: our own pages only. */
 const safeBack = (b: unknown) => (typeof b === "string" && /^\/(?!\/)[\w\-./?=&%#]*$/.test(b) ? b : "/feed");
@@ -168,13 +172,13 @@ export function mountBuyerApp(app: Hono<any>, d: BuyerAppDeps): void {
 
   // ── feed API (infinite scroll; the first page is rendered by /feed) ──
   app.get("/api/feed", async (c) => {
-    const r = await feedFor(d, c.req.query("q") ?? "", buyerId(c), Number(c.req.query("offset") ?? 0) || 0, { city: c.req.query("city"), country: c.req.query("country"), visitorCountry: process.env.TRUST_PROXY === "cloudflare" ? c.req.header("cf-ipcountry") ?? null : null });
+    const r = await feedFor(d, c.req.query("q") ?? "", buyerId(c), Number(c.req.query("offset") ?? 0) || 0, { city: c.req.query("city"), country: c.req.query("country"), visitorCountry: process.env.TRUST_PROXY === "cloudflare" ? c.req.header("cf-ipcountry") ?? null : null, src: searchSource(d.key, ipOf(c)) });
     return c.json(r);
   });
 }
 
 /** Runs a search (or "For you" without a query). Without AI it still works on words. */
-export async function feedFor(d: Pick<BuyerAppDeps, "feed" | "understand">, q: string, buyerId: string | null, offset = 0, place: { city?: string | undefined; country?: string | undefined; visitorCountry?: string | null } = {}): Promise<{ intent: SearchIntent | null; posts: FeedPost[]; stores: StoreMatch[] }> {
+export async function feedFor(d: Pick<BuyerAppDeps, "feed" | "understand">, q: string, buyerId: string | null, offset = 0, place: { city?: string | undefined; country?: string | undefined; visitorCountry?: string | null; src?: string } = {}): Promise<{ intent: SearchIntent | null; posts: FeedPost[]; stores: StoreMatch[] }> {
   const query = q.trim().slice(0, 200), cityIn = place.city?.trim().slice(0, 60) || "";
   let intent: SearchIntent | null = null;
   if (query) {
@@ -192,8 +196,9 @@ export async function feedFor(d: Pick<BuyerAppDeps, "feed" | "understand">, q: s
   const maxPriceUnits = intent?.maxPriceUnits && /^\d{1,30}$/.test(intent.maxPriceUnits) ? BigInt(intent.maxPriceUnits) : null;
   const posts = await d.feed.feed({ vector: intent?.vector ?? null, terms: intent?.terms ?? [], city, country, buyerId, offset, limit: 24, preferCountry: visitor, maxPriceUnits });
   // Anonymous demand for sellers' Analytics: what was searched, where, what it found (no IP, no account).
-  if (query && offset === 0 && intent && typeof d.feed.logSearch === "function") {
-    void d.feed.logSearch({ q: query, goods: (intent as SearchIntent & { goods?: string[] }).goods?.length ? (intent as SearchIntent & { goods: string[] }).goods : [query.toLowerCase()], city, country, results: posts.length, handles: posts.map((p) => p.handle) }).catch(() => {});
+  // Only goods the planner understood are logged — never the raw query — once per anonymous source and day.
+  if (query && offset === 0 && intent?.goods?.length && place.src && typeof d.feed.logSearch === "function") {
+    void d.feed.logSearch({ goods: intent.goods, city, country, results: posts.length, handles: posts.map((p) => p.handle), src: place.src }).catch(() => {});
   }
   // "Stores that sell …": per searched good, which stores sell it (first page only).
   const stores = offset === 0 && intent?.goodVectors?.length && typeof d.feed.storesFor === "function" ? await d.feed.storesFor(intent.goodVectors, { city, country }).catch(() => []) : [];

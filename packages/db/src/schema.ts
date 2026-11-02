@@ -365,5 +365,8 @@ export const searchLog = pgTable("search_log", {
   results: integer("results").notNull().default(0),
   /** Stores whose posts were in the first page of results. */
   handles: jsonb("handles").notNull().default(sql`'[]'::jsonb`),
+  /** Anonymous source: HMAC of the visitor's address with a key that changes daily — counts distinct shoppers, can't
+   *  be traced back or linked across days. */
+  src: text("src"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("search_log_created").on(t.createdAt)]);

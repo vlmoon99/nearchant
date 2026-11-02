@@ -244,12 +244,21 @@ export class FeedStore {
   }
 
   // ── search demand (anonymous) ──
-  async logSearch(e: { q: string; goods: string[]; city: string | null; country: string | null; results: number; handles: string[] }): Promise<void> {
-    await this.db.insert(s.searchLog).values({ q: e.q.slice(0, 200), goods: e.goods.slice(0, 8), city: e.city, country: e.country, results: e.results, handles: [...new Set(e.handles)].slice(0, 30) });
+  /** Only goods the planner extracted are kept (never the raw text); one row per source + goods per day. */
+  async logSearch(e: { goods: string[]; city: string | null; country: string | null; results: number; handles: string[]; src: string }): Promise<void> {
+    const goods = [...new Set(e.goods.map((g) => g.toLowerCase().trim().slice(0, 60)).filter(Boolean))].slice(0, 8).sort();
+    if (!goods.length) return;
+    const key = goods.join("|");
+    const [dupe] = (await this.db.execute(sql`select 1 from search_log where src = ${e.src} and q = ${key} and created_at > now() - interval '1 day' limit 1`)) as unknown as unknown[];
+    if (dupe) return;
+    const [n] = (await this.db.execute(sql`select count(*)::int as n from search_log where src = ${e.src} and created_at > now() - interval '1 day'`)) as unknown as { n: number }[];
+    if (Number(n?.n ?? 0) >= 30) return;
+    await this.db.insert(s.searchLog).values({ q: key, goods, city: e.city, country: e.country, results: e.results, handles: [...new Set(e.handles)].slice(0, 30), src: e.src });
   }
   /** What shoppers looked for in the last `days` (optionally in one country), most searched first, with how many found nothing. */
   async demand(o: { days: number; country?: string | null; limit?: number }): Promise<{ goods: string; searches: number; empty: number }[]> {
-    const rows = (await this.db.execute(sql`select g as goods, count(*)::int as searches, count(*) filter (where results = 0)::int as empty
+    // Counted by distinct anonymous source, so one visitor repeating a search can't push it up.
+    const rows = (await this.db.execute(sql`select g as goods, count(distinct coalesce(src, id::text))::int as searches, count(distinct coalesce(src, id::text)) filter (where results = 0)::int as empty
       from search_log, jsonb_array_elements_text(goods) g
       where created_at > now() - make_interval(days => ${o.days}) ${o.country ? sql`and (country = ${o.country} or country is null)` : sql``}
       group by g order by 2 desc, 1 limit ${o.limit ?? 8}`)) as unknown as { goods: string; searches: number; empty: number }[];

@@ -276,7 +276,7 @@ const app = createApp({
   ...(conn ? { askStore: async (handle: string, question: string) => {
     const cs = new ContentStore(conn!.db);
     const b = await cs.getBusiness(handle);
-    if (!b) throw new Error("no store");
+    if (!b || b.suspendedAt) throw new Error("no store"); // a paused store's assistant does not answer
     const items = (await cs.listItems(handle)).map((i) => ({ id: i.id, title: i.title, description: i.description, price: `${formatUnits(i.priceUnits, config.token.decimals)} ${config.token.symbol}`, options: (i.options as string[]) ?? [] }));
     const posts = (await cs.listPosts(handle, { status: ["published"], limit: 10 })).filter((p) => !p.removedAt).map((p) => p.caption ?? "");
     const r = await getRouter();
@@ -285,16 +285,13 @@ const app = createApp({
     const a = await Promise.race([answerShopper(ask, { question, store: { name: b.name, description: b.description, place: [b.city, b.country].filter(Boolean).join(", "), ships: b.ships ?? "" }, items, posts }),
       new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 45_000))]);
     // The owner sees what shoppers ask (Analytics), newest first.
-    const k = `questions:${handle}`, list = (await cs.getSetting<{ q: string; a: string; owner: boolean; at: string }[]>(k)) ?? [];
-    await cs.setSetting(k, [{ q: question.slice(0, 500), a: a.answer, owner: a.askOwner, at: new Date().toISOString() }, ...list].slice(0, 50));
+    await cs.prependSetting(`questions:${handle}`, { q: question.slice(0, 500), a: a.answer, owner: a.askOwner, at: new Date().toISOString() }, 50);
     return a;
   } } : {}),
   ...(conn ? { onOrderCreated: async (c: import("hono").Context, orderId: string, handle: string) => {
     const buyer = readSession(buyerKey, getCookie(c, "nc_buyer"));
     if (!buyer) return;
-    const cs = new ContentStore(conn!.db), k = `buyerOrders:${buyer}`;
-    const list = (await cs.getSetting<{ orderId: string; handle: string; at: string }[]>(k)) ?? [];
-    await cs.setSetting(k, [{ orderId, handle, at: new Date().toISOString() }, ...list].slice(0, 200));
+    await new ContentStore(conn!.db).prependSetting(`buyerOrders:${buyer}`, { orderId, handle, at: new Date().toISOString() }, 200);
   } } : {}),
   ...(conn ? { suspended: async (h: string) => !!(await new ContentStore(conn!.db).getBusiness(h))?.suspendedAt } : {}),
   ...(feedStore ? { similar: async (postId: string) => (await feedStore.similar(postId, 8)).map((x) => ({ id: x.id, handle: x.handle, storeName: x.storeName, caption: x.caption, img: `/files/${x.publicImage}?w=640`, video: !!x.publicVideo })) } : {}),
@@ -433,14 +430,14 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     ...(feedStore ? { feedStore, understand, buyerKey, suggestions: async () => suggestions() } : {}),
     buyerOrders: async (buyer: string) => {
       const list = conn ? (await new ContentStore(conn.db).getSetting<{ orderId: string; handle: string; at: string }[]>(`buyerOrders:${buyer}`)) ?? [] : [];
-      const rows = await Promise.all(list.slice(0, 50).map(async (x) => {
+      const rows = await Promise.all(list.map(async (x) => {
         const o = await store.getOrder(x.orderId);
         if (!o || o.state === "awaiting_payment") return null;
         const b = conn ? await new ContentStore(conn.db).getBusiness(x.handle) : null;
         const item = conn ? await new ContentStore(conn.db).getItem(x.handle, o.serviceId) : null;
         return { orderId: o.orderId, handle: x.handle, store: b?.name ?? x.handle, title: item?.title ?? "Order", amount: `${formatUnits(o.amount, config.token.decimals)} ${config.token.symbol}`, state: o.state, at: o.createdAt };
       }));
-      return rows.filter((r): r is NonNullable<typeof r> => !!r);
+      return rows.filter((r): r is NonNullable<typeof r> => !!r).slice(0, 50); // unpaid checkouts never push paid orders out
     },
     ...(existsSync(join(import.meta.dirname, "../dist/web/buyer.js")) ? { buyerJs: readFileSync(join(import.meta.dirname, "../dist/web/buyer.js"), "utf8") } : {}),
     ...(existsSync(join(import.meta.dirname, "../dist/web/wallet.js")) ? { walletJs: readFileSync(join(import.meta.dirname, "../dist/web/wallet.js"), "utf8") } : {}),

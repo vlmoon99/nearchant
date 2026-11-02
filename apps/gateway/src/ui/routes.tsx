@@ -7,7 +7,8 @@ import { CreatePage, HomePage, PostPage, PostsPage, SignInPage, checklistFor, ty
 import { createHash } from "node:crypto";
 import { Mark, UiPage, assetV, type UiConfig } from "./kit.js";
 import { ExplorePage, FeedTiles, type FeedTile } from "./explore.js";
-import { feedFor, type SearchIntent } from "../buyer-app.js";
+import { feedFor, searchSource, type SearchIntent } from "../buyer-app.js";
+import { clientIp } from "../buyers.js";
 import type { FeedPost, FeedStore } from "@nearchant/db";
 import { AnalyticsPage, Celebration, ReportPage, SettingsPage, WalletPage, type Insights } from "./more-pages.js";
 import { readSession } from "../seller-app.js";
@@ -99,7 +100,7 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
   app.get("/feed", async (c) => {
     if (!d.feedStore) return c.notFound();
     const { q, city, offset } = feedQuery(c), buyer = d.buyerKey ? readSession(d.buyerKey, getCookie(c, "nc_buyer")) : null;
-    const r = await feedFor({ feed: d.feedStore, ...(d.understand ? { understand: d.understand } : {}) }, q, buyer, offset, { city, visitorCountry: process.env.TRUST_PROXY === "cloudflare" ? c.req.header("cf-ipcountry") ?? null : null });
+    const r = await feedFor({ feed: d.feedStore, ...(d.understand ? { understand: d.understand } : {}) }, q, buyer, offset, { city, visitorCountry: process.env.TRUST_PROXY === "cloudflare" ? c.req.header("cf-ipcountry") ?? null : null, ...(d.buyerKey ? { src: searchSource(d.buyerKey, clientIp((n) => c.req.header(n), (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket?.remoteAddress)) } : {}) });
     const stores = r.stores.map((st) => ({ handle: st.handle, name: st.name, place: [st.city, st.country].filter(Boolean).join(", ") || null, img: st.image ? `/files/${st.image}?w=320` : null, goods: st.goods.map((g) => ({ name: g.name, match: g.match })), matched: st.matched, followers: st.followers }));
     return c.html(<ExplorePage cfg={d.cfg} test={d.test} q={q} city={city} summary={r.intent?.summary ?? null} posts={tilesOf(r.posts)} next={nextOf(q, city, offset, r.posts.length)} stores={stores}
       suggestions={d.suggestions ? await d.suggestions().catch(() => []) : []} forYou={!!buyer} />);
@@ -107,7 +108,7 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
   app.get("/feed/more", async (c) => {
     if (!d.feedStore) return c.notFound();
     const { q, city, offset } = feedQuery(c), buyer = d.buyerKey ? readSession(d.buyerKey, getCookie(c, "nc_buyer")) : null;
-    const r = await feedFor({ feed: d.feedStore, ...(d.understand ? { understand: d.understand } : {}) }, q, buyer, offset, { city, visitorCountry: process.env.TRUST_PROXY === "cloudflare" ? c.req.header("cf-ipcountry") ?? null : null });
+    const r = await feedFor({ feed: d.feedStore, ...(d.understand ? { understand: d.understand } : {}) }, q, buyer, offset, { city, visitorCountry: process.env.TRUST_PROXY === "cloudflare" ? c.req.header("cf-ipcountry") ?? null : null, ...(d.buyerKey ? { src: searchSource(d.buyerKey, clientIp((n) => c.req.header(n), (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket?.remoteAddress)) } : {}) });
     return c.html(<FeedTiles posts={tilesOf(r.posts)} next={nextOf(q, city, offset, r.posts.length)} />);
   });
   app.get("/feed/liked", async (c) => {

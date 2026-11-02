@@ -171,6 +171,13 @@ export class ContentStore {
     return ((await this.db.select().from(s.settings).where(eq(s.settings.key, key)))[0]?.value as T) ?? null;
   }
 
+  /** Adds an item to the front of a JSON list setting in one statement (no lost updates), keeping at most `max`. */
+  async prependSetting(key: string, item: unknown, max: number): Promise<void> {
+    const v = JSON.stringify([item]);
+    await this.db.execute(sql`insert into settings (key, value) values (${key}, ${v}::jsonb)
+      on conflict (key) do update set updated_at = now(), value = (
+        select coalesce(jsonb_agg(e order by i), '[]'::jsonb) from jsonb_array_elements(${v}::jsonb || (case when jsonb_typeof(settings.value) = 'array' then settings.value else '[]'::jsonb end)) with ordinality t(e, i) where i <= ${max})`);
+  }
   async setSetting(key: string, value: unknown): Promise<void> {
     await this.db.insert(s.settings).values({ key, value }).onConflictDoUpdate({ target: s.settings.key, set: { value, updatedAt: new Date() } });
   }

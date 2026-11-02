@@ -57,6 +57,13 @@
       "when": 1793661990018,
       "tag": "0007_search_log",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793663251055,
+      "tag": "0008_search_src",
+      "breakpoints": true
     }
   ]
 }
