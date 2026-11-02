@@ -15,7 +15,8 @@ import { Router } from "@nearchant/providers";
 import { loadAgentEnv, makeAsker, planSearch, type AgentEnv } from "@nearchant/swarm";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
 import { createApp } from "./app.js";
-import { mountSellerApp } from "./seller-app.js";
+import { mountSellerApp, readSession } from "./seller-app.js";
+import { getCookie } from "hono/cookie";
 import { mountModeration } from "./admin/moderation.js";
 import { mountBuyerApp, type SearchIntent } from "./buyer-app.js";
 import { emailHtml, resendMailer } from "./email.js";
@@ -177,6 +178,7 @@ if (!mailer) console.info("[gateway] email off (no RESEND_API_KEY)");
 
 // Shop feed store (ADR 0022), used by the store pages ("More like this") and the feed.
 const feedStore = conn ? new FeedStore(conn.db) : null;
+const buyerKey = createHash("sha256").update(`nearchant-buyer:${process.env.NEARCHANT_SECRET_KEY ?? "dev"}`).digest();
 
 const app = createApp({
   ...(landing ? { landing } : {}),
@@ -271,6 +273,13 @@ const app = createApp({
         return { stepsDone: Object.keys(all).filter((k) => k !== "revision_note"), files, stopped: all.stopped ? `${all.stopped.kind}: ${all.stopped.reason}`.slice(0, 400) : null };
       }
     : undefined,
+  ...(conn ? { onOrderCreated: async (c: import("hono").Context, orderId: string, handle: string) => {
+    const buyer = readSession(buyerKey, getCookie(c, "nc_buyer"));
+    if (!buyer) return;
+    const cs = new ContentStore(conn!.db), k = `buyerOrders:${buyer}`;
+    const list = (await cs.getSetting<{ orderId: string; handle: string; at: string }[]>(k)) ?? [];
+    await cs.setSetting(k, [{ orderId, handle, at: new Date().toISOString() }, ...list].slice(0, 200));
+  } } : {}),
   ...(conn ? { suspended: async (h: string) => !!(await new ContentStore(conn!.db).getBusiness(h))?.suspendedAt } : {}),
   ...(feedStore ? { similar: async (postId: string) => (await feedStore.similar(postId, 8)).map((x) => ({ id: x.id, handle: x.handle, storeName: x.storeName, caption: x.caption, img: `/files/${x.publicImage}?w=640`, video: !!x.publicVideo })) } : {}),
   ...(conn ? { storefront: async (handle: string, view?: { source: string | null; itemId?: string; postId?: string }) => {
@@ -321,7 +330,6 @@ const app = createApp({
 });
 
 // Shop feed + buyers (ADR 0022). Search: the search-planner reads the query, NEAR AI embeds it; both cached.
-const buyerKey = createHash("sha256").update(`nearchant-buyer:${process.env.NEARCHANT_SECRET_KEY ?? "dev"}`).digest();
 const intentCache = new Map<string, { at: number; v: SearchIntent }>();
 async function understand(q: string): Promise<SearchIntent> {
   const key = q.trim().toLowerCase();
@@ -402,6 +410,17 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     proof: (id) => chain.view(accounts.proofs, "get", { proof_id: id }),
     proofsContract: accounts.proofs, mediaDir,
     ...(feedStore ? { feedStore, understand, buyerKey, suggestions: async () => suggestions() } : {}),
+    buyerOrders: async (buyer: string) => {
+      const list = conn ? (await new ContentStore(conn.db).getSetting<{ orderId: string; handle: string; at: string }[]>(`buyerOrders:${buyer}`)) ?? [] : [];
+      const rows = await Promise.all(list.slice(0, 50).map(async (x) => {
+        const o = await store.getOrder(x.orderId);
+        if (!o || o.state === "awaiting_payment") return null;
+        const b = conn ? await new ContentStore(conn.db).getBusiness(x.handle) : null;
+        const item = conn ? await new ContentStore(conn.db).getItem(x.handle, o.serviceId) : null;
+        return { orderId: o.orderId, handle: x.handle, store: b?.name ?? x.handle, title: item?.title ?? "Order", amount: `${formatUnits(o.amount, config.token.decimals)} ${config.token.symbol}`, state: o.state, at: o.createdAt };
+      }));
+      return rows.filter((r): r is NonNullable<typeof r> => !!r);
+    },
     ...(existsSync(join(import.meta.dirname, "../dist/web/buyer.js")) ? { buyerJs: readFileSync(join(import.meta.dirname, "../dist/web/buyer.js"), "utf8") } : {}),
     ...(existsSync(join(import.meta.dirname, "../dist/web/wallet.js")) ? { walletJs: readFileSync(join(import.meta.dirname, "../dist/web/wallet.js"), "utf8") } : {}),
   });

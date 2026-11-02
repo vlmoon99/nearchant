@@ -30,7 +30,7 @@ export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: st
   <UiPage title={q ? `${q} · Nearchant` : "Shop feed · Nearchant"} cfg={cfg} page="feed" test={test} buyer>
     <div class="land">
       <nav class="land-nav"><a class="land-logo" href="/"><Mark />Nearchant</a>
-        <span class="land-links sub"><a href="/feed">Feed</a><a href="/feed/following">Following</a><a href="/feed/liked">Liked</a><a href="/verify">Verify a post</a></span>
+        <span class="land-links sub"><a href="/feed">Feed</a><a href="/feed/following">Following</a><a href="/feed/liked">Liked</a><a href="/feed/orders">Orders</a></span>
         <span class="row" style="gap:14px;align-items:center"><a class="sub" href="#" data-buyer-me>Sign in</a><a class="btn" href="/start">Sell here</a></span></nav>
       <section class="stack" style="max-width:1200px;margin:0 auto;padding:24px 16px 80px;gap:18px">
         <form class="feed-search" action="/feed" method="get">

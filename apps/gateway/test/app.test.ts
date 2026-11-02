@@ -233,6 +233,17 @@ describe("orders", () => {
     expect((await store.getOrder("o-test-1"))?.state).toBe("awaiting_payment");
   });
 
+  it("tells the buyer side about a new order (for My orders), and a failing hook never blocks the order", async () => {
+    const base = await setup();
+    const seen: string[] = [];
+    const app = createApp({ ...(base as unknown as Record<string, unknown>), config, store: base.store, rail: { id: "fake", instruction: () => ({}) as never, status: async () => null }, onPaid: async () => {},
+      client: { rpcUrl: "https://rpc", orders: "orders.nearchant.testnet", network: "testnet" }, handles: { get: async (h) => (h === "alice" ? alice : null) }, newOrderId: () => "o-x",
+      onOrderCreated: async (_c, id, h) => { seen.push(`${h}:${id}`); throw new Error("db down"); } } as Deps);
+    const r = await order(app, { serviceId: "deck", brief: "A deck for my coffee startup, 10 slides" });
+    expect(r.status).toBe(201);
+    expect(seen).toEqual(["alice:o-x"]);
+  });
+
   it("marks paid only after the chain shows the right order, once", async () => {
     const { app, store, chain, onPaid } = await setup();
     await order(app, { serviceId: "deck", brief: "A deck for my coffee startup, 10 slides" });

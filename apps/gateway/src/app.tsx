@@ -63,6 +63,8 @@ export interface Deps {
   /** Content stores (ADR 0018): the buyer storefront data, or null for a classic card. */
   /** nearchant.com home page (no store in the host): rendered landing; unset → redirect to the dashboard. */
   landing?: () => Promise<unknown>;
+  /** A signed-in buyer created an order (ADR 0022): remembered for their "My orders" page. */
+  onOrderCreated?: (c: Context, orderId: string, handle: string) => Promise<void>;
   /** Moderation suspended this store (ADR 0022): its pages explain that instead of showing it. */
   suspended?: (handle: string) => Promise<boolean>;
   /** "More like this" under a post: similar posts from any store (ADR 0022). */
@@ -363,6 +365,7 @@ export function createApp(d: Deps) {
     const orderId = newOrderId();
     const now = new Date().toISOString();
     await d.store.createOrder({ orderId, handle: h.handle, serviceId: service.id, amount: service.priceUnits, brief, buyerAccountId: buyer, state: "awaiting_payment", createdAt: now, updatedAt: now });
+    if (d.onOrderCreated) await d.onOrderCreated(c, orderId, h.handle).catch(() => {});
     const payment = d.rail.instruction({ orderId, sellerHandle: h.handle, amount: service.priceUnits });
     const anyChainQuote = d.anyChainQuote ? await d.anyChainQuote(service.priceUnits).catch(() => null) : null;
     return c.json({ orderId, amount: service.priceUnits, amountDisplay: price(service.priceUnits), payment, anyChainQuote }, 201);

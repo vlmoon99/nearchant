@@ -5,7 +5,7 @@ import { PLAN_LIMITS, type ContentStore } from "@nearchant/db";
 import { OnboardingPage } from "./onboarding.js";
 import { CreatePage, HomePage, PostPage, PostsPage, SignInPage, checklistFor, type StoreView } from "./app-pages.js";
 import { createHash } from "node:crypto";
-import { UiPage, assetV, type UiConfig } from "./kit.js";
+import { Mark, UiPage, assetV, type UiConfig } from "./kit.js";
 import { ExplorePage, FeedTiles, type FeedTile } from "./explore.js";
 import { feedFor, type SearchIntent } from "../buyer-app.js";
 import type { FeedPost, FeedStore } from "@nearchant/db";
@@ -33,6 +33,8 @@ export interface UiDeps {
   buyerKey?: Buffer;
   suggestions?: () => Promise<string[]>;
   buyerJs?: string;
+  /** "My orders" of a signed-in buyer (ADR 0022). */
+  buyerOrders?: (buyerId: string) => Promise<{ orderId: string; handle: string; store: string; title: string; amount: string; state: string; at: string }[]>;
   walletJs?: string;
   accountOf: (handle: string) => string;
   explorer: (accountId: string) => string;
@@ -118,6 +120,21 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const buyer = d.buyerKey ? readSession(d.buyerKey, getCookie(c, "nc_buyer")) : null;
     const posts = buyer ? await d.feedStore.feed({ buyerId: buyer, onlyFollowing: true, limit: 60 }) : [];
     return c.html(<ExplorePage cfg={d.cfg} test={d.test} q="" city="" summary={null} posts={tilesOf(posts)} next={null} suggestions={[]} forYou={!!buyer} following />);
+  });
+  app.get("/feed/orders", async (c) => {
+    const buyer = d.buyerKey ? readSession(d.buyerKey, getCookie(c, "nc_buyer")) : null;
+    const orders = buyer && d.buyerOrders ? await d.buyerOrders(buyer) : [];
+    const label: Record<string, string> = { paid: "Paid — in escrow", in_progress: "Being prepared", delivered: "Shipped — confirm when you get it", released: "Done", refunded: "Refunded" };
+    return c.html(<UiPage title="My orders · Nearchant" cfg={d.cfg} page="feed" test={d.test} buyer>
+      <div class="land"><nav class="land-nav"><a class="land-logo" href="/"><Mark />Nearchant</a><span class="land-links sub"><a href="/feed">Feed</a><a href="/feed/following">Following</a><a href="/feed/liked">Liked</a><a href="/feed/orders">Orders</a></span><a class="sub" href="#" data-buyer-me>Sign in</a></nav>
+        <section class="stack" style="max-width:760px;margin:0 auto;padding:24px 16px 80px;gap:14px"><h1 class="t2" style="margin:0">My orders</h1>
+          {!buyer ? <div class="card"><span class="headline">Sign in to see your orders</span><span class="foot muted">Orders you pay while signed in show up here, from every store.</span><a class="btn" href="#" data-buyer-me>Sign in</a></div>
+            : !orders.length ? <div class="card"><span class="headline">No orders yet</span><span class="foot muted">Find something in the <a href="/feed">shop feed</a> — you pay into escrow on NEAR and the store is paid when you confirm.</span></div>
+            : orders.map((o) => <a class="card white" href={`/h/${o.handle}/o/${o.orderId}`} style="flex-direction:row;gap:12px;align-items:center;color:inherit">
+              <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="callout b">{o.title}</span><span class="foot muted">{o.store} · {o.at.slice(0, 10)}</span></span>
+              <span class="stack" style="gap:2px;align-items:flex-end"><span class="sub b">{o.amount}</span><span class="cap" style={o.state === "delivered" ? "color:#b25000" : "color:var(--label2)"}>{label[o.state] ?? o.state}</span></span></a>)}
+          <span class="cap muted">Money waits in escrow on NEAR until you confirm you got your order. Not delivered in time? You get it back automatically.</span>
+        </section></div></UiPage>);
   });
   app.get("/explore", (c) => c.redirect(`/feed${new URL(c.req.url).search}`, 301));
   app.get("/verify", (c) => verify(c, c.req.query("id")?.trim() || undefined));
