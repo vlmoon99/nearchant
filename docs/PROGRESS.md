@@ -896,6 +896,26 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Found in rehearsal: a worker restart mid-video left the short "rendering" forever → a video "in progress" for
   over 15 min can now be started again (tests 44).
 
+## 2026-11-02 01:09 UTC — night: independent review of tonight's code, all findings fixed
+
+- A read-only review agent went over the wallet sign-in, withdraw, /verify, resized pictures, caption rewrite,
+  attestation check and video restart. Fixed every finding:
+  - **High**: `/verify` trusted the proof's fields, and anyone can write to proof-log — a copy of a store's post
+    could show "Verified" under the attacker's account. Now a post is shown only when the proof was recorded by
+    that store's account and is the proof the post recorded; otherwise "not from a Nearchant store" (tested).
+  - TEE row: green only when the TDX check passed (an unreachable verifier is no longer "ok"); texts follow the
+    check result.
+  - Caption rewrite: never overwrites a post published or edited meanwhile; one rewrite at a time; early exits mark
+    it failed (no endless refresh).
+  - Video restart: run id per render — a cut-off run that the queue retries later stops writing; its credits are
+    refunded; Comfy status/view requests have timeouts.
+  - Resized pictures keyed by the source's mtime (a replaced item photo updates), written atomically.
+  - Wallet: JSON only (no cross-site form sign-in), nonce claimed before the chain lookup, future-dated messages
+    refused, nonces kept 20 min, re-linking revokes the old wallet. Withdraw: a lost answer no longer lets a retry
+    send twice; an unreadable balance is an error, not "0".
+- **Verified**: all tests (gateway 46, worker 18, providers 17, swarm 36, db 14); live /verify #18 #21 #23 unchanged,
+  #18 TEE verified.
+
 ### Owner actions
 - **Phala** (when you have the account): follow `deploy/phala/README.md` — make the 3 ghcr packages public, set the
   secrets in Phala, create the CVM, then move the database and the tunnel from the Spark.
