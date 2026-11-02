@@ -1191,3 +1191,14 @@ undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your mach
      paid orders off "My orders".
 - **Verified**: tests db 19 (dedupe, distinct sources, atomic list under 12 parallel writers), gateway 60; live
   search logs goods + source.
+
+## 2026-11-02 23:58 UTC — night: "who is who" — blocks and linked accounts; walkthrough re-recorded
+- **Violators list now acts**: Admin → Violators → "Block IPs" on a violator: no new stores, buyer sign-ins or reports
+  from those addresses (IPv6 by /64 network). New stores and buyers that share an IP, email or NEAR account with a
+  violator are flagged ("New accounts linked to a violator") with one-click suspend / ban. All logged by name.
+- **Walkthrough video** re-recorded: 101 s, now ends with the shop feed (search → Stores that sell it → post → Ask
+  the store answering "size L / ship to Austin"). `docs/media/walkthrough.mp4`. The new demo stores it created are
+  hidden from the public feed.
+- Post page Like chip keeps its outline.
+- **Verified**: tests db 19, gateway 60 (admin: linked accounts, block button); live: with my IPv6 blocked, creating a
+  store → 403 "can't be created from this address", reporting → 403; block removed afterwards.
