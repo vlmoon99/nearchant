@@ -136,6 +136,8 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
   const video = (p.idea as { video?: { status?: string; key?: string; mediaId?: string; error?: string; script?: { hook?: string } } } | null)?.video;
   const making = video && ["writing", "rendering"].includes(video.status ?? "");
   const check = (p.idea as { check?: { invented_offer: number; flagged: boolean } } | null)?.check;
+  const rewrite = (p.idea as { rewrite?: { status: string; style: string } } | null)?.rewrite;
+  const rewriting = rewrite?.status === "writing";
   return (
     <Page cfg={cfg} test={test} title="Post" active="Posts" store={store}>
       <a class="sub" href="/app/posts">‹ Posts</a>
@@ -148,6 +150,10 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
             <span class="foot">Our AI check (Levanto Sage on NEAR AI) thinks it may promise something your store doesn’t say — a discount, free delivery, a gift, a deadline or a different price ({Math.round(check.invented_offer * 100)}% sure). Edit it, or post it if the offer is real.</span></div> : null}
           <textarea class="input" id="caption" data-post={p.id} rows={6}>{p.caption ?? ""}</textarea>
           <span class="sub accent">{((p.hashtags as string[]) ?? []).map((h) => `#${h}`).join(" ")}</span>
+          {["ready", "scheduled"].includes(p.status) ? <div class="row" style="gap:8px;flex-wrap:wrap" {...(rewriting ? { "data-refresh": "4000" } : {})}>
+            {rewriting ? <span class="foot muted">AI is rewriting the caption ({rewrite!.style})…</span>
+              : ([["shorter", "Shorter"], ["playful", "Playful"], ["bolder", "Bolder"]] as const).map(([k, l]) => <button class="chip" data-rewrite={k} data-post={p.id}><Icon n="sparkles" s={14} />{l}</button>)}
+          </div> : null}
           <div class="row" style="gap:8px"><button class="btn secondary" id="save-caption" data-post={p.id}>Save caption</button><output class="foot" id="post-out"></output></div>
         </div>
         <div class="stack">

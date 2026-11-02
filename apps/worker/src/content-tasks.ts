@@ -9,7 +9,7 @@ import type { ResultEnvelope } from "@nearchant/contracts";
 import { assSubtitles, compose, pickAccent, totalSeconds } from "./video-compose.js";
 import type { Tts } from "./tts.js";
 import { NO_TEXT, applyHeadline, headlineAss } from "./image-text.js";
-import { block, checkCaption, type CaptionCheck, writeVideoScript, analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type StyleProfile } from "@nearchant/swarm";
+import { block, rewriteCaption, type CaptionStyle, checkCaption, type CaptionCheck, writeVideoScript, analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type StyleProfile } from "@nearchant/swarm";
 
 export interface ContentTaskDeps {
   content: ContentStore;
@@ -327,5 +327,22 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     }
   };
 
-  return { check_post: checkPostTask, make_video: makeVideoTask, write_insights: writeInsightsTask, publish_post: publishPostTask, analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
+  // Caption chips (Figma Post ready): rewrite in one style, then check the new caption again.
+  const rewriteCaptionTask: Task = async (payload, helpers) => {
+    const { postId, style } = payload as { postId: string; style: CaptionStyle };
+    const p = await d.content.getPost(postId);
+    if (!p?.caption || !["ready", "scheduled"].includes(p.status)) return;
+    const idea = (p.idea ?? {}) as Record<string, unknown>;
+    try {
+      const profile = (await d.content.getProfile(p.handle))?.data as StyleProfile;
+      const caption = await rewriteCaption(askFor(p.handle, "rewrite"), { profile, caption: p.caption, style });
+      await d.content.updatePost(p.id, { caption, idea: { ...idea, rewrite: { status: "ready", style } } });
+      await d.content.addSignal(p.handle, p.id, "edited", { before: p.caption, after: caption, by: `ai:${style}` });
+      await helpers.addJob("check_post", { postId: p.id }, { jobKey: `check:${p.id}`, maxAttempts: 2 });
+    } catch (e) {
+      await d.content.updatePost(p.id, { idea: { ...idea, rewrite: { status: "failed", style, error: (e as Error).message.slice(0, 200) } } });
+    }
+  };
+
+  return { rewrite_caption: rewriteCaptionTask, check_post: checkPostTask, make_video: makeVideoTask, write_insights: writeInsightsTask, publish_post: publishPostTask, analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
 }

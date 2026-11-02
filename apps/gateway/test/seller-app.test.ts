@@ -244,4 +244,14 @@ describe("seller API", () => {
     expect((await app.request("http://x/files/nova/gen/p1.png?w=320")).status).toBe(403);   // still private
     expect((await app.request("http://x/files/nova/gen/p1.png?w=999", { headers: { cookie } })).headers.get("content-type")).toBe("image/png");
   });
+
+  it("caption chips: rewrite ready posts in a style; never a published one", async () => {
+    const { app, cookie, db, jobs } = setup();
+    db.posts.push({ id: "r0", handle: "nova", status: "ready", caption: "c", idea: {} }, { id: "r1", handle: "nova", status: "published", caption: "c", idea: {} });
+    expect((await app.request("http://x/api/app/posts/r0/rewrite", post({ style: "louder" }, cookie))).status).toBe(400);
+    expect((await app.request("http://x/api/app/posts/r1/rewrite", post({ style: "shorter" }, cookie))).status).toBe(409);
+    expect((await app.request("http://x/api/app/posts/r0/rewrite", post({ style: "shorter" }, cookie))).status).toBe(202);
+    expect(db.posts[0].idea.rewrite).toEqual({ status: "writing", style: "shorter" });
+    expect(jobs.filter((j) => j.task === "rewrite_caption")).toHaveLength(1);
+  });
 });

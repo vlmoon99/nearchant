@@ -260,6 +260,17 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     await d.enqueue("make_video", { postId: p.id }, `video:${p.id}:${now()}`);
     return c.json({ status: "writing" }, 202);
   }));
+  // Caption chips: AI rewrites the caption shorter / playful / bolder (not after publishing — the proof is bound to it).
+  app.post("/api/app/posts/:id/rewrite", (c) => authed(c, async (handle) => {
+    const p = await d.content.getPost(c.req.param("id"));
+    if (!p || p.handle !== handle) return c.json({ error: "not found" }, 404);
+    const style = String((await json(c)).style ?? "");
+    if (!["shorter", "playful", "bolder"].includes(style)) return c.json({ error: "style: shorter, playful or bolder" }, 400);
+    if (!["ready", "scheduled"].includes(p.status)) return c.json({ error: "a published post can't be rewritten" }, 409);
+    await d.content.updatePost(p.id, { idea: { ...(p.idea as object), rewrite: { status: "writing", style } } });
+    await d.enqueue("rewrite_caption", { postId: p.id, style }, `rewrite:${p.id}:${now()}`);
+    return c.json({ status: "writing" }, 202);
+  }));
   app.post("/api/app/posts/:id/schedule", (c) => authed(c, async (handle) => {
     const p = await d.content.getPost(c.req.param("id"));
     if (!p || p.handle !== handle) return c.json({ error: "not found" }, 404);

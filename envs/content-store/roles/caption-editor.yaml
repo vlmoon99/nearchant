@@ -1,0 +1,6 @@
+prompt: prompts/caption-editor.md
+seat: second
+output: json
+temperature: 0.7
+reasoning: false
+max_tokens: 1200

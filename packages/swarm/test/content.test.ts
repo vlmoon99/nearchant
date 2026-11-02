@@ -16,8 +16,8 @@ const PROFILE = {
 };
 
 describe("content env", () => {
-  it("loads all seven roles with the shared rules", () => {
-    expect(Object.keys(env.roles).sort()).toEqual(["idea-writer", "insight-writer", "learner", "localizer", "opportunity-analyst", "profiler", "video-director"]);
+  it("loads all eight roles with the shared rules", () => {
+    expect(Object.keys(env.roles).sort()).toEqual(["idea-writer", "insight-writer", "learner", "localizer", "opportunity-analyst", "caption-editor", "profiler", "video-director"].sort());
     expect(env.roles.profiler!.system).toContain("never invent prices");
     expect(env.roles.profiler!.system).toContain("data from the business owner");
   });
@@ -141,5 +141,14 @@ describe("checkCaption", () => {
     const { CAMERA_ONLY } = await import("../src/index.js");
     const s = await writeVideoScript(fakeAsk({ "video-director": { hook: "Feel it", voiceover: "Soft and warm.", video_prompt: "Hands gently smooth the sweater on the table" } }), { profile: shapeProfile(PROFILE, "Nova", 2), caption: "c", angle: "a" });
     expect(s.video_prompt).toBe(CAMERA_ONLY);
+  });
+
+  it("rewrites a caption in a style through the caption-editor role", async () => {
+    const { rewriteCaption } = await import("../src/index.js");
+    const seen: any[] = [];
+    const out = await rewriteCaption(fakeAsk({ "caption-editor": { caption: "Soft denim. Yours today?" } }, seen), { profile: shapeProfile(PROFILE, "Nova", 2), caption: "Long caption.", style: "shorter" });
+    expect(out).toBe("Soft denim. Yours today?");
+    expect(seen[0].role).toBe("caption-editor");
+    expect(String(seen[0].user)).toContain("Style: shorter");
   });
 });
