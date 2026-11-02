@@ -31,6 +31,7 @@ NEAR_RELAYER_KEY=$(kc NC_RELAYER_KEY)
 NEARAI_API_KEY=$(kc NEARAI_API_KEY)
 CF_TUNNEL_TOKEN=$(kc CF_TUNNEL_TOKEN)
 COMFY_API_KEY=$(kc COMFY_API_KEY)
+RESEND_API_KEY=$(kc RESEND_API_KEY)
 IMAGE_API_KEY=$(grep -s '^IMAGE_API_KEY=' "$HERE/.env.prev" | cut -d= -f2- || true)
 EOF
 grep -q '^IMAGE_API_KEY=.' "$HERE/.env" || sed -i '' "s/^IMAGE_API_KEY=.*/IMAGE_API_KEY=$(openssl rand -hex 16)/" "$HERE/.env"

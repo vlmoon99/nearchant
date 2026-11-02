@@ -17,6 +17,7 @@ x-app: &app
     PROVIDERS_FILE: providers.cloud.yaml   # the Sparks' models are down with them: text on NEAR AI, pictures on Comfy Cloud
     IMAGE_API_KEY: ${IMAGE_API_KEY:-}
     COMFY_API_KEY: ${COMFY_API_KEY:-}
+    RESEND_API_KEY: ${RESEND_API_KEY:-}     # email sign-in + order notices (ADR 0021)
     PUBLIC_URL: https://nearchant.com
     TRUST_PROXY: cloudflare
   volumes: ["${STANDBY_MEDIA:?run setup.sh}:/app/.media"]

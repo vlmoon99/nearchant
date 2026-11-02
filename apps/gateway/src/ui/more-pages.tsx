@@ -109,7 +109,7 @@ export const WalletPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; ba
   </Page>
 );
 
-export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; b: { name: string; kind: string; description: string; links: string[] }; tone: string; colors: string[]; wishes: string; usage: { posts: number; limit: number }; wallet?: string | null; plan: string; created: string; telegramBot?: string | null }> = ({ cfg, test, store, b, tone, colors, wishes, usage, wallet, plan, created, telegramBot }) => (
+export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; b: { name: string; kind: string; description: string; links: string[] }; tone: string; colors: string[]; wishes: string; usage: { posts: number; limit: number }; wallet?: string | null; plan: string; created: string; telegramBot?: string | null; email?: string | null; emailOn?: boolean }> = ({ cfg, test, store, b, tone, colors, wishes, usage, wallet, plan, created, telegramBot, email, emailOn }) => (
   <Page cfg={cfg} test={test} title="Settings" active="Settings" store={store}>
     <PageHead kicker={store.name} title="Settings" />
     <div class="cols">
@@ -149,6 +149,12 @@ export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
             : <span class="foot muted">Link your own NEAR wallet (MyNearWallet) to sign in from any browser. It signs a one-time message: no transaction, no fee.</span>}
           <button class="btn near" data-wallet="link"><Icon n="wallet" />{wallet ? "Link another wallet" : "Connect a NEAR wallet"}</button>
           <output class="foot" id="wallet-out"></output></div>
+        {emailOn ? <form class="card" id="email" data-email-link><span class="headline">Email</span>
+          {email ? <span class="foot">Linked: <b>{email}</b> — sign in from any browser with a link we email you. New orders are emailed here.</span>
+            : <span class="foot muted">Add your email to sign in from any browser with a one-time link, and to hear about new orders.</span>}
+          <input class="input" type="email" name="email" required placeholder="you@example.com" autocomplete="email" />
+          <button class="btn secondary" type="submit"><Icon n="send" />{email ? "Change email" : "Send confirmation link"}</button>
+          <output class="foot"></output></form> : null}
         <div class="card"><span class="headline">Plan</span><div class="spread"><span class="foot">{plan === "pro" ? "Pro" : "Free"} · {usage.posts} of {usage.limit} posts this month</span></div>
           <div class="progress"><i style={`width:${Math.min(100, (usage.posts / usage.limit) * 100)}%`}></i></div>
           <span class="foot muted">{plan === "pro" ? "You are on Pro." : "Pro — 150 posts a month, paid from your balance on NEAR (coming soon)."}</span></div>

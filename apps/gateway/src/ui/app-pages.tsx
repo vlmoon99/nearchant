@@ -191,9 +191,11 @@ export const SignInPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test }) 
   <UiPage title="Sign in · Nearchant" cfg={cfg} page="signin" test={test}>
     <section class="onb"><span class="logo" style="padding:0"><span class="mark">N</span>Nearchant</span>
       <h1 class="t2">Signing you in…</h1><p class="sub muted" id="signin-msg">Using the store key saved in this browser.</p>
+      <form class="stack" style="gap:10px" data-email-signin><input class="input" type="email" name="email" required placeholder="Your email" autocomplete="email" />
+        <button class="btn" type="submit"><Icon n="send" />Email me a sign-in link</button><output class="foot"></output></form>
       <button class="btn near" data-wallet="signin"><Icon n="wallet" />Sign in with NEAR wallet</button>
       <a class="btn secondary" href="/start">Create a store</a>
-      <span class="cap muted">The wallet signs a one-time message — no transaction, no fee. Link it first in Settings → NEAR wallet.</span></section>
+      <span class="cap muted">Email and wallet sign-in work once you added them in your store’s Settings. The wallet signs a one-time message — no transaction, no fee.</span></section>
   </UiPage>
 );
 

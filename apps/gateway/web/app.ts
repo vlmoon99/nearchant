@@ -406,4 +406,17 @@ async function walletConnectPage() {
 if (cfg.page === "wallet-connect") void walletConnectPage();
 if (cfg.page === "onboarding") onboarding();
 if (cfg.page === "app") sellerApp();
+// Email (ADR 0021): Settings → link an email; sign-in page → email me a link.
+for (const [sel, path, ok] of [["[data-email-link]", "/api/app/email", (j: { sent?: string }) => `Sent — open the link in the email to ${j.sent}.`],
+  ["[data-email-signin]", "/api/email/signin", () => "If this email belongs to a store, a sign-in link is on its way. Check your inbox (and spam)."]] as const) {
+  document.querySelector<HTMLFormElement>(sel)?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.currentTarget as HTMLFormElement, out = f.querySelector("output")!, btn = f.querySelector("button")!;
+    btn.disabled = true; out.textContent = "Sending…";
+    try { out.textContent = ok(await api(path, { email: (f.elements.namedItem("email") as HTMLInputElement).value }) as { sent?: string }); }
+    catch (err) { out.textContent = (err as Error).message; }
+    finally { btn.disabled = false; }
+  });
+}
+if (new URLSearchParams(location.search).get("email") === "linked") { const o = document.querySelector("#email output"); if (o) o.textContent = "Email confirmed — you can sign in with it from any browser."; }
 if (cfg.page === "signin") void signinPage();

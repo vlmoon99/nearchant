@@ -41,15 +41,67 @@ function setup(ownerKeys: string[] = [], videoEnabled = false, at = Date.now()) 
   const jobs: { task: string; payload: unknown }[] = [];
   const mediaDir = mkdtempSync(join(tmpdir(), "nc-media-"));
   const key = Buffer.alloc(32, 7);
+  const mails: { to: string; subject: string; text: string; idempotencyKey: string }[] = [];
   mountSellerApp(app, {
+    mail: async (m) => { mails.push(m); }, publicUrl: "https://nearchant.com",
     content: c, handles: { get: async (h) => (h === "nova" ? nova : null) }, isOwnerKey: async (_a, pk) => ownerKeys.includes(pk),
     enqueue: async (task, payload) => { jobs.push({ task, payload }); }, mediaDir, sessionKey: key, secureCookies: false, decimals: 6, videoEnabled, walletRecipient: "nearchant.com", now: () => at,
   });
   const cookie = `nc_session=${signSession(key, "nova", Date.now() + 60_000)}`;
-  return { app, db, jobs, mediaDir, cookie, key };
+  return { app, db, jobs, mediaDir, cookie, key, mails };
 }
 
 const post = (body: unknown, cookie?: string) => ({ method: "POST", headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) }, body: JSON.stringify(body) });
+
+describe("email sign-in", () => {
+  const linkOf = (text: string) => /https:\/\/nearchant\.com(\/auth\/email\?t=[A-Za-z0-9._-]+)/.exec(text)![1]!;
+  const confirm = async (app: Hono, path: string) => {
+    const t = new URL(`http://x${path}`).searchParams.get("t")!;
+    return app.request("http://x/auth/email", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `t=${encodeURIComponent(t)}` });
+  };
+
+  it("links an email with a confirm link, then signs in with a one-time link", async () => {
+    const { app, cookie, db, mails } = setup();
+    db.business.set("nova", { handle: "nova", name: "Nova Wear" });
+    expect((await app.request("http://x/api/app/email", post({ email: "owner@example.com" }))).status).toBe(401);
+    expect((await app.request("http://x/api/app/email", post({ email: "not-an-email" }, cookie))).status).toBe(400);
+    expect((await app.request("http://x/api/app/email", post({ email: "Owner@Example.com" }, cookie))).status).toBe(200);
+    expect(mails[0]).toMatchObject({ to: "owner@example.com", subject: "Confirm your email for Nova Wear" });
+    const link = linkOf(mails[0]!.text);
+    // Opening the link (or a mail scanner opening it) only shows a button; it does not use the link up.
+    const page = await app.request(`http://x${link}`);
+    expect(await page.text()).toContain('action="/auth/email"');
+    const ok = await confirm(app, link);
+    expect(ok.status).toBe(303);
+    expect(ok.headers.get("set-cookie")).toMatch(/nc_session=nova\./);
+    expect(db.settings.get("email:owner@example.com")).toBe("nova");
+    expect((await confirm(app, link)).status).toBe(400); // once only
+
+    // Sign in from another browser: unknown emails get the same answer and no mail.
+    const unknown = await app.request("http://x/api/email/signin", post({ email: "stranger@example.com" }));
+    expect(await unknown.json()).toEqual({ sent: true });
+    expect(mails).toHaveLength(1);
+    const r = await app.request("http://x/api/email/signin", post({ email: "owner@example.com" }));
+    expect(await r.json()).toEqual({ sent: true });
+    expect(mails[1]!.subject).toBe("Sign in to Nova Wear");
+    const s = await confirm(app, linkOf(mails[1]!.text));
+    expect(s.headers.get("location")).toBe("/app");
+    expect(s.headers.get("set-cookie")).toMatch(/nc_session=nova\./);
+  });
+
+  it("refuses form posts to the JSON endpoint, forged or stale links, and too many emails", async () => {
+    const { app, cookie, db, mails } = setup();
+    expect((await app.request("http://x/api/email/signin", { method: "POST", headers: { "content-type": "text/plain" }, body: '{"email":"a@b.co"}' })).status).toBe(415);
+    expect((await app.request("http://x/auth/email", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "t=abc.def" })).status).toBe(400);
+    for (let i = 0; i < 3; i++) await app.request("http://x/api/app/email", post({ email: "owner@example.com" }, cookie));
+    expect((await app.request("http://x/api/app/email", post({ email: "owner@example.com" }, cookie))).status).toBe(429);
+    // A sign-in link stops working when the store changes its email.
+    db.settings.set("email:owner@example.com", "nova");
+    await app.request("http://x/api/email/signin", post({ email: "owner@example.com" }));
+    db.settings.set("email:owner@example.com", null);
+    expect((await confirm(app, linkOf(mails.at(-1)!.text))).status).toBe(400);
+  });
+});
 
 describe("seller session", () => {
   it("signs and reads session tokens, rejecting tampering and expiry", () => {

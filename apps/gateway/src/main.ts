@@ -14,6 +14,7 @@ import { loadAgentEnv, makeAsker, type AgentEnv } from "@nearchant/swarm";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
 import { createApp } from "./app.js";
 import { mountSellerApp } from "./seller-app.js";
+import { emailHtml, resendMailer } from "./email.js";
 import { LandingPage } from "./ui/landing.js";
 import { assetV } from "./ui/kit.js";
 import { mountUi } from "./ui/routes.js";
@@ -159,6 +160,10 @@ const landing = conn ? async () => {
 const checkoutJs = existsSync(checkoutFile) ? readFileSync(checkoutFile, "utf8") : undefined;
 if (checkoutJs) assetV.checkout = createHash("sha256").update(checkoutJs).digest("hex").slice(0, 10);
 
+// Outgoing email (ADR 0021): on when config email.* and RESEND_API_KEY are set.
+const mailer = config.email && process.env.RESEND_API_KEY ? resendMailer({ apiKey: process.env.RESEND_API_KEY, from: config.email.from, apiUrl: config.email.api_url }) : undefined;
+if (!mailer) console.info("[gateway] email off (no RESEND_API_KEY)");
+
 const app = createApp({
   ...(landing ? { landing } : {}),
   config,
@@ -279,6 +284,17 @@ const app = createApp({
     if (order?.serviceId.startsWith("i-")) {
       // A store item (ADR 0018): no AI job — the seller ships, then marks it shipped; the sale feeds analytics.
       if (conn) await new ContentStore(conn.db).addEvent({ handle: order.handle, kind: "sale", itemId: order.serviceId, orderId: id, data: { amount: order.amount } });
+      // Tell the owner by email (if they linked one); a failed email never blocks the sale.
+      if (conn && mailer) void (async () => {
+        const cs = new ContentStore(conn.db);
+        const to = await cs.getSetting<string>(`emailOf:${order.handle}`);
+        if (!to) return;
+        const item = await cs.getItem(order.handle, order.serviceId);
+        const amount = `${formatUnits(order.amount, config.token.decimals)} ${config.token.symbol}`, what = item?.title ?? "an item";
+        const lines = [`Someone bought ${what} for ${amount}. The money is held in escrow on NEAR until the buyer confirms they got it.`, `What they wrote: ${order.brief.slice(0, 300)}`, "Ship it, then mark it shipped in your store."];
+        await mailer({ to, subject: `New order: ${what} — ${amount}`, idempotencyKey: `order-paid:${id}`, text: `${lines.join("\n\n")}\n\n${config.public_url}/app`,
+          html: emailHtml({ title: `New order: ${what}`, lines, button: { label: "Open your store", url: `${config.public_url}/app` } }) });
+      })().catch((e) => console.warn(`[gateway] order email ${id}: ${(e as Error).message}`));
       console.info(`[gateway] order ${id} paid on chain → item sale for ${order.handle}`);
       return;
     }
@@ -305,6 +321,7 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     decimals: config.token.decimals,
     videoEnabled: !!(process.env.TTS_URL && process.env.COMFY_API_KEY),
     walletRecipient: new URL(config.public_url).host,
+    ...(mailer ? { mail: mailer } : {}), publicUrl: config.public_url,
   });
 }
 {
@@ -314,7 +331,7 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
   mountUi(app, {
     cfg: { base: "/", rpcUrl: config.rpc_urls[0] ?? "", network: config.network, token: config.token.symbol, decimals: config.token.decimals, storeBase, tokenContract: accounts.nusd, accountSuffix: accounts.root },
     test: config.token.test, css: readFileSync(join(import.meta.dirname, "../web/ui.css"), "utf8"),
-    js: existsSync(appFile) ? readFileSync(appFile, "utf8") : undefined, sessionKey,
+    js: existsSync(appFile) ? readFileSync(appFile, "utf8") : undefined, sessionKey, emailOn: !!mailer,
     ...(conn ? { content: new ContentStore(conn.db) } : {}),
     accountOf: (h) => `${h}.${accounts.root}`,
     orders: (h) => store.listOrders(h, 50),

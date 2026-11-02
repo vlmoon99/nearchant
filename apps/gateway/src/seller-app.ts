@@ -10,6 +10,8 @@ import type { ContentStore } from "@nearchant/db";
 import { QuotaExceeded } from "@nearchant/db";
 import type { HandleRecord } from "@nearchant/near";
 import { verifySellerSignature } from "./telegram.js";
+import { RateLimit, clientIp } from "./buyers.js";
+import { emailHtml, normEmail, readEmailToken, signEmailToken, type Mailer } from "./email.js";
 import { verifyNep413 } from "./nep413.js";
 
 /** The parts of the content store the API uses (a fake in tests, Postgres in the gateway). */
@@ -38,6 +40,10 @@ export interface SellerAppDeps {
   videoEnabled?: boolean;
   /** Token decimals for prices (nUSD: 6). */
   decimals: number;
+  /** Outgoing email (ADR 0021): sign-in links. Absent → the email routes answer 503. */
+  mail?: Mailer;
+  /** Origin for links in emails (config public_url). */
+  publicUrl?: string;
   now?: () => number;
 }
 
@@ -113,6 +119,63 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     if (!handle) return c.json({ error: "no store is linked to this wallet yet — open your store in the browser where you made it, then Settings → Connect a NEAR wallet" }, 404);
     setCookie(c, COOKIE, signSession(d.sessionKey, handle, now() + SESSION_MS), { httpOnly: true, sameSite: "Lax", secure: d.secureCookies, path: "/", maxAge: SESSION_MS / 1000 });
     return c.json({ handle });
+  });
+  // Email (ADR 0021): the owner links an email in Settings (confirm link), then can sign in with a one-time link.
+  // Links open a page with one button (POST), so mail scanners that open links don't use them up. Unknown emails
+  // get the same answer as known ones (no way to test which emails have stores).
+  const emailPerKey = new RateLimit(3, 15 * 60_000, now), emailPerIp = new RateLimit(10, 3_600_000, now);
+  const ipOf = (c: Context) => clientIp((n) => c.req.header(n), (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket?.remoteAddress);
+  const sendLink = async (k: "link" | "signin", handle: string, email: string) => {
+    const name = (await d.content.getBusiness(handle))?.name ?? handle;
+    const exp = now() + (k === "link" ? 24 * 3600_000 : 15 * 60_000);
+    const url = `${d.publicUrl ?? ""}/auth/email?t=${signEmailToken(d.sessionKey, { k, h: handle, e: email, exp })}`;
+    const [subject, lines, label] = k === "link"
+      ? [`Confirm your email for ${name}`, [`Tap the button to use ${email} for ${name} on Nearchant.`, "After that you can sign in from any browser with a link we email you."], "Confirm email"]
+      : [`Sign in to ${name}`, [`Tap the button to sign in to ${name} on Nearchant. The link works once, for 15 minutes.`], "Sign in"];
+    await d.mail!({ to: email, subject, idempotencyKey: `${k}:${handle}:${email}:${Math.floor(now() / 60_000)}`,
+      text: `${lines.join("\n\n")}\n\n${url}\n\nDidn't ask for this? Ignore this email.`, html: emailHtml({ title: subject, lines, button: { label, url }, foot: "Didn't ask for this? Ignore this email — nothing changes." }) });
+  };
+  app.post("/api/app/email", (c) => authed(c, async (handle) => {
+    if (!d.mail) return c.json({ error: "email is not set up on this server" }, 503);
+    const email = normEmail(String((await json(c)).email ?? ""));
+    if (!email) return c.json({ error: "that doesn't look like an email address" }, 400);
+    if (!emailPerKey.take(`link:${handle}`) || !emailPerIp.take(ipOf(c))) return c.json({ error: "too many emails — try again in 15 minutes" }, 429);
+    await sendLink("link", handle, email);
+    return c.json({ sent: email });
+  }));
+  app.post("/api/email/signin", async (c) => {
+    if (!(c.req.header("content-type") ?? "").startsWith("application/json")) return c.json({ error: "JSON only" }, 415);
+    if (!d.mail) return c.json({ error: "email sign-in is not set up on this server" }, 503);
+    const email = normEmail(String((await json(c)).email ?? ""));
+    if (!email) return c.json({ error: "that doesn't look like an email address" }, 400);
+    if (!emailPerKey.take(`signin:${email}`) || !emailPerIp.take(ipOf(c))) return c.json({ error: "too many emails — try again in 15 minutes" }, 429);
+    const handle = await d.content.getSetting<string>(`email:${email}`);
+    if (handle) await sendLink("signin", handle, email);
+    return c.json({ sent: true });
+  });
+  const linkPage = (title: string, body: string) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title} · Nearchant</title><link rel="stylesheet" href="/assets/ui.css"></head><body><section class="onb" style="max-width:420px;margin:60px auto;padding:0 16px"><span class="logo" style="padding:0"><span class="mark">N</span>Nearchant</span><h1 class="t2">${title}</h1>${body}</section></body></html>`;
+  app.get("/auth/email", (c) => {
+    const t = c.req.query("t") ?? "", tok = readEmailToken(d.sessionKey, t, now());
+    if (!tok) return c.html(linkPage("This link has expired", `<p class="sub muted">Ask for a new one on the <a href="/app">sign-in page</a>.</p>`), 400);
+    const label = tok.k === "link" ? "Confirm email" : "Sign in";
+    return c.html(linkPage(label, `<p class="sub muted">${tok.k === "link" ? "Use this email for your store." : "Continue to your store."}</p><form method="post" action="/auth/email"><input type="hidden" name="t" value="${t.replace(/[^A-Za-z0-9._-]/g, "")}"><button class="btn block" type="submit">${label}</button></form>`));
+  });
+  app.post("/auth/email", async (c) => {
+    const form = await c.req.parseBody().catch(() => ({} as Record<string, unknown>));
+    const tok = readEmailToken(d.sessionKey, String(form.t ?? ""), now());
+    if (!tok) return c.html(linkPage("This link has expired", `<p class="sub muted">Ask for a new one on the <a href="/app">sign-in page</a>.</p>`), 400);
+    if (await d.content.getSetting(`emailTok:${tok.n}`)) return c.html(linkPage("This link was used already", `<p class="sub muted">Each link works once. <a href="/app">Sign in</a> again.</p>`), 400);
+    await d.content.setSetting(`emailTok:${tok.n}`, now());
+    if (tok.k === "link") {
+      const prev = await d.content.getSetting<string>(`emailOf:${tok.h}`);
+      if (prev && prev !== tok.e) await d.content.setSetting(`email:${prev}`, null); // the old email no longer signs in
+      await d.content.setSetting(`email:${tok.e}`, tok.h);
+      await d.content.setSetting(`emailOf:${tok.h}`, tok.e);
+    } else if ((await d.content.getSetting<string>(`email:${tok.e}`)) !== tok.h) {
+      return c.html(linkPage("This email is no longer linked", `<p class="sub muted">It was changed in the store's Settings.</p>`), 400);
+    }
+    setCookie(c, COOKIE, signSession(d.sessionKey, tok.h, now() + SESSION_MS), { httpOnly: true, sameSite: "Lax", secure: d.secureCookies, path: "/", maxAge: SESSION_MS / 1000 });
+    return c.redirect(tok.k === "link" ? "/app/settings?email=linked#email" : "/app", 303);
   });
   app.post("/api/session/logout", (c) => { deleteCookie(c, COOKIE, { path: "/" }); return c.json({ ok: true }); });
 

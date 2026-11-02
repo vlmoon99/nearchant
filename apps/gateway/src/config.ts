@@ -11,6 +11,8 @@ export interface GatewayConfig {
   rpc_urls: string[];
   listen: { host: string; port: number };
   token: { symbol: string; decimals: number; test: boolean };
+  /** Outgoing email (ADR 0021); off when absent or RESEND_API_KEY is unset. */
+  email?: { from: string; api_url: string };
 }
 
 export function loadGatewayConfig(file: string, overrides: Partial<GatewayConfig> = {}): GatewayConfig {

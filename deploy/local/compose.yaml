@@ -17,6 +17,7 @@ x-app: &app
     PROVIDERS_FILE: ${PROVIDERS_FILE:-providers.yaml}
     IMAGE_API_KEY: ${IMAGE_API_KEY:-}
     COMFY_API_KEY: ${COMFY_API_KEY:-}
+    RESEND_API_KEY: ${RESEND_API_KEY:-}     # email sign-in + order notices (ADR 0021)
     REPLAY_DIR: ${REPLAY_DIR:-}
     PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8787}
     TRUST_PROXY: ${TRUST_PROXY:-}
