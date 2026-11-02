@@ -293,6 +293,14 @@ const app = createApp({
     if (!buyer) return;
     await new ContentStore(conn!.db).prependSetting(`buyerOrders:${buyer}`, { orderId, handle, at: new Date().toISOString() }, 200);
   } } : {}),
+  ...(feedStore ? {
+    blockedIp: (ip: string) => feedStore.isBlocked(ip),
+    onShopCreated: async (handle: string, ip: string) => {
+      await feedStore.logIp("store", handle, ip);
+      const links = await feedStore.linkedViolators({ ips: [ip], accounts: [`${handle}.${accounts.root}`], except: { kind: "store", id: handle } });
+      if (links.length) await feedStore.log("system", "account.linked", `store:${handle}`, { ip, violators: links.map((v) => `${v.subjectKind}:${v.subjectId}`) });
+    },
+  } : {}),
   ...(conn ? { suspended: async (h: string) => !!(await new ContentStore(conn!.db).getBusiness(h))?.suspendedAt } : {}),
   ...(feedStore ? { similar: async (postId: string) => (await feedStore.similar(postId, 8)).map((x) => ({ id: x.id, handle: x.handle, storeName: x.storeName, caption: x.caption, img: `/files/${x.publicImage}?w=640`, video: !!x.publicVideo })) } : {}),
   ...(conn ? { storefront: async (handle: string, view?: { source: string | null; itemId?: string; postId?: string }) => {

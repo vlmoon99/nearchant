@@ -100,6 +100,19 @@ describe("FeedStore", () => {
     expect((await f.listViolators()).find((x) => x.subjectId === "gymla")!.violations[0]!.undone).toBe(true);
     expect((await f.listViolators()).find((x) => x.subjectId === "gymla")!.count).toBe(0); // restored → count updated
 
+    // Who is who: a new account from the same IP or email is linked to the violator; blocked IPs are recognised.
+    const fresh = await f.removePost(denim, { category: "spam", confidence: 0.9, summary: "x", by: "ai", identity: { accounts: ["denimny.nearchant.testnet"], emails: ["bad@example.com"] } });
+    expect(fresh?.count).toBe(1);
+    expect((await f.linkedViolators({ emails: ["bad@example.com"] })).map((v) => v.subjectId)).toEqual(["denimny"]);
+    expect((await f.linkedViolators({ emails: ["bad@example.com"], except: { kind: "store", id: "denimny" } }))).toEqual([]);
+    expect(await f.linkedViolators({ ips: ["192.0.2.1"] })).toEqual([]);
+    await f.blockIps(["203.0.113.7"], true);
+    expect(await f.isBlocked("203.0.113.7")).toBe(true);
+    expect(await f.isBlocked("203.0.113.8")).toBe(false);
+    await f.blockIps(["203.0.113.7"], false);
+    expect(await f.isBlocked("203.0.113.7")).toBe(false);
+    await f.restorePost(denim, "owner");
+
     // A suspended store disappears entirely.
     await f.suspendStore("gymworld", "3 removals");
     expect((await f.feed({ terms: ["whey"] })).map((p) => p.id)).not.toContain(wheyWorld);

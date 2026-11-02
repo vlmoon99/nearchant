@@ -141,12 +141,17 @@ export function mountModeration(app: Hono, d: ModDeps): void {
       {list.length ? <table><tr><th>Store</th><th>Since</th><th>Why</th><th></th></tr>{list.map((b) => <tr><td><b>{b.name}</b><br /><code>{b.handle}</code></td><td>{when(b.suspendedAt)}</td><td>{b.suspendedReason}</td><td><Act action={`/mod/store/${b.handle}/unsuspend`} label="Unsuspend" kind="ok" /></td></tr>)}</table> : <div class="card">No suspended stores.</div>}</Shell>);
   });
   app.get("/mod/violators", async (c) => {
-    const vs = await d.feed.listViolators(300);
+    const [vs, blockedIps, log] = await Promise.all([d.feed.listViolators(300), d.feed.blockedIps(), d.feed.listLog(500)]);
+    const linked = log.filter((r) => r.action === "account.linked").slice(0, 30);
     return c.html(<Shell title="Violators" who={who(c)} tab="violators" counts={await counts()}>
       <p class="muted">Every store or buyer with a removal, a suspension or a ban — with the NEAR accounts, emails and IP addresses they used, so repeat offenders are recognised. Private: never shown publicly.</p>
+      {linked.length ? <div class="card"><b>New accounts linked to a violator</b><span class="muted">Same IP, email or NEAR account as someone on this list — watch them.</span>
+        {linked.map((r) => <div class="row"><code>{r.target}</code><span class="muted">{when(r.createdAt)}</span><span>→ {((r.data as { violators?: string[] }).violators ?? []).join(", ")}</span>{r.target.startsWith("buyer:") ? <Act action={`/mod/buyer/${r.target.slice(6)}/ban`} label="Ban buyer" confirm="Ban this buyer?" /> : <Act action={`/mod/store/${r.target.slice(6)}/suspend`} label="Suspend store" kind="danger" confirm="Suspend this store?" />}</div>)}</div> : null}
+      <div class="card"><b>Blocked IPs ({blockedIps.length})</b><span class="muted">No new stores, buyer sign-ins or reports from these addresses.</span>{blockedIps.length ? <div class="row">{blockedIps.map((ip) => <code>{ip}</code>)}</div> : null}</div>
       <table><tr><th>Who</th><th>Active violations</th><th>NEAR accounts</th><th>Emails</th><th>IPs</th><th>History</th></tr>
         {vs.map((v) => <tr><td><b>{v.subjectKind}</b><br /><code>{v.subjectId}</code></td><td>{v.count}</td><td>{(v.accounts as string[]).map((a) => <div><code>{a}</code></div>)}</td><td>{(v.emails as string[]).map((a) => <div><code>{a}</code></div>)}</td>
-          <td>{(v.ips as string[]).map((a) => <div><code>{a}</code></div>)}</td><td>{v.violations.slice(0, 8).map((x) => <div class={x.undone ? "muted" : ""}>{when(x.at)} · {x.category} by {x.by}{x.undone ? " (undone)" : ""} — {x.summary.slice(0, 90)}</div>)}</td></tr>)}</table></Shell>);
+          <td>{(v.ips as string[]).map((a) => <div><code>{a}</code></div>)}{(v.ips as string[]).length ? ((v.ips as string[]).every((ip) => blockedIps.includes(ip))
+            ? <Act action={`/mod/violator/${v.id}/unblock`} label="Unblock IPs" /> : <Act action={`/mod/violator/${v.id}/block`} label="Block IPs" kind="danger" confirm="Block these IPs? No new stores, sign-ins or reports from them." />) : null}</td><td>{v.violations.slice(0, 8).map((x) => <div class={x.undone ? "muted" : ""}>{when(x.at)} · {x.category} by {x.by}{x.undone ? " (undone)" : ""} — {x.summary.slice(0, 90)}</div>)}</td></tr>)}</table></Shell>);
   });
   app.get("/mod/log", async (c) => {
     const rows = await d.feed.listLog(300);
@@ -194,6 +199,13 @@ export function mountModeration(app: Hono, d: ModDeps): void {
       await d.feed.recordViolation("store", h, await identity(h), { category: "suspended", confidence: 1, summary: `store suspended by ${who(c)}`, by: who(c) });
     } else await d.feed.suspendStore(h, null);
     await d.feed.log(who(c), `store.${op}`, `store:${h}`);
+    return back(c);
+  });
+  app.post("/mod/violator/:id/:op{block|unblock}", async (c) => {
+    const v = (await d.feed.listViolators(1000)).find((x) => x.id === Number(c.req.param("id")));
+    if (!v) return c.notFound();
+    await d.feed.blockIps(v.ips as string[], c.req.param("op") === "block");
+    await d.feed.log(who(c), `ips.${c.req.param("op")}`, `${v.subjectKind}:${v.subjectId}`, { ips: v.ips });
     return back(c);
   });
   app.post("/mod/buyer/:id/:op{ban|unban}", async (c) => {

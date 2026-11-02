@@ -45,8 +45,16 @@ export function mountBuyerApp(app: Hono<any>, d: BuyerAppDeps): void {
   const jsonOnly = (c: Context) => (c.req.header("content-type") ?? "").startsWith("application/json");
   const signIn = async (c: Context, id: string) => {
     setCookie(c, BUYER_COOKIE, signSession(d.key, id, now() + BUYER_MS), { httpOnly: true, sameSite: "Lax", secure: d.secureCookies, path: "/", maxAge: BUYER_MS / 1000 });
-    await d.feed.logIp("buyer", id, ipOf(c));
+    const ip = ipOf(c);
+    await d.feed.logIp("buyer", id, ip);
+    // Who is who: a buyer sharing an IP, email or wallet with a known violator is flagged for the moderators.
+    void (async () => {
+      const b = await d.feed.getBuyer(id);
+      const links = await d.feed.linkedViolators({ ips: [ip], emails: [b?.email ?? ""], accounts: [b?.wallet ?? ""], except: { kind: "buyer", id } });
+      if (links.length) await d.feed.log("system", "account.linked", `buyer:${id}`, { ip, violators: links.map((v) => `${v.subjectKind}:${v.subjectId}`) });
+    })().catch(() => {});
   };
+  const blocked = async (c: Context) => typeof d.feed.isBlocked === "function" && (await d.feed.isBlocked(ipOf(c)).catch(() => false));
   /** The signed-in, not banned buyer, or null. */
   const buyer = async (c: Context) => { const id = buyerId(c); const b = id ? await d.feed.getBuyer(id) : null; return b && b.status === "active" ? b : null; };
 
@@ -78,6 +86,7 @@ export function mountBuyerApp(app: Hono<any>, d: BuyerAppDeps): void {
     if (!tok) return c.html(page("This link has expired", `<p class="sub muted">Ask for a new one on <a href="/feed">Nearchant</a>.</p>`), 400);
     if (await d.content.getSetting(`emailTok:${tok.n}`)) return c.html(page("This link was used already", `<p class="sub muted">Each link works once. <a href="/feed">Back to Nearchant</a></p>`), 400);
     await d.content.setSetting(`emailTok:${tok.n}`, now());
+    if (await blocked(c)) return c.html(page("This address is blocked", `<p class="sub muted">It broke the platform rules.</p>`), 403);
     const b = await d.feed.buyerByEmail(tok.e);
     if (b.status !== "active") return c.html(page("This account is blocked", `<p class="sub muted">It broke the platform rules.</p>`), 403);
     await signIn(c, b.id);
@@ -98,6 +107,7 @@ export function mountBuyerApp(app: Hono<any>, d: BuyerAppDeps): void {
     usedNonces.set(nonce.toString("hex"), now());
     for (const [k, t] of usedNonces) if (now() - t > 20 * 60_000) usedNonces.delete(k);
     if (!(await d.isOwnerKey(accountId, publicKey))) return c.json({ error: "that key is not a full-access key of the wallet account" }, 403);
+    if (await blocked(c)) return c.json({ error: "this address is blocked for breaking the platform rules" }, 403);
     const buyerRow = await d.feed.buyerByWallet(accountId);
     if (buyerRow.status !== "active") return c.json({ error: "this account is blocked for breaking the platform rules" }, 403);
     await signIn(c, buyerRow.id);
@@ -151,6 +161,7 @@ export function mountBuyerApp(app: Hono<any>, d: BuyerAppDeps): void {
     if (!jsonOnly(c)) return c.json({ error: "JSON only" }, 415);
     const b = await buyer(c), ip = ipOf(c);
     if (!b) return c.json({ error: "sign in to report", code: "signin" }, 401);
+    if (await blocked(c)) return c.json({ error: "this address is blocked" }, 403);
     if (!reportIp.take(ip) || (await d.feed.recentReports({ buyerId: b.id })) >= 10) return c.json({ error: "too many reports — try again later" }, 429);
     const body = await json(c);
     const reason = String(body.reason ?? "") as ReportReason;

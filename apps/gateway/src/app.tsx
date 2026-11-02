@@ -63,6 +63,10 @@ export interface Deps {
   /** Content stores (ADR 0018): the buyer storefront data, or null for a classic card. */
   /** nearchant.com home page (no store in the host): rendered landing; unset → redirect to the dashboard. */
   landing?: () => Promise<unknown>;
+  /** Who is who (ADR 0022): true when a moderator blocked this address. */
+  blockedIp?: (ip: string) => Promise<boolean>;
+  /** A new store: log its address and flag it when it shares an IP or account with a known violator. */
+  onShopCreated?: (handle: string, ip: string) => Promise<void>;
   /** "Ask the store" (ADR 0022): the store's AI assistant answers a shopper from public store data. */
   askStore?: (handle: string, question: string) => Promise<{ answer: string; askOwner: boolean; itemId: string | null }>;
   /** A signed-in buyer created an order (ADR 0022): remembered for their "My orders" page. */
@@ -417,8 +421,10 @@ export function createApp(d: Deps) {
     if (name.length < 2 || name.length > 80 || bio.length > 600) return c.json({ error: "name 2–80 chars, bio up to 600" }, 400);
     if (!(price >= 0.5 && price <= 100)) return c.json({ error: "price must be 0.5–100 nUSD" }, 400);
     if (!shopLimit.take(ipOf(c)) || !shopDaily.take("all")) return c.json({ error: "too many new shops from this address; try later" }, 429);
+    if (d.blockedIp && (await d.blockedIp(ipOf(c)).catch(() => false))) return c.json({ error: "new stores can't be created from this address — it broke the platform rules" }, 403);
     try {
       const r = await d.createShop({ handle, ownerPublicKey, name, bio, priceUnits: String(Math.round(price * 10 ** d.config.token.decimals)) });
+      if (d.onShopCreated) void d.onShopCreated(handle, ipOf(c)).catch(() => {});
       return c.json({ ...r, cardUrl: `/h/${handle}/` }, 201);
     } catch (e) {
       return c.json({ error: (e as Error).message.slice(0, 200) }, 409);

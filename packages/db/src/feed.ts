@@ -356,6 +356,31 @@ export class FeedStore {
     return rows.map((p) => ({ id: p.id, handle: p.handle, caption: p.caption ?? "", reason: p.removedReason ?? "", at: p.removedAt!, image: (p.idea as { publicImage?: string }).publicImage ?? null, moderation: p.moderation }));
   }
 
+  // ── who is who: blocks and links to known violators ──
+  /** IPs a moderator blocked (from a violator's record): no new stores, buyer sign-ins or reports from them. */
+  async isBlocked(ip: string | null | undefined): Promise<boolean> {
+    if (!ip) return false;
+    const [r] = (await this.db.execute(sql`select 1 from settings where key = 'blockedIps' and value ? ${ip} limit 1`)) as unknown as unknown[];
+    return !!r;
+  }
+  async blockIps(ips: string[], on: boolean): Promise<void> {
+    const cur = new Set(((await this.db.select().from(s.settings).where(eq(s.settings.key, "blockedIps")))[0]?.value as string[] | undefined) ?? []);
+    for (const ip of ips) on ? cur.add(ip) : cur.delete(ip);
+    await this.db.insert(s.settings).values({ key: "blockedIps", value: [...cur] }).onConflictDoUpdate({ target: s.settings.key, set: { value: [...cur], updatedAt: new Date() } });
+  }
+  async blockedIps(): Promise<string[]> {
+    return ((await this.db.select().from(s.settings).where(eq(s.settings.key, "blockedIps")))[0]?.value as string[] | undefined) ?? [];
+  }
+  /** Violators that share an IP, email or NEAR account with this account (and still have active violations). */
+  async linkedViolators(who: { ips?: string[]; emails?: string[]; accounts?: string[]; except?: { kind: string; id: string } }): Promise<Violator[]> {
+    const arr = (xs: string[] | undefined) => sql`array[${sql.join((xs ?? []).filter(Boolean).slice(0, 50).map((x) => sql`${x}`), sql`, `)}]::text[]`;
+    if (!(who.ips?.length || who.emails?.length || who.accounts?.length)) return [];
+    const rows = (await this.db.execute(sql`select * from violators where count > 0
+      and (ips ?| ${arr(who.ips)} or emails ?| ${arr(who.emails)} or accounts ?| ${arr(who.accounts)})
+      ${who.except ? sql`and not (subject_kind = ${who.except.kind} and subject_id = ${who.except.id})` : sql``} limit 20`)) as unknown as Record<string, unknown>[];
+    return rows.map((r) => ({ id: Number(r.id), subjectKind: String(r.subject_kind), subjectId: String(r.subject_id), count: Number(r.count), accounts: r.accounts, emails: r.emails, ips: r.ips, notes: String(r.notes ?? ""), firstAt: new Date(r.first_at as string), lastAt: new Date(r.last_at as string) }) as Violator);
+  }
+
   // ── admin log ──
   async log(actor: string, action: string, target: string, data: unknown = {}): Promise<void> {
     await this.db.insert(s.adminLog).values({ actor: actor.slice(0, 60), action, target, data });
