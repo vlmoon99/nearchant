@@ -1024,3 +1024,12 @@ undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your mach
   + phone 393, Explore, no page errors, no sideways scroll; 2 visits → 2 view events with the post id in Postgres.
 - **Not verified**: link previews inside the Telegram/Instagram apps (needs a real share); posts with an item
   link (Nova's current posts have none, so they show "Shop Nova Wear NYC").
+
+## 2026-11-02 10:26 UTC — buyers saw no posts in Super Nutrition: first post now goes live at once
+- **Cause**: "Schedule all" in onboarding put every post on a future slot (supernutrition: 6, 7, 8 Nov), and the
+  store feed shows only published posts — so a new store looked empty to buyers for days.
+- **Fix**: onboarding button is now "Post the first, schedule the rest" — post 1 is published right away, the rest
+  keep the best-time slots. On a post page "Post now" was already there.
+- Published Super Nutrition's first post now (owner's request to see it); posts 2–3 stay on 7 and 8 Nov.
+- **Verified**: worker published it and recorded proof #27; https://supernutrition.nearchant.com/ and
+  /h/supernutrition/ show it in Posts (with ▶ short) and the post page opens; gateway tests 48.
