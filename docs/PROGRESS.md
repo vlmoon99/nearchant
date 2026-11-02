@@ -1107,3 +1107,18 @@ undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your mach
   removal email to an owner (the test store has no email); the store page of a suspended store just 404s.
 - **Owner actions**: admin password: `security find-generic-password -a nearchant -s NC_ADMIN_PASSWORD -w`; open
   `http://100.64.0.13:8790/mod` from a tailnet device. Give your moderator the password and the tailnet invite.
+
+## 2026-11-02 23:19 UTC — night: feed polish, follows, item moderation, journey green
+- **Done**: "More like this on Nearchant" under every post (nearest posts of other stores by meaning) · Liked page
+  (`/feed/liked`) · **Follow stores** (button + followers on store pages, `/feed/following`, followed stores rank
+  higher in For you) · "why" labels on results ("In New York", "Ships worldwide", "Location not set") · soft boost for
+  stores in the visitor's country (Cloudflare `CF-IPCountry`, never a filter) · landing hero search box → feed ·
+  **items for sale are moderated** too (hidden + violation + owner email; an unchanged re-save stays hidden) · sellers
+  see removed posts with the reason (Posts list + post page) · Analytics: likes, followers, top posts by views + likes
+  · a suspended store shows "This store is paused" (410) · store owners' IPs logged once an hour per IP for the
+  violators list · new stores get their place with their first published post · README + demo script updated.
+- **Verified**: tests db 18, worker 22, gateway 59; journey e2e on nearchant.com after all of it — store → posts 145 s
+  → live 149 s (first post moderated "ok" before publishing, proof + search vector) → paid → shipped → delivered
+  62 s → Released 81 s, no page errors; existing items all judged fine (no false removals); follow/unfollow +
+  Following feed live.
+- **Not verified**: real Meteor/HOT/HERE/Intear sign-ins (owner, real wallets).
