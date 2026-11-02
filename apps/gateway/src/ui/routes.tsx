@@ -152,8 +152,15 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     }
     const since = Date.now() - range * 86_400_000;
     const published = posts.filter((p) => p.publishedAt && p.publishedAt.getTime() > since);
-    const sources = await content.viewSources(s.handle, range);
-    return c.html(<AnalyticsPage cfg={d.cfg} test={d.test} store={s} range={range} days={days} sources={sources} insights={insights}
+    const [sources, hours, pv] = await Promise.all([content.viewSources(s.handle, range), content.visitHours(s.handle, range), content.postViews(s.handle, range)]);
+    // Heatmap: Mon..Sun × 3-hour slots ending 9..24 (00–06 counts toward the first slot).
+    const heat = Array.from({ length: 7 }, () => Array(6).fill(0) as number[]);
+    for (const h of hours) heat[(h.dow + 6) % 7]![Math.min(5, Math.max(0, Math.ceil((h.hour + 1) / 3) - 3))]! += h.n;
+    const media = new Map((await content.listMedia(s.handle)).map((m) => [m.id, m.key]));
+    const topPosts = published.map((p) => ({ id: p.id, caption: p.caption ?? "", img: p.imageMediaId && media.get(p.imageMediaId) ? `/files/${media.get(p.imageMediaId)}?w=320` : null,
+      when: p.publishedAt!.toLocaleDateString("en-US", { month: "short", day: "numeric" }), views: pv.get(p.id) ?? 0, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null }))
+      .sort((a, b) => b.views - a.views).slice(0, 5);
+    return c.html(<AnalyticsPage cfg={d.cfg} test={d.test} store={s} range={range} days={days} sources={sources} insights={insights} topPosts={topPosts} heat={heat}
       totals={{ views: events.filter((e) => e.kind === "view").reduce((a, e) => a + e.n, 0), sales: sales.count, revenue: fmtU(sales.units), posts: published.length, proofs: published.filter((p) => p.proof).length }} />);
   }));
 

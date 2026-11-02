@@ -274,6 +274,10 @@ function sellerApp() {
     await api("/api/app/insights", {}).catch((e) => { $("#insights-out").textContent = (e as Error).message; });
     setTimeout(() => location.reload(), 15000);
   });
+  // No insights yet: ask for the first ones without waiting for a click (once per page view).
+  if (document.querySelector("[data-auto-insights]")) {
+    void api("/api/app/insights", {}).then(() => setTimeout(() => location.reload(), 20000)).catch(() => { $("#insights-out").textContent = "Click Refresh to try again."; });
+  }
   document.querySelector("#dismiss-celebration")?.addEventListener("click", async () => { await api("/api/app/celebrated", {}).catch(() => {}); $("#celebration").remove(); });
   document.querySelector<HTMLFormElement>("#settings-store")?.addEventListener("submit", async (e) => {
     e.preventDefault(); const f = e.target as HTMLFormElement; const v = (n: string) => (f.elements.namedItem(n) as HTMLInputElement).value.trim();

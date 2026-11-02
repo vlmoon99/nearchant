@@ -198,6 +198,20 @@ export class ContentStore {
   async addEvent(e: { handle: string; kind: string; postId?: string | null; itemId?: string | null; orderId?: string | null; source?: string | null; data?: unknown }): Promise<void> {
     await this.db.insert(s.events).values({ handle: e.handle, kind: e.kind, postId: e.postId ?? null, itemId: e.itemId ?? null, orderId: e.orderId ?? null, source: e.source ?? null, data: e.data ?? {} });
   }
+  /** Store visits by weekday (0 = Sunday) and hour in a time zone — the "best time to post" heatmap. */
+  async visitHours(handle: string, days: number, tz = "America/New_York"): Promise<{ dow: number; hour: number; n: number }[]> {
+    const since = new Date(Date.now() - days * 86_400_000);
+    const local = sql`(${s.events.createdAt} at time zone ${tz})`;
+    return this.db.select({ dow: sql<number>`extract(dow from ${local})::int`, hour: sql<number>`extract(hour from ${local})::int`, n: sql<number>`count(*)::int` })
+      .from(s.events).where(and(eq(s.events.handle, handle), eq(s.events.kind, "view"), gte(s.events.createdAt, since))).groupBy(sql`1`, sql`2`);
+  }
+  /** Views per post (visits that came through a post's share link), since `days` ago. */
+  async postViews(handle: string, days: number): Promise<Map<string, number>> {
+    const since = new Date(Date.now() - days * 86_400_000);
+    const rows = await this.db.select({ id: s.events.postId, n: sql<number>`count(*)::int` }).from(s.events)
+      .where(and(eq(s.events.handle, handle), eq(s.events.kind, "view"), gte(s.events.createdAt, since), sql`${s.events.postId} is not null`)).groupBy(s.events.postId);
+    return new Map(rows.map((r) => [r.id!, r.n]));
+  }
   /** Store views by source (telegram, instagram, direct, …) since `days` ago, most first. */
   async viewSources(handle: string, days: number): Promise<[string, number][]> {
     const since = new Date(Date.now() - days * 86_400_000);

@@ -28,7 +28,21 @@ const Bars: FC<{ days: DayRow[] }> = ({ days }) => {
   );
 };
 
-export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; range: number; totals: { views: number; sales: number; revenue: string; posts: number; proofs: number }; days: DayRow[]; sources: [string, number][]; insights: Insights | null }> = ({ cfg, test, store, range, totals, days, sources, insights }) => (
+export interface TopPost { id: string; caption: string; img: string | null; when: string; views: number; proofId: string | null }
+const HEAT_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], HEAT_SLOTS = [9, 12, 15, 18, 21, 24];
+/** Best-time heatmap (Figma Analytics): rows Mon..Sun, columns 3-hour slots ending at 9, 12, …, 24. */
+const Heat: FC<{ heat: number[][] }> = ({ heat }) => {
+  const max = Math.max(1, ...heat.flat());
+  let best = [0, 0]; heat.forEach((r, d) => r.forEach((n, s) => { if (n > heat[best[0]!]![best[1]!]!) best = [d, s]; }));
+  return (<div class="stack" style="gap:6px">
+    {heat.map((r, d) => <div class="row" style="gap:4px;align-items:center"><span class="cap muted" style="width:30px">{HEAT_DAYS[d]}</span>
+      {r.map((n) => <span style={`flex:1;height:18px;border-radius:5px;background:rgba(0,122,255,${0.08 + 0.85 * (n / max)})`} title={`${n} visits`}></span>)}</div>)}
+    <div class="row" style="gap:4px"><span style="width:30px"></span>{HEAT_SLOTS.map((h) => <span class="cap muted" style="flex:1;text-align:center">{h}</span>)}</div>
+    <span class="foot">{heat.flat().some((n) => n) ? <>Best: <b>{HEAT_DAYS[best[0]!]} {HEAT_SLOTS[best[1]!]! - 3}:00–{HEAT_SLOTS[best[1]!]}:00</b> (New York time, from your store visits)</> : "No visits yet — the map fills in as people open your store."}</span>
+  </div>);
+};
+
+export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; range: number; totals: { views: number; sales: number; revenue: string; posts: number; proofs: number }; days: DayRow[]; sources: [string, number][]; insights: Insights | null; topPosts?: TopPost[]; heat?: number[][] }> = ({ cfg, test, store, range, totals, topPosts = [], heat, days, sources, insights }) => (
   <Page cfg={cfg} test={test} title="Analytics" active="Analytics" store={store}>
     <PageHead kicker={`Last ${range} days`} title="Analytics">
       {[7, 30, 90].map((r) => <a class={`chip ${r === range ? "on" : ""}`} href={`/app/analytics?d=${r}`}>{r} days</a>)}
@@ -49,20 +63,29 @@ export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView;
           <span class="sub b">{insights.headline}</span>
           {insights.insights.map((i) => <div class="card white" style="gap:4px;padding:12px;border:0"><span class="foot">{i.text}</span><span class="foot b" style="color:var(--accent)">{i.action} →</span></div>)}
           {insights.best_time ? <span class="foot muted">Best time to post: <b>{insights.best_time}</b></span> : null}
-        </> : <span class="foot muted">Click Refresh — AI reads your numbers and says what to do next.</span>}
+        </> : <span class="foot muted" data-auto-insights>AI is reading your numbers for the first time…</span>}
         <output class="foot" id="insights-out"></output>
       </div>
+    </div>
+    <div class="cols">
+      <div class="card"><div class="spread"><span class="headline">Top posts</span><a class="foot" href="/app/posts?f=published">All posts</a></div>
+        {topPosts.length ? topPosts.map((t) => <a class="row card white" style="gap:12px;align-items:center;padding:10px 12px;border:0;color:inherit" href={`/app/posts/${t.id}`}>
+          <span style={`width:40px;height:40px;border-radius:8px;flex:none;background:var(--grouped) center/cover${t.img ? ` url('${t.img}')` : ""}`}></span>
+          <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="foot b clamp1">{t.caption}</span><span class="cap muted">{t.when} · {t.views} view{t.views === 1 ? "" : "s"} from its link</span></span>
+          {t.proofId ? <span class="badge"><Icon n="shield" s={13} />Proof #{t.proofId}</span> : <span class="cap muted">no proof yet</span>}</a>)
+          : <span class="foot muted">Published posts show up here with their views and proof on NEAR.</span>}
+      </div>
+      <div class="card"><span class="headline">Best time to post</span>{heat ? <Heat heat={heat} /> : null}</div>
     </div>
   </Page>
 );
 
 export const WalletPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; balance: string; escrow: string; escrowCount: number; aiMonth: string; aiBalance: string; rows: { when: string; what: string; state: string; amount: string; sign: string }[]; explorer: string; withdrawTo?: string | null }> = ({ cfg, test, store, balance, escrow, escrowCount, aiMonth, aiBalance, rows, explorer, withdrawTo }) => (
   <Page cfg={cfg} test={test} title="Wallet" active="Wallet" store={store}>
-    <PageHead kicker={`${store.account} · NEAR account`} title="Wallet"><a class="btn secondary" href={explorer} target="_blank" rel="noopener"><Icon n="globe" />Explorer</a></PageHead>
-    <div class="row" style="gap:10px;flex-wrap:wrap">
+    <PageHead kicker={`${store.account} · NEAR account`} title="Wallet">
+      <a class="btn secondary hide-m" href={explorer} target="_blank" rel="noopener"><Icon n="globe" />Explorer</a>
       <button class="btn secondary" data-receive={store.account}><Icon n="arrow" />Receive</button>
-      <button class="btn near" data-withdraw-open><Icon n="send" />Withdraw</button>
-    </div>
+      <button class="btn" data-withdraw-open><Icon n="send" />Withdraw</button></PageHead>
     <div class="card hidden" id="receive-card"><span class="headline">Receive</span><span class="foot">Send {cfg.token} on NEAR to your store account:</span>
       <div class="spread"><b style="word-break:break-all">{store.account}</b><button class="btn secondary" data-copy={store.account}><Icon n="copy" />Copy</button></div></div>
     <form class="card hidden" id="withdraw-form"><span class="headline">Withdraw {cfg.token}</span>

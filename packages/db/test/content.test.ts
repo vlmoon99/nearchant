@@ -20,6 +20,11 @@ describe("ContentStore", () => {
     expect(sc.proofs).toBeGreaterThanOrEqual(2);
     expect(sc.stores).toBeGreaterThanOrEqual(1);
     expect(typeof sc.paidOrders).toBe("number");
+    await c.addEvent({ handle: "show", kind: "view", postId: ids[1]! }); await c.addEvent({ handle: "show", kind: "view", postId: ids[1]! }); await c.addEvent({ handle: "show", kind: "view" });
+    expect((await c.postViews("show", 7)).get(ids[1]!)).toBe(2);
+    const hours = await c.visitHours("show", 7);
+    expect(hours.reduce((a, h) => a + h.n, 0)).toBe(3);
+    expect(hours.every((h) => h.dow >= 0 && h.dow <= 6 && h.hour >= 0 && h.hour <= 23)).toBe(true);
     await c.setSetting("showcase_hidden", ["show"]);
     expect((await c.showcase(3)).posts.filter((p) => p.handle === "show")).toEqual([]);
     await c.setSetting("showcase_hidden", []);
