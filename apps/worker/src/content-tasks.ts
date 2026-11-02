@@ -203,7 +203,7 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
       if (first) {
         try {
           await d.content.reserve(handle, 0, 3, (await d.content.getBusiness(handle))?.plan ?? "free");
-          await d.content.updatePost(first.id, { idea: { ...(first.idea as object), video: { status: "writing" } } });
+          await d.content.updatePost(first.id, { idea: { ...(first.idea as object), video: { status: "writing", startedAt: Date.now() } } });
           await helpers.addJob("make_video", { postId: first.id }, { jobKey: `video:${first.id}:first`, maxAttempts: 1 });
           d.log(`first short queued for ${first.id}`);
         } catch (e) { d.log(`first short skipped: ${(e as Error).message.slice(0, 120)}`); }
@@ -280,7 +280,7 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
       if (!m) throw new Error("the post has no picture to animate");
       const profile = (await d.content.getProfile(p.handle))?.data as StyleProfile;
       const script = await writeVideoScript(askFor(p.handle, "video"), { profile, caption: p.caption ?? "", angle: String(idea.angle ?? "") });
-      await setVideo({ status: "rendering", script });
+      await setVideo({ status: "rendering", script, startedAt: Date.now() });
       const picture = await sharp(await readFile(join(d.mediaDir, m.key))).rotate().resize(720, 1280, { fit: "cover" }).png().toBuffer();
       const [clip, voice] = await Promise.all([d.video.render(script.video_prompt, picture), d.video.tts.speak(script.voiceover, p.handle)]);
       const dir = join(d.mediaDir, p.handle, "gen", `v-${p.id}`);

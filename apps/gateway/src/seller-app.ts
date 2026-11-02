@@ -252,11 +252,12 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     if (!p || p.handle !== handle) return c.json({ error: "not found" }, 404);
     if (!d.videoEnabled) return c.json({ error: "Videos are not available on this server yet" }, 503);
     if (!["ready", "scheduled", "published"].includes(p.status) || !(p.imageMediaId ?? p.sourceMediaId)) return c.json({ error: "the post needs a picture first" }, 409);
-    const v = ((p.idea ?? {}) as { video?: { status?: string } }).video;
-    if (v && ["writing", "rendering"].includes(v.status ?? "")) return c.json({ status: v.status }, 202);
+    const v = ((p.idea ?? {}) as { video?: { status?: string; startedAt?: number } }).video;
+    // A video still "in progress" after 15 min was cut off (e.g. a worker restart): it may be started again.
+    if (v && ["writing", "rendering"].includes(v.status ?? "") && now() - (v.startedAt ?? 0) < 15 * 60_000) return c.json({ status: v.status }, 202);
     try { await d.content.reserve(handle, 0, 3, (await d.content.getBusiness(handle))?.plan ?? "free"); }
     catch (e) { if (e instanceof QuotaExceeded) return c.json({ error: e.message, code: "quota_exceeded" }, 402); throw e; }
-    await d.content.updatePost(p.id, { idea: { ...(p.idea as object), video: { status: "writing" } } });
+    await d.content.updatePost(p.id, { idea: { ...(p.idea as object), video: { status: "writing", startedAt: now() } } });
     await d.enqueue("make_video", { postId: p.id }, `video:${p.id}:${now()}`);
     return c.json({ status: "writing" }, 202);
   }));

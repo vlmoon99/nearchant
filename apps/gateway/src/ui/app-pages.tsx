@@ -134,7 +134,7 @@ export function madeBy(p: Post): string {
 export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: Post; img: Img; explorer: string }> = ({ cfg, test, store, p, img, explorer }) => {
   const proof = p.proof as { proofId?: string; outputHash?: string; contract?: string } | null;
   const video = (p.idea as { video?: { status?: string; key?: string; mediaId?: string; error?: string; script?: { hook?: string } } } | null)?.video;
-  const making = video && ["writing", "rendering"].includes(video.status ?? "");
+  const making = video && ["writing", "rendering"].includes(video.status ?? "") && Date.now() - ((video as { startedAt?: number }).startedAt ?? 0) < 15 * 60_000;
   const check = (p.idea as { check?: { invented_offer: number; flagged: boolean } } | null)?.check;
   const rewrite = (p.idea as { rewrite?: { status: string; style: string } } | null)?.rewrite;
   const rewriting = rewrite?.status === "writing";

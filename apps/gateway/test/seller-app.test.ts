@@ -155,7 +155,7 @@ describe("seller API", () => {
     expect((await app.request("http://x/api/app/posts/v1/video", post({}, cookie))).status).toBe(409);
     expect((await app.request("http://x/api/app/posts/v0/video", post({}, cookie))).status).toBe(202);
     expect(db.quota).toBe(9);
-    expect(db.posts[0].idea).toEqual({ angle: "a", video: { status: "writing" } });
+    expect(db.posts[0].idea).toMatchObject({ angle: "a", video: { status: "writing" } });
     expect(jobs.filter((j) => j.task === "make_video")).toHaveLength(1);
     expect((await app.request("http://x/api/app/posts/v0/video", post({}, cookie))).status).toBe(202);
     expect(db.quota).toBe(9); // already making: no second job, no second charge
@@ -253,5 +253,13 @@ describe("seller API", () => {
     expect((await app.request("http://x/api/app/posts/r0/rewrite", post({ style: "shorter" }, cookie))).status).toBe(202);
     expect(db.posts[0].idea.rewrite).toEqual({ status: "writing", style: "shorter" });
     expect(jobs.filter((j) => j.task === "rewrite_caption")).toHaveLength(1);
+  });
+
+  it("a video stuck 'in progress' for 15 min (cut off) can be started again", async () => {
+    const at = 1_790_000_000_000;
+    const { app, cookie, db, jobs } = setup([], true, at);
+    db.posts.push({ id: "s0", handle: "nova", status: "ready", imageMediaId: "m1", idea: { video: { status: "rendering", startedAt: at - 16 * 60_000 } } });
+    expect((await app.request("http://x/api/app/posts/s0/video", post({}, cookie))).status).toBe(202);
+    expect(jobs.filter((j) => j.task === "make_video")).toHaveLength(1);
   });
 });
