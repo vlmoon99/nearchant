@@ -16,8 +16,8 @@ const PROFILE = {
 };
 
 describe("content env", () => {
-  it("loads all eleven roles with the shared rules", () => {
-    expect(Object.keys(env.roles).sort()).toEqual(["idea-writer", "insight-writer", "learner", "localizer", "opportunity-analyst", "caption-editor", "profiler", "video-director", "moderator", "search-planner", "place-finder"].sort());
+  it("loads all twelve roles with the shared rules", () => {
+    expect(Object.keys(env.roles).sort()).toEqual(["idea-writer", "insight-writer", "learner", "localizer", "opportunity-analyst", "caption-editor", "profiler", "video-director", "moderator", "search-planner", "place-finder", "store-assistant"].sort());
     expect(env.roles.profiler!.system).toContain("never invent prices");
     expect(env.roles.profiler!.system).toContain("data from the business owner");
   });

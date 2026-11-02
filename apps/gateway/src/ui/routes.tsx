@@ -229,7 +229,7 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
       .sort((a, b) => b.views + b.likes * 3 - (a.views + a.likes * 3)).slice(0, 5);
     const country = (await content.getBusiness(s.handle))?.country ?? null;
     const [demand, found] = d.feedStore ? await Promise.all([d.feedStore.demand({ days: range, country, limit: 10 }), d.feedStore.searchesFor(s.handle, range)]) : [[], null];
-    return c.html(<AnalyticsPage cfg={d.cfg} test={d.test} store={s} range={range} days={days} sources={sources} insights={insights} topPosts={topPosts} heat={heat} demand={demand} found={found} country={country}
+    return c.html(<AnalyticsPage cfg={d.cfg} test={d.test} store={s} range={range} days={days} sources={sources} insights={insights} topPosts={topPosts} heat={heat} demand={demand} found={found} country={country} questions={(await content.getSetting<{ q: string; a: string; owner: boolean; at: string }[]>(`questions:${s.handle}`)) ?? []}
       totals={{ views: events.filter((e) => e.kind === "view").reduce((a, e) => a + e.n, 0), sales: sales.count, revenue: fmtU(sales.units), posts: published.length, proofs: published.filter((p) => p.proof).length, likes: [...likeMap.values()].reduce((a, n) => a + n, 0), followers: d.feedStore ? await d.feedStore.followers(s.handle) : 0 }} />);
   }));
 

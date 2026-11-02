@@ -63,6 +63,8 @@ export interface Deps {
   /** Content stores (ADR 0018): the buyer storefront data, or null for a classic card. */
   /** nearchant.com home page (no store in the host): rendered landing; unset → redirect to the dashboard. */
   landing?: () => Promise<unknown>;
+  /** "Ask the store" (ADR 0022): the store's AI assistant answers a shopper from public store data. */
+  askStore?: (handle: string, question: string) => Promise<{ answer: string; askOwner: boolean; itemId: string | null }>;
   /** A signed-in buyer created an order (ADR 0022): remembered for their "My orders" page. */
   onOrderCreated?: (c: Context, orderId: string, handle: string) => Promise<void>;
   /** Moderation suspended this store (ADR 0022): its pages explain that instead of showing it. */
@@ -195,6 +197,18 @@ export function createApp(d: Deps) {
     if (!sf || !item) return c.html(<NotFoundPage testToken={d.config.token.test} />, 404);
     const base = c.req.path.startsWith("/h/") ? `/h/${h.handle}/` : "/";
     return c.html(<ItemPage s={sf} i={item} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, network: d.client.network, site: d.config.public_url }} test={d.config.token.test} />);
+  });
+
+  // "Ask the store": the store's own AI answers shoppers (public store data only), 20 questions an hour per address.
+  const askLimit = new RateLimit(20, 3_600_000);
+  seller.post("/public/ask", async (c) => {
+    const h = c.get("handle");
+    if (!h || !d.askStore) return c.json({ error: "not available" }, 404);
+    if (!(c.req.header("content-type") ?? "").startsWith("application/json")) return c.json({ error: "JSON only" }, 415);
+    if (!askLimit.take(ipOf(c))) return c.json({ error: "too many questions — try again later" }, 429);
+    const q = String(((await c.req.json().catch(() => ({}))) as { question?: unknown }).question ?? "").trim();
+    if (q.length < 3 || q.length > 500) return c.json({ error: "ask in 3–500 characters" }, 400);
+    try { return c.json(await d.askStore(h.handle, q)); } catch { return c.json({ error: "the assistant is busy — try again in a minute" }, 503); }
   });
 
   const buyerLimit = new RateLimit(5, 3_600_000);

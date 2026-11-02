@@ -121,6 +121,22 @@ document.addEventListener("click", async (e) => {
   });
 });
 
+// ── ask the store (its AI assistant) ──
+for (const f of document.querySelectorAll<HTMLFormElement>("form[data-ask]")) {
+  f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const out = f.querySelector("output")!, btn = f.querySelector("button")!, input = f.elements.namedItem("question") as HTMLInputElement;
+    btn.disabled = true; out.textContent = "Thinking…";
+    try {
+      const r = await api<{ answer: string; askOwner: boolean; itemId: string | null }>(new URL(f.action).pathname, { question: input.value });
+      out.textContent = r.answer;
+      if (r.itemId) { const a = document.createElement("a"); a.href = `${new URL(f.action).pathname.replace(/public\/ask$/, "")}i/${r.itemId}`; a.textContent = " See the item ›"; out.append(a); }
+      if (r.askOwner) { const n = document.createElement("span"); n.className = "cap muted"; n.textContent = " (The owner can tell you more.)"; out.append(n); }
+    } catch (err) { out.textContent = (err as Error).message; }
+    finally { btn.disabled = false; }
+  });
+}
+
 // ── header: who is signed in ──
 for (const el of document.querySelectorAll<HTMLElement>("[data-buyer-me]")) {
   void getMe().then((m) => {

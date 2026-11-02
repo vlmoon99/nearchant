@@ -42,7 +42,7 @@ const Heat: FC<{ heat: number[][] }> = ({ heat }) => {
   </div>);
 };
 
-export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; range: number; totals: { views: number; sales: number; revenue: string; posts: number; proofs: number; likes?: number; followers?: number }; days: DayRow[]; sources: [string, number][]; insights: Insights | null; topPosts?: TopPost[]; heat?: number[][]; demand?: { goods: string; searches: number; empty: number }[]; found?: { count: number; goods: string[] } | null; country?: string | null }> = ({ cfg, test, store, range, totals, topPosts = [], heat, days, sources, insights, demand = [], found, country }) => (
+export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; range: number; totals: { views: number; sales: number; revenue: string; posts: number; proofs: number; likes?: number; followers?: number }; days: DayRow[]; sources: [string, number][]; insights: Insights | null; topPosts?: TopPost[]; heat?: number[][]; demand?: { goods: string; searches: number; empty: number }[]; found?: { count: number; goods: string[] } | null; country?: string | null; questions?: { q: string; a: string; owner: boolean; at: string }[] }> = ({ cfg, test, store, range, totals, topPosts = [], heat, days, sources, insights, demand = [], found, country, questions = [] }) => (
   <Page cfg={cfg} test={test} title="Analytics" active="Analytics" store={store}>
     <PageHead kicker={`Last ${range} days`} title="Analytics">
       {[7, 30, 90].map((r) => <a class={`chip ${r === range ? "on" : ""}`} href={`/app/analytics?d=${r}`}>{r} days</a>)}
@@ -82,6 +82,11 @@ export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView;
       {demand.length ? <div class="row" style="gap:8px;flex-wrap:wrap">{demand.map((x) => <span class="chip" title={`${x.searches} searches${x.empty ? `, ${x.empty} found nothing` : ""}`}>{x.goods} · {x.searches}{x.empty ? " · unmet" : ""}</span>)}</div>
         : <span class="foot muted">No searches yet.</span>}
       {demand.some((x) => x.empty) ? <span class="cap muted">“unmet” = shoppers searched and found no store — a chance if you sell it.</span> : null}
+    </div>
+    <div class="card" style="gap:10px"><span class="headline">Questions shoppers asked</span>
+      <span class="foot muted">Your store's AI answers them on your store page from your items and posts. {questions.some((x) => x.owner) ? "The ones marked “for you” it could not answer — add that info to your items." : ""}</span>
+      {questions.length ? questions.slice(0, 6).map((x) => <div class="stack" style="gap:2px;border-top:1px solid var(--sep);padding-top:8px"><span class="foot b">“{x.q}”{x.owner ? <span class="tag" style="margin-left:6px;color:#b25000"> for you</span> : null}</span><span class="foot muted">{x.a}</span></div>)
+        : <span class="foot muted">No questions yet.</span>}
     </div>
   </Page>
 );

@@ -1,0 +1,6 @@
+prompt: prompts/store-assistant.md
+seat: main
+output: json
+temperature: 0.2
+reasoning: false
+max_tokens: 300

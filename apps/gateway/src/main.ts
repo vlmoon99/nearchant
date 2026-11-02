@@ -12,7 +12,7 @@ import { TelegramApi, handleUpdate, type TgUpdate } from "./telegram.js";
 import { marketOrderId, type HireCreated } from "./market.js";
 import { formatUnits } from "./config.js";
 import { Router } from "@nearchant/providers";
-import { loadAgentEnv, makeAsker, planSearch, type AgentEnv } from "@nearchant/swarm";
+import { answerShopper, loadAgentEnv, makeAsker, planSearch, type AgentEnv } from "@nearchant/swarm";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
 import { createApp } from "./app.js";
 import { mountSellerApp, readSession } from "./seller-app.js";
@@ -273,6 +273,22 @@ const app = createApp({
         return { stepsDone: Object.keys(all).filter((k) => k !== "revision_note"), files, stopped: all.stopped ? `${all.stopped.kind}: ${all.stopped.reason}`.slice(0, 400) : null };
       }
     : undefined,
+  ...(conn ? { askStore: async (handle: string, question: string) => {
+    const cs = new ContentStore(conn!.db);
+    const b = await cs.getBusiness(handle);
+    if (!b) throw new Error("no store");
+    const items = (await cs.listItems(handle)).map((i) => ({ id: i.id, title: i.title, description: i.description, price: `${formatUnits(i.priceUnits, config.token.decimals)} ${config.token.symbol}`, options: (i.options as string[]) ?? [] }));
+    const posts = (await cs.listPosts(handle, { status: ["published"], limit: 10 })).filter((p) => !p.removedAt).map((p) => p.caption ?? "");
+    const r = await getRouter();
+    if (!envs.has("content-store")) envs.set("content-store", loadAgentEnv(join(configDir, "../envs/content-store")));
+    const ask = makeAsker(envs.get("content-store")!, r, async () => {});
+    const a = await Promise.race([answerShopper(ask, { question, store: { name: b.name, description: b.description, place: [b.city, b.country].filter(Boolean).join(", "), ships: b.ships ?? "" }, items, posts }),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 45_000))]);
+    // The owner sees what shoppers ask (Analytics), newest first.
+    const k = `questions:${handle}`, list = (await cs.getSetting<{ q: string; a: string; owner: boolean; at: string }[]>(k)) ?? [];
+    await cs.setSetting(k, [{ q: question.slice(0, 500), a: a.answer, owner: a.askOwner, at: new Date().toISOString() }, ...list].slice(0, 50));
+    return a;
+  } } : {}),
   ...(conn ? { onOrderCreated: async (c: import("hono").Context, orderId: string, handle: string) => {
     const buyer = readSession(buyerKey, getCookie(c, "nc_buyer"));
     if (!buyer) return;

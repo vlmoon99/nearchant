@@ -37,3 +37,11 @@ export async function findPlace(ask: Asker, a: { name: string; description: stri
   const ships = ["local", "country", "world"].includes(String(raw.ships)) ? (raw.ships as StorePlace["ships"]) : null;
   return { city: clip(raw.city, 60) || null, country: /^[A-Z]{2}$/.test(country) ? country : null, ships };
 }
+
+export interface StoreAnswer { answer: string; askOwner: boolean; itemId: string | null }
+/** "Ask the store" (ADR 0022): the store's assistant answers a shopper from the store's public data only. */
+export async function answerShopper(ask: Asker, a: { question: string; store: { name: string; description: string; place: string; ships: string }; items: { id: string; title: string; description: string; price: string; options: string[] }[]; posts: string[] }): Promise<StoreAnswer> {
+  const raw = await ask<Record<string, unknown>>("store-assistant", [block("store", a.store), block("items", a.items.slice(0, 40)), block("posts", a.posts.slice(0, 10).map((p) => p.slice(0, 600))), block("question", a.question.slice(0, 500))].join("\n\n"));
+  const ids = new Set(a.items.map((i) => i.id));
+  return { answer: clip(raw.answer, 700) || "Sorry, I can't answer that — the store owner can.", askOwner: raw.ask_owner === true, itemId: typeof raw.item_id === "string" && ids.has(raw.item_id) ? raw.item_id : null };
+}

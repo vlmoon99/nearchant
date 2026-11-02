@@ -48,6 +48,7 @@ export const StorePage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean }> = 
         <div class="spread"><span class="sub b">{i.title}</span><span class="sub b">{i.price}</span></div>
         {i.options.length ? <span class="foot muted">{i.options.join(" · ")}</span> : null}
       </a>))}</div> : <p class="sub muted">Nothing for sale yet — check back soon.</p>}
+    <AskStore s={s} cfg={cfg} />
     {s.posts.length ? <><div class="spread"><h2 class="t4">Posts</h2>{s.posts.length > 8 ? <a class="sub" href={`${cfg.base}posts`}>All {s.posts.length} posts ›</a> : null}</div>
       <div class="grid4">{s.posts.slice(0, 8).map((p) => <PostTile p={p} base={cfg.base} />)}</div></> : null}
     <div class="card proof" style="flex-direction:row;gap:14px;align-items:center"><Icon n="shield" s={24} c="#007A4F" />
@@ -105,6 +106,7 @@ export const PublicPostPage: FC<{ s: StoreData; p: StorePost; cfg: CheckoutCfg; 
           <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
             <button class="chip like" type="button" data-like={p.id} aria-pressed="false"><Icon n="heart" s={16} /><span>Like</span><span data-n>{p.likes || ""}</span></button>
             <button class="chip" type="button" data-report-post={p.id}><Icon n="flag" s={14} />Report</button></div>
+          <AskStore s={s} cfg={cfg} placeholder="Ask about this — size, material, delivery…" />
           <div class="row" style="gap:8px;flex-wrap:wrap"><span class="foot muted">Share</span>
             <a class="chip" href={`https://t.me/share/url?url=${share}&text=${text}`} target="_blank" rel="noopener"><Icon n="send" s={14} />Telegram</a>
             <a class="chip" href={`https://x.com/intent/post?url=${share}&text=${text}`} target="_blank" rel="noopener">X</a>
@@ -174,3 +176,13 @@ export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; 
     </Shell>
   );
 };
+
+/** "Ask the store" box (ADR 0022): the store's AI assistant answers from the store's own public information. */
+export const AskStore: FC<{ s: StoreData; cfg: CheckoutCfg; placeholder?: string }> = ({ s, cfg, placeholder }) => (
+  <form class="card ask" data-ask action={`${cfg.base}public/ask`} style="gap:8px">
+    <div class="row" style="gap:8px;align-items:center"><Icon n="sparkles" s={18} c="#AF52DE" /><span class="headline">Ask {s.name}</span></div>
+    <div class="row" style="gap:8px"><input class="input" name="question" required minlength={3} maxlength={500} placeholder={placeholder ?? "Sizes, delivery, what's it made of…"} style="flex:1" /><button class="btn" type="submit">Ask</button></div>
+    <output class="sub" aria-live="polite"></output>
+    <span class="cap muted">Answered by the store's AI from its public info. To buy, use “Pay into escrow” on the item.</span>
+  </form>
+);

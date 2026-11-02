@@ -47,6 +47,7 @@ describe("store feed", () => {
       posts: [post, ...Array.from({ length: 9 }, (_, k) => ({ ...post, id: `q${k}`, itemId: null, video: null, caption: `Post ${k}` }))] };
     const app = createApp({ ...(base as unknown as { app: unknown }), config, store: base.store, rail: { id: "fake", instruction: () => ({}) as never, status: async () => null }, onPaid: async () => {},
       client: { rpcUrl: "https://rpc", orders: "orders.nearchant.testnet", network: "testnet" }, handles: { get: async (h) => (h === "alice" ? alice : null) },
+      askStore: async (h, q) => ({ answer: `${h}: ${q}`, askOwner: false, itemId: "i-1" }),
       similar: async () => [{ id: "x1", handle: "bob", storeName: "Bob Denim", caption: "Selvedge jeans", img: "/files/bob/public/x1.png?w=640", video: false }, { id: "x2", handle: "alice", storeName: "Alice Wear", caption: "own post", img: "/f.png", video: false }],
       storefront: async (_h, view) => { views.push(view); return view?.postId && !sf.posts.some((p) => p.id === view.postId) ? { ...sf, posts: [] } : sf; } } as Deps);
     const store = await (await app.request("http://x/h/alice/", host("nearchant.com"))).text();
@@ -70,7 +71,12 @@ describe("store feed", () => {
     expect((await app.request("http://x/h/alice/p/..%2Fx", host("nearchant.com"))).status).toBe(404);
     const all = await (await app.request("http://x/h/alice/posts", host("nearchant.com"))).text();
     expect(all.match(/class="post"/g)).toHaveLength(10);
+    expect(html).toContain('action="/h/alice/public/ask"');
     // On the store's own subdomain the links stay relative and the preview points at that host.
+    const ask = (body: string, ct = "application/json") => app.request("http://x/h/alice/public/ask", { method: "POST", headers: { host: "nearchant.com", "content-type": ct }, body });
+    expect(await (await ask('{"question":"Is there size L?"}')).json()).toEqual({ answer: "alice: Is there size L?", askOwner: false, itemId: "i-1" });
+    expect((await ask('{"question":"?"}')).status).toBe(400);
+    expect((await ask('{"question":"Is there size L?"}', "text/plain")).status).toBe(415);
     const sub = await (await app.request("http://x/p/p1", host("alice.nearchant.com"))).text();
     expect(sub).toContain('content="https://alice.nearchant.com/p/p1"');
   });
