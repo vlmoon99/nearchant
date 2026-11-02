@@ -187,7 +187,8 @@ function onboarding() {
         btn.onclick = async () => {
           btn.disabled = true;
           await api("/api/app/posts/choose", { batchId, keep: ready.map((p) => p.id) });
-          for (const [k, p] of ready.entries()) await api(`/api/app/posts/${p.id}/schedule`, { at: nextSlot(k).toISOString() });
+          // The first post goes live now, so buyers see it in the store's feed today; the rest go out at the best times.
+          for (const [k, p] of ready.entries()) await api(`/api/app/posts/${p.id}/schedule`, k === 0 ? {} : { at: nextSlot(k - 1).toISOString() });
           live();
         };
         return;
