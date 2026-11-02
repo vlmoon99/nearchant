@@ -19,6 +19,8 @@ export interface MarketTaskDeps {
   notify?: (handle: string, subject: string, lines: string[]) => Promise<void>;
 }
 
+/** Store-profile violations that pause a store (the others are left to a person). */
+const PROFILE_CATEGORIES: string[] = ["illegal", "sexual", "violence", "hate", "scam"];
 /** Removals after which a store is suspended. */
 export const SUSPEND_AFTER = 3;
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -82,8 +84,9 @@ export function makeMarketTasks(d: MarketTaskDeps) {
     const h = sha(`${name}\n${description}`);
     const seen = await d.content.getSetting<{ hash: string; removed: boolean }>(`storeMod:${handle}`);
     if (seen?.hash === h) return seen.removed;
-    const v = await moderatePost(ask(handle, "moderate"), { caption: `Store name: ${name}\nAbout the store: ${description}`, hashtags: [], store: name, storeDescription: description });
-    const removed = shouldRemove(v);
+    const v = await moderatePost(ask(handle, "moderate"), { caption: `This is not a post: it is the store's name and its short "about" text, written by a new seller. Short or plain texts are normal. Judge only whether the store itself offers something the rules forbid.\nStore name: ${name}\nAbout the store: ${description}`, hashtags: [], store: name, storeDescription: description });
+    // Pausing a whole store is heavy: only serious categories, only when the moderator is very sure (never "spam").
+    const removed = v.violation && PROFILE_CATEGORIES.includes(v.category) && v.confidence >= 0.85;
     await d.content.setSetting(`storeMod:${handle}`, { hash: h, removed, category: v.category, confidence: v.confidence, summary: v.summary, at: v.at });
     if (removed) {
       const identity = { accounts: [d.accountOf(handle)], emails: [(await d.content.getSetting<string>(`emailOf:${handle}`)) ?? ""].filter(Boolean) };

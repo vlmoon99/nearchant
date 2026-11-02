@@ -113,3 +113,17 @@ describe("store profile moderation", () => {
     expect(calls).toBe(1);
   });
 });
+
+describe("store profile moderation is cautious", () => {
+  it("never pauses a store for 'spam' or a weak call", async () => {
+    for (const verdict of [{ violation: true, category: "spam", confidence: 0.99, summary: "generic" }, { violation: true, category: "illegal", confidence: 0.7, summary: "maybe" }]) {
+      const suspended: string[] = [];
+      const d = { content: { getBusiness: async () => ({ name: "Super Nutrition", description: "Sports supplements" }), getProfile: async () => null, listItems: async () => [], getSetting: async () => null, setSetting: async () => {} },
+        feed: { vectorHash: async () => "same", putVector: async () => {}, recordViolation: async () => 1, suspendStore: async (h: string) => { suspended.push(h); }, log: async () => {} },
+        envelopes: { add: async () => {} }, env, mediaDir: "/tmp", accountOf: (h: string) => h, log: () => {},
+        router: { call: async (r: { capability: string }) => (r.capability === "embed" ? { output: { vectors: [[1]] } } : { output: { message: { content: JSON.stringify(verdict) }, finish_reason: "stop" }, model: "fake" }) } } as unknown as MarketTaskDeps;
+      await makeMarketTasks(d).tasks.index_store!({ handle: "supernutrition" }, {} as never);
+      expect(suspended).toEqual([]);
+    }
+  });
+});
