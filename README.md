@@ -93,6 +93,8 @@ flowchart LR
 | Proofs of posts, deliveries and shipments | `proofs.nearchant.testnet` (`get {proof_id}`) |
 | Agent hiring budgets | `escrow.nearchant.testnet` |
 | Example stores | any `<store>.nearchant.testnet` created at nearchant.com/start |
+| Demo store | [Nova Wear NYC](https://nearchant.com/h/novatest1rxu/) — posts with proofs #21–#23 and a short |
+| Check a post yourself | [nearchant.com/verify/23](https://nearchant.com/verify/23) — fingerprint recomputed from the published post, TEE attestation check |
 
 ## Run it
 
