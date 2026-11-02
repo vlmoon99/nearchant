@@ -1052,3 +1052,19 @@ undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your mach
   AI calls on NEAR AI from the Mac during a takeover (no post was made in the 2 minutes).
 - **Owner notes**: the Mac must be awake with Docker Desktop running to stand by. After deploying new code to the
   Spark run `make standby-build` on the Mac. If the Mac takes over: run `make failback` once the Spark is back.
+
+## 2026-11-02 22:34 UTC — Email: sign-in links and new-order emails (ADR 0021)
+- **Owner did**: Resend account, nearchant.com verified there (DNS in Cloudflare); key given → Keychain
+  `RESEND_API_KEY` + the Spark's `.env` (+ Mac standby `.env`). Self-hosted sending ruled out: the Spark's ISP
+  blocks outgoing port 25 (tested).
+- **Done**: Settings → Email (confirm link, 24 h) · sign-in page → "Email me a sign-in link" (15 min) · links are
+  signed, single use, open a one-button page (mail scanners can't use them up), no account probing, rate limits,
+  changing the email revokes the old one · paid item order → email to the owner (`order-paid:<id>` idempotency) ·
+  mailer with timeout, retries with backoff and idempotency keys.
+- **Verified**: tests — gateway 53 (mailer retry/4xx/timeout, tokens, link + sign-in + reuse + revoked + 415 + 429);
+  live on nearchant.com with Resend's test inbox: confirm email delivered → link → Settings "Email confirmed";
+  a fresh phone browser → sign-in page → link delivered → signed in to Nova Wear NYC; the same link again → "used
+  already". Test email unlinked afterwards.
+- **Not verified**: the new-order email (needs a paid order on a store with a linked email); delivery to Gmail/
+  Outlook inboxes (only Resend's test inbox) — owner: link your own email in Settings and try it.
+- **Owner action**: rotate the Resend key after the hackathon (it was pasted in chat).
