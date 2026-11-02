@@ -80,11 +80,12 @@ export function createApp(d: Deps) {
   const newOrderId = d.newOrderId ?? (() => `o-${crypto.randomUUID()}`);
 
   const pageHeaders = secureHeaders({
-    // connect-src: the buyer's browser signs and sends transactions to the configured NEAR RPCs only.
+    // Scripts only from this site. connect/frame: NEAR RPCs plus the wallets of NEAR Wallet Selector (ADR 0022: HOT,
+    // HERE, Intear, NEAR Mobile, Bitte talk to their own bridges over https/wss and may open a frame).
     contentSecurityPolicy: {
       defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", "data:", "blob:", "https:"], frameAncestors: ["'none'"],
-      connectSrc: ["'self'", ...new Set([d.client.rpcUrl, ...d.config.rpc_urls].map((u) => new URL(u).origin))],
-      frameSrc: ["'self'"],
+      connectSrc: ["'self'", ...new Set([d.client.rpcUrl, ...d.config.rpc_urls].map((u) => new URL(u).origin)), "https:", "wss:"],
+      frameSrc: ["'self'", "https:"],
     },
     crossOriginResourcePolicy: false,
   });
