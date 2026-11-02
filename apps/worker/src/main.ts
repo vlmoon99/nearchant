@@ -235,6 +235,19 @@ const contentTasks = makeContentTasks({
     try { const v = await withTimeout(market.moderate(postId), 120_000); return !!v && (await contentStore.getPost(postId))?.removedAt != null; }
     catch (e) { await workerUtils.addJob("moderate_post", { postId }, { jobKey: `moderate:${postId}`, maxAttempts: 5, runAt: new Date(Date.now() + 60_000) }); throw e; }
   },
+  marketNumbers: async (handle) => {
+    const b = await contentStore.getBusiness(handle);
+    const published = (await contentStore.listPosts(handle, { status: ["published"], limit: 200 })).filter((p) => !p.removedAt);
+    const likes = await feedStore.likeCounts(published.map((p) => p.id));
+    const qs = (await contentStore.getSetting<{ q: string; owner: boolean }[]>(`questions:${handle}`)) ?? [];
+    const found = await feedStore.searchesFor(handle, 30);
+    return {
+      likes_total: [...likes.values()].reduce((a, n) => a + n, 0), followers: await feedStore.followers(handle),
+      searches_that_showed_your_posts_30d: found.count, top_goods_in_those_searches: found.goods,
+      what_shoppers_search_in_your_country_30d: await feedStore.demand({ days: 30, country: b?.country ?? null, limit: 8 }),
+      shopper_questions: { total: qs.length, unanswered_by_ai: qs.filter((x) => x.owner).length, latest_unanswered: qs.filter((x) => x.owner).slice(0, 3).map((x) => x.q) },
+    };
+  },
   demand: async (handle) => feedStore.demand({ days: 30, country: (await contentStore.getBusiness(handle))?.country ?? null, limit: 12 }),
   afterPublish: async (postId) => { await workerUtils.addJob("index_post", { postId }, { jobKey: `index:${postId}`, maxAttempts: 5 }); },
   fontsDir: process.env.FONTS_DIR ?? join(root, "assets/fonts"),

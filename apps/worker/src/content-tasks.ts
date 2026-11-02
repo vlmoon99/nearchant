@@ -30,6 +30,8 @@ export interface ContentTaskDeps {
   fontsDir?: string;
   /** Moderation before a post goes public (ADR 0022): true = the moderator removed it. Errors never block publishing. */
   moderateBeforePublish?: (postId: string) => Promise<boolean>;
+  /** Shop-feed numbers for "What AI noticed" (ADR 0022); absent in the demo, so its recordings stay valid. */
+  marketNumbers?: (handle: string) => Promise<Record<string, unknown>>;
   /** Shop-feed demand in the store's country (ADR 0022) for the opportunity analyst. */
   demand?: (handle: string) => Promise<ShopperDemand[]>;
   /** After publishing: search vectors etc. */
@@ -271,9 +273,12 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
   const writeInsightsTask: Task = async (payload) => {
     const { handle } = payload as { handle: string };
     const [events, sales, posts] = await Promise.all([d.content.eventCounts(handle, 30), d.content.salesSince(handle, 30), d.content.listPosts(handle, { limit: 60 })]);
+    const market = d.marketNumbers ? await d.marketNumbers(handle).catch(() => null) : null;
     const numbers = {
       days: events, sales_30d: { count: sales.count, usdc: Number(sales.units) / 10 ** d.decimals },
       posts: posts.filter((p) => p.publishedAt).map((p) => ({ angle: (p.idea as { angle?: string }).angle ?? "", published: p.publishedAt, has_proof: !!p.proof })),
+      // Shop feed (ADR 0022): likes, followers, searches that showed the store, unmet demand, shopper questions.
+      ...(market ? { shop_feed: market } : {}),
     };
     const raw = await askFor(handle, "insights")<{ insights?: { text: string; action: string; kind: string }[]; best_time?: string | null; headline?: string }>("insight-writer", block("numbers", numbers));
     await d.content.setSetting(`insights:${handle}`, { insights: (raw.insights ?? []).slice(0, 3), best_time: raw.best_time ?? null, headline: raw.headline ?? "", at: new Date().toISOString() });
