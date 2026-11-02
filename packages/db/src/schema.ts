@@ -354,3 +354,16 @@ export const follows = pgTable("follows", {
   handle: text("handle").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [primaryKey({ columns: [t.buyerId, t.handle] }), index("follows_handle").on(t.handle)]);
+
+/** Shop-feed searches, anonymous (no IP, no account): what shoppers want, for sellers' Analytics (ADR 0022). */
+export const searchLog = pgTable("search_log", {
+  id: serial("id").primaryKey(),
+  q: text("q").notNull(),
+  goods: jsonb("goods").notNull().default(sql`'[]'::jsonb`),
+  city: text("city"),
+  country: text("country"),
+  results: integer("results").notNull().default(0),
+  /** Stores whose posts were in the first page of results. */
+  handles: jsonb("handles").notNull().default(sql`'[]'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("search_log_created").on(t.createdAt)]);

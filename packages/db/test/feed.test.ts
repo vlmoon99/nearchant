@@ -88,6 +88,17 @@ describe("FeedStore", () => {
     await f.suspendStore("gymworld", null);
   });
 
+  it("search demand: what shoppers want, anonymously, and which searches showed a store", async () => {
+    const f = new FeedStore(conn.db);
+    await f.logSearch({ q: "whey nyc", goods: ["whey protein"], city: "New York", country: "US", results: 2, handles: ["gymny", "gymworld"] });
+    await f.logSearch({ q: "whey", goods: ["whey protein"], city: null, country: null, results: 1, handles: ["gymny"] });
+    await f.logSearch({ q: "kimchi", goods: ["kimchi"], city: "New York", country: "US", results: 0, handles: [] });
+    const d = await f.demand({ days: 30, country: "US" });
+    expect(d[0]).toEqual({ goods: "whey protein", searches: 2, empty: 0 });
+    expect(d.find((x) => x.goods === "kimchi")).toEqual({ goods: "kimchi", searches: 1, empty: 1 });
+    expect(await f.searchesFor("gymny", 30)).toEqual({ count: 2, goods: ["whey protein"] });
+  });
+
   it("keeps reports with their decisions and counts recent ones per reporter", async () => {
     const f = new FeedStore(conn.db);
     const id = await f.addReport({ targetKind: "post", postId: "p-x", handle: "gymny", reporterIp: "198.51.100.2", reason: "scam", note: "fake" });

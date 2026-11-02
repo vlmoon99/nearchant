@@ -12,7 +12,7 @@ export const BUYER_COOKIE = "nc_buyer";
 const BUYER_MS = 90 * 24 * 3600_000;
 
 /** What a search turns into: the AI plan + a query vector (both optional: the feed works without AI). */
-export interface SearchIntent { summary: string; terms: string[]; city: string | null; country: string | null; vector: number[] | null }
+export interface SearchIntent { summary: string; terms: string[]; city: string | null; country: string | null; vector: number[] | null; goods?: string[] }
 
 export interface BuyerAppDeps {
   feed: FeedStore;
@@ -190,5 +190,9 @@ export async function feedFor(d: Pick<BuyerAppDeps, "feed" | "understand">, q: s
   const city = cityIn || intent?.city || null, country = place.country?.trim().toUpperCase() || intent?.country || null;
   const visitor = /^[A-Z]{2}$/.test(place.visitorCountry ?? "") && place.visitorCountry !== "XX" && place.visitorCountry !== "T1" ? place.visitorCountry! : null;
   const posts = await d.feed.feed({ vector: intent?.vector ?? null, terms: intent?.terms ?? [], city, country, buyerId, offset, limit: 24, preferCountry: visitor });
+  // Anonymous demand for sellers' Analytics: what was searched, where, what it found (no IP, no account).
+  if (query && offset === 0 && intent && typeof d.feed.logSearch === "function") {
+    void d.feed.logSearch({ q: query, goods: (intent as SearchIntent & { goods?: string[] }).goods?.length ? (intent as SearchIntent & { goods: string[] }).goods : [query.toLowerCase()], city, country, results: posts.length, handles: posts.map((p) => p.handle) }).catch(() => {});
+  }
   return { intent: intent ? { ...intent, city, country, vector: null } : null, posts };
 }

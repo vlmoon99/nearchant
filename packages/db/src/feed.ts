@@ -192,6 +192,26 @@ export class FeedStore {
     return (await this.feed({ vector: row.e as number[], exclude: [postId], limit: limit * 2 })).slice(0, limit);
   }
 
+  // ── search demand (anonymous) ──
+  async logSearch(e: { q: string; goods: string[]; city: string | null; country: string | null; results: number; handles: string[] }): Promise<void> {
+    await this.db.insert(s.searchLog).values({ q: e.q.slice(0, 200), goods: e.goods.slice(0, 8), city: e.city, country: e.country, results: e.results, handles: [...new Set(e.handles)].slice(0, 30) });
+  }
+  /** What shoppers looked for in the last `days` (optionally in one country), most searched first, with how many found nothing. */
+  async demand(o: { days: number; country?: string | null; limit?: number }): Promise<{ goods: string; searches: number; empty: number }[]> {
+    const rows = (await this.db.execute(sql`select g as goods, count(*)::int as searches, count(*) filter (where results = 0)::int as empty
+      from search_log, jsonb_array_elements_text(goods) g
+      where created_at > now() - make_interval(days => ${o.days}) ${o.country ? sql`and (country = ${o.country} or country is null)` : sql``}
+      group by g order by 2 desc, 1 limit ${o.limit ?? 8}`)) as unknown as { goods: string; searches: number; empty: number }[];
+    return rows.map((r) => ({ goods: r.goods, searches: Number(r.searches), empty: Number(r.empty) }));
+  }
+  /** Searches in the last `days` that showed this store's posts, and their top goods. */
+  async searchesFor(handle: string, days: number): Promise<{ count: number; goods: string[] }> {
+    const rows = (await this.db.execute(sql`select goods from search_log where created_at > now() - make_interval(days => ${days}) and handles ? ${handle}`)) as unknown as { goods: string[] }[];
+    const n = new Map<string, number>();
+    for (const r of rows) for (const g of r.goods ?? []) n.set(g, (n.get(g) ?? 0) + 1);
+    return { count: rows.length, goods: [...n.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([g]) => g) };
+  }
+
   // ── reports ──
   async addReport(r: { targetKind: "post" | "store"; postId?: string | null; handle: string; reporterBuyerId?: string | null; reporterIp?: string | null; reason: ReportReason; note?: string }): Promise<number> {
     const [row] = await this.db.insert(s.reports).values({ targetKind: r.targetKind, postId: r.postId ?? null, handle: r.handle, reporterBuyerId: r.reporterBuyerId ?? null, reporterIp: r.reporterIp ?? null, reason: r.reason, note: (r.note ?? "").slice(0, 1000) }).returning({ id: s.reports.id });

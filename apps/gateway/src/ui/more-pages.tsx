@@ -42,7 +42,7 @@ const Heat: FC<{ heat: number[][] }> = ({ heat }) => {
   </div>);
 };
 
-export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; range: number; totals: { views: number; sales: number; revenue: string; posts: number; proofs: number; likes?: number; followers?: number }; days: DayRow[]; sources: [string, number][]; insights: Insights | null; topPosts?: TopPost[]; heat?: number[][] }> = ({ cfg, test, store, range, totals, topPosts = [], heat, days, sources, insights }) => (
+export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; range: number; totals: { views: number; sales: number; revenue: string; posts: number; proofs: number; likes?: number; followers?: number }; days: DayRow[]; sources: [string, number][]; insights: Insights | null; topPosts?: TopPost[]; heat?: number[][]; demand?: { goods: string; searches: number; empty: number }[]; found?: { count: number; goods: string[] } | null; country?: string | null }> = ({ cfg, test, store, range, totals, topPosts = [], heat, days, sources, insights, demand = [], found, country }) => (
   <Page cfg={cfg} test={test} title="Analytics" active="Analytics" store={store}>
     <PageHead kicker={`Last ${range} days`} title="Analytics">
       {[7, 30, 90].map((r) => <a class={`chip ${r === range ? "on" : ""}`} href={`/app/analytics?d=${r}`}>{r} days</a>)}
@@ -76,6 +76,12 @@ export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView;
           : <span class="foot muted">Published posts show up here with their views and proof on NEAR.</span>}
       </div>
       <div class="card"><span class="headline">Best time to post</span>{heat ? <Heat heat={heat} /> : null}</div>
+    </div>
+    <div class="card" style="gap:10px"><div class="spread"><span class="headline">What shoppers look for{country ? ` in ${country}` : ""}</span><a class="foot" href="/feed">Shop feed ›</a></div>
+      <span class="foot muted">Searches in the Nearchant shop feed, last {range} days — anonymous. {found?.count ? `Your posts showed up in ${found.count} search${found.count === 1 ? "" : "es"}${found.goods.length ? ` (${found.goods.join(", ")})` : ""}.` : "Your posts haven't shown up in a search yet — posts that name what you sell are found more often."}</span>
+      {demand.length ? <div class="row" style="gap:8px;flex-wrap:wrap">{demand.map((x) => <span class="chip" title={`${x.searches} searches${x.empty ? `, ${x.empty} found nothing` : ""}`}>{x.goods} · {x.searches}{x.empty ? " · unmet" : ""}</span>)}</div>
+        : <span class="foot muted">No searches yet.</span>}
+      {demand.some((x) => x.empty) ? <span class="cap muted">“unmet” = shoppers searched and found no store — a chance if you sell it.</span> : null}
     </div>
   </Page>
 );

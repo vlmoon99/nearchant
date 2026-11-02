@@ -334,7 +334,7 @@ async function understand(q: string): Promise<SearchIntent> {
   const text = plan ? [plan.goods.join(", "), plan.terms.join(" ")].filter(Boolean).join("\n") : q;
   const vector = await r.call({ capability: "embed", dataClass: "public", timeoutMs: 10_000, input: { input: [text || q] } })
     .then((e) => (e.output as { vectors?: number[][] }).vectors?.[0] ?? null).catch(() => null);
-  const v: SearchIntent = { summary: plan?.summary || q, terms: plan?.terms.length ? plan.terms : q.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1), city: plan?.city ?? null, country: plan?.country ?? null, vector };
+  const v: SearchIntent = { goods: plan?.goods ?? [], summary: plan?.summary || q, terms: plan?.terms.length ? plan.terms : q.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1), city: plan?.city ?? null, country: plan?.country ?? null, vector };
   if (intentCache.size > 500) intentCache.clear();
   intentCache.set(key, { at: Date.now(), v });
   return v;

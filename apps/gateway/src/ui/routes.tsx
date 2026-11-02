@@ -209,7 +209,9 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const topPosts = published.map((p) => ({ id: p.id, caption: p.caption ?? "", img: p.imageMediaId && media.get(p.imageMediaId) ? `/files/${media.get(p.imageMediaId)}?w=320` : null,
       when: p.publishedAt!.toLocaleDateString("en-US", { month: "short", day: "numeric" }), views: pv.get(p.id) ?? 0, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null, likes: likeMap.get(p.id) ?? 0, removed: p.removedReason }))
       .sort((a, b) => b.views + b.likes * 3 - (a.views + a.likes * 3)).slice(0, 5);
-    return c.html(<AnalyticsPage cfg={d.cfg} test={d.test} store={s} range={range} days={days} sources={sources} insights={insights} topPosts={topPosts} heat={heat}
+    const country = (await content.getBusiness(s.handle))?.country ?? null;
+    const [demand, found] = d.feedStore ? await Promise.all([d.feedStore.demand({ days: range, country, limit: 10 }), d.feedStore.searchesFor(s.handle, range)]) : [[], null];
+    return c.html(<AnalyticsPage cfg={d.cfg} test={d.test} store={s} range={range} days={days} sources={sources} insights={insights} topPosts={topPosts} heat={heat} demand={demand} found={found} country={country}
       totals={{ views: events.filter((e) => e.kind === "view").reduce((a, e) => a + e.n, 0), sales: sales.count, revenue: fmtU(sales.units), posts: published.length, proofs: published.filter((p) => p.proof).length, likes: [...likeMap.values()].reduce((a, n) => a + n, 0), followers: d.feedStore ? await d.feedStore.followers(s.handle) : 0 }} />);
   }));
 
