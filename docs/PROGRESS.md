@@ -1122,3 +1122,23 @@ undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your mach
   62 s → Released 81 s, no page errors; existing items all judged fine (no false removals); follow/unfollow +
   Following feed live.
 - **Not verified**: real Meteor/HOT/HERE/Intear sign-ins (owner, real wallets).
+
+## 2026-11-02 23:26 UTC — night: store-profile check, a false positive caught and fixed, independent review fixed
+- **Store name + description are moderated** too. First version paused **Super Nutrition** as "spam" (short
+  description) — I unpaused it within minutes, undid the violation, logged it in the admin log; no email went out (no
+  store has an email linked). Rule now: a store profile pauses a store only for illegal / sexual / violence / hate /
+  scam at ≥ 85% — never "spam". Recheck: Super Nutrition "ok". Only the e2e test store `e2emod` stays paused.
+- **Independent review** (security + correctness) of tonight's code — all fixed:
+  1. one removed post could be counted again by repeated reports → enough reports could suspend a store over a single
+     post: a removal now counts once (atomic claim), already-removed posts skip the model, one report per buyer per
+     post/store, no reports on removed posts;
+  2. a moderation timeout racing the retry could double-count (fixed by 1);
+  3. buyer sign-in did not work on `<store>.nearchant.com` pages: buyer actions there now continue on nearchant.com
+     (verified in Chrome: Follow on the subdomain → nearchant.com/h/supernutrition/ → sign-in sheet);
+  4. the City box did not filter: the planner now gets the city ("whey" + Los Angeles → LA, US; city alone →
+     "Stores for New York");
+  5. admin redirects only to /mod paths. Also: restoring a post updates the violator's count.
+  Checked fine by the reviewer: cookies/keys separated, admin login + media path, NEP-413 checks, XSS, SQL.
+- **Verified**: tests db 18, worker 24, gateway 59; live checks above.
+- **Open (noted, not changed)**: CSP now allows https/wss connections and https frames on all pages (needed by the
+  wallet bridges); scripts stay self-only. Could be scoped to wallet pages later.
