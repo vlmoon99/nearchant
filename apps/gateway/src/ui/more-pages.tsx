@@ -132,7 +132,7 @@ export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
             ["send", "Telegram bot", telegramBot ? `Connected · @${telegramBot} · takes orders in chat` : "Not connected — your own bot takes orders in chat", !!telegramBot, telegramBot ? "Settings" : "Connect", `/h/${store.handle}/manage`],
             ["camera", "Instagram", "Copy a ready post with its picture from the post page", false, "Posts", "/app/posts"]].map(([ic, t, d, on, act, href]) =>
             <div class="card white" style="flex-direction:row;gap:12px;align-items:center;padding:12px 14px">
-              <span class="dot" style="background:var(--bg);border-radius:10px;width:36px;height:36px;flex:none"><Icon n={ic as string} s={18} /></span>
+              <span class="dot" style="background:var(--bg);border-radius:10px;width:36px;height:36px;flex:none"><Icon n={ic as string} s={18} c="#1d1d1f" /></span>
               <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="callout b">{t}</span><span class="foot" style={on ? "color:#248a3d" : "color:var(--label2)"}>{d}</span></span>
               <a class="sub" style="color:#007AFF" href={href as string}>{act}</a>
             </div>)}
