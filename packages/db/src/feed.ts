@@ -391,6 +391,26 @@ export class FeedStore {
     return rows.map((r) => ({ id: Number(r.id), subjectKind: String(r.subject_kind), subjectId: String(r.subject_id), count: Number(r.count), accounts: r.accounts, emails: r.emails, ips: r.ips, notes: String(r.notes ?? ""), firstAt: new Date(r.first_at as string), lastAt: new Date(r.last_at as string) }) as Violator);
   }
 
+  /** Numbers for the admin Overview. */
+  async overview(): Promise<Record<string, number>> {
+    const [r] = (await this.db.execute(sql`select
+      (select count(*) from businesses)::int as stores,
+      (select count(*) from businesses where suspended_at is not null)::int as suspended,
+      (select count(*) from buyers)::int as buyers,
+      (select count(*) from buyers where status = 'banned')::int as banned,
+      (select count(*) from posts where status = 'published' and removed_at is null)::int as posts,
+      (select count(*) from posts where removed_at > now() - interval '1 day')::int as removed_24h,
+      (select count(*) from reports where status = 'open')::int as open_reports,
+      (select count(*) from reports where created_at > now() - interval '1 day')::int as reports_24h,
+      (select count(*) from likes)::int as likes,
+      (select count(*) from follows)::int as follows,
+      (select count(*) from search_log where created_at > now() - interval '1 day')::int as searches_24h,
+      (select count(*) from orders where state in ('paid','in_progress','delivered','released'))::int as paid_orders,
+      (select count(*) from admin_log where action = 'account.linked' and created_at > now() - interval '7 days')::int as linked_7d,
+      (select coalesce(jsonb_array_length(value), 0) from settings where key = 'blockedIps')::int as blocked_ips`)) as unknown as Record<string, number>[];
+    return Object.fromEntries(Object.entries(r ?? {}).map(([k, v]) => [k, Number(v ?? 0)]));
+  }
+
   // ── admin log ──
   async log(actor: string, action: string, target: string, data: unknown = {}): Promise<void> {
     await this.db.insert(s.adminLog).values({ actor: actor.slice(0, 60), action, target, data });

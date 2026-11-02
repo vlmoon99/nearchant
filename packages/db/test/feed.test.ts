@@ -149,6 +149,9 @@ describe("FeedStore", () => {
     expect(await f.getReport(id)).toMatchObject({ status: "auto_kept", decidedBy: "ai", ai: { violation: false } });
     expect((await f.listReports({ status: ["open"] })).find((x) => x.id === id)).toBeUndefined();
     await f.log("owner", "report.keep", `report:${id}`);
+    const o = await f.overview();
+    expect(o.stores).toBeGreaterThan(0);
+    expect(typeof o.open_reports).toBe("number");
     expect((await f.listLog())[0]).toMatchObject({ actor: "owner", action: "report.keep" });
   });
 });

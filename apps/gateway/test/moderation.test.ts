@@ -9,7 +9,7 @@ function setup() {
   const feed = {
     listReports: async () => [report], getReport: async () => report, removedPosts: async () => [], listLog: async () => [{ id: 1, actor: "system", action: "account.linked", target: "buyer:b9", data: { violators: ["store:shoes"] }, createdAt: new Date() }],
     listViolators: async () => [{ id: 4, subjectKind: "store", subjectId: "shoes", count: 2, accounts: ["shoes.nearchant.testnet"], emails: [], ips: ["198.51.100.4"], violations: [] }],
-    blockedIps: async () => [], blockIps: async (ips: string[], on: boolean) => { calls.push(`block ${ips.join(",")} ${on}`); },
+    blockedIps: async () => [], overview: async () => ({ open_reports: 1, stores: 3 }), blockIps: async (ips: string[], on: boolean) => { calls.push(`block ${ips.join(",")} ${on}`); },
     removePost: async (id: string, v: { by: string }) => { calls.push(`remove ${id} by ${v.by}`); return { handle: "shoes", count: 1 }; },
     restorePost: async (id: string, by: string) => { calls.push(`restore ${id} by ${by}`); }, decideReport: async (id: number, s: string, by: string) => { calls.push(`report ${id} ${s} by ${by}`); },
     suspendStore: async (h: string, r: string | null) => { calls.push(`suspend ${h} ${r}`); }, recordViolation: async () => 1, getBuyer: async () => ({ id: "b1", email: "x@y.z", wallet: null }),

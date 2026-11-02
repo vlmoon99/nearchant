@@ -37,7 +37,7 @@ const Shell: FC<PropsWithChildren<{ title: string; who?: string; tab?: string; c
   <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>{title} · Nearchant admin</title><style dangerouslySetInnerHTML={{ __html: CSS }}></style></head>
     <body><main>
       {who ? <nav><b>Nearchant admin</b>
-        {[["reports", "Reports"], ["ai", "AI decisions"], ["removed", "Removed posts"], ["stores", "Suspended stores"], ["violators", "Violators"], ["log", "Log"]].map(([k, l]) => <a class={tab === k ? "on" : ""} href={`/mod/${k}`}>{l}{counts?.[k!] ? ` (${counts[k!]})` : ""}</a>)}
+        {[["overview", "Overview"], ["reports", "Reports"], ["ai", "AI decisions"], ["removed", "Removed posts"], ["stores", "Suspended stores"], ["violators", "Violators"], ["log", "Log"]].map(([k, l]) => <a class={tab === k ? "on" : ""} href={`/mod/${k}`}>{l}{counts?.[k!] ? ` (${counts[k!]})` : ""}</a>)}
         <a href="/">Image lab</a><span class="muted" style="margin-left:auto">{who} · <a href="/mod/logout" style="padding:0">sign out</a></span></nav> : null}
       {children}
     </main></body></html>
@@ -73,10 +73,19 @@ export function mountModeration(app: Hono, d: ModDeps): void {
     fails = 0;
     setCookie(c, COOKIE, sign(d.key, `${encodeURIComponent(name)}:${now() + 12 * 3600_000}`), { httpOnly: true, sameSite: "Strict", secure: !!d.secureCookies, path: "/", maxAge: 12 * 3600 });
     await d.feed.log(name, "admin.signin", "admin");
-    return c.redirect("/mod/reports", 303);
+    return c.redirect("/mod/overview", 303);
   });
   app.get("/mod/logout", (c) => { deleteCookie(c, COOKIE, { path: "/" }); return c.redirect("/mod/login", 302); });
-  app.get("/mod", (c) => c.redirect("/mod/reports", 302));
+  app.get("/mod", (c) => c.redirect("/mod/overview", 302));
+  app.get("/mod/overview", async (c) => {
+    const o = await d.feed.overview();
+    const tile = (label: string, n: number, href?: string, warn?: boolean) => <a class="card" href={href ?? "#"} style={`color:inherit;text-decoration:none;min-width:150px;flex:1;${warn && n ? "background:#fff3c4" : ""}`}><span class="muted">{label}</span><b style="font-size:28px">{n}</b></a>;
+    return c.html(<Shell title="Overview" who={who(c)} tab="overview" counts={await counts()}>
+      <div class="row" style="align-items:stretch">{tile("Open reports", o.open_reports ?? 0, "/mod/reports", true)}{tile("Removed in 24 h", o.removed_24h ?? 0, "/mod/removed")}{tile("Reports in 24 h", o.reports_24h ?? 0, "/mod/ai")}{tile("Linked accounts (7 days)", o.linked_7d ?? 0, "/mod/violators", true)}</div>
+      <div class="row" style="align-items:stretch">{tile("Stores", o.stores ?? 0)}{tile("Suspended", o.suspended ?? 0, "/mod/stores")}{tile("Buyers", o.buyers ?? 0)}{tile("Banned buyers", o.banned ?? 0)}{tile("Blocked IPs", o.blocked_ips ?? 0, "/mod/violators")}</div>
+      <div class="row" style="align-items:stretch">{tile("Live posts", o.posts ?? 0)}{tile("Paid orders", o.paid_orders ?? 0)}{tile("Likes", o.likes ?? 0)}{tile("Follows", o.follows ?? 0)}{tile("Searches in 24 h", o.searches_24h ?? 0)}</div>
+    </Shell>);
+  });
 
   // Pictures of posts under review (public and not-yet-public ones).
   app.get("/mod/media/*", async (c) => {
