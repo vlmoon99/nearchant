@@ -78,11 +78,13 @@ describe("item moderation", () => {
     const settings = new Map<string, unknown>(), upserts: Record<string, unknown>[] = [], violations: string[] = [];
     let calls = 0;
     const item = { id: "i-1", title: "Glock 19", description: "No license needed", photoMediaId: null, kind: "product", priceUnits: "1", options: [] };
-    const d = { content: { getBusiness: async () => ({ name: "Guns", description: "" }), getProfile: async () => null, getMedia: async () => null, listItems: async () => [item],
+    const d = { content: { getBusiness: async () => ({ name: "Guns", description: "" }),  getProfile: async () => null, getMedia: async () => null, listItems: async () => [item],
         getSetting: async (k: string) => settings.get(k) ?? null, setSetting: async (k: string, v: unknown) => { settings.set(k, v); }, upsertItem: async (i: Record<string, unknown>) => { upserts.push(i); return "i-1"; } },
       feed: { vectorHash: async () => null, putVector: async () => {}, recordViolation: async (_k: string, _h: string, _id: unknown, v: { summary: string }) => { violations.push(v.summary); return 1; }, log: async () => {} },
       envelopes: { add: async () => {} }, env, mediaDir: "/tmp", accountOf: (h: string) => h, log: () => {},
-      router: { call: async (r: { capability: string }) => { if (r.capability === "embed") return { output: { vectors: [[1]] } }; calls++; return { output: { message: { content: JSON.stringify({ violation: true, category: "illegal", confidence: 0.97, summary: "Sells a handgun without a licence" }) }, finish_reason: "stop" }, model: "fake" }; } },
+      router: { call: async (r: { capability: string; input: unknown }) => { if (r.capability === "embed") return { output: { vectors: [[1]] } };
+        if (JSON.stringify(r.input).includes("Store name:")) return { output: { message: { content: JSON.stringify({ violation: false, category: "ok", confidence: 0.9, summary: "fine" }) }, finish_reason: "stop" }, model: "fake" };
+        calls++; return { output: { message: { content: JSON.stringify({ violation: true, category: "illegal", confidence: 0.97, summary: "Sells a handgun without a licence" }) }, finish_reason: "stop" }, model: "fake" }; } },
     } as unknown as MarketTaskDeps;
     const m = makeMarketTasks(d);
     await m.tasks.index_store!({ handle: "guns" }, {} as never);
@@ -91,5 +93,23 @@ describe("item moderation", () => {
     await m.tasks.index_store!({ handle: "guns" }, {} as never); // owner saved it again unchanged
     expect(calls).toBe(1);                                        // no second model call
     expect(upserts).toHaveLength(2);                              // hidden again
+  });
+});
+
+describe("store profile moderation", () => {
+  it("pauses a store whose own name or description breaks the rules, once per text", async () => {
+    const settings = new Map<string, unknown>(), suspended: string[] = [];
+    let calls = 0;
+    const d = { content: { getBusiness: async () => ({ name: "Cocaine Express", description: "Pure cocaine, fast delivery" }), getProfile: async () => null, listItems: async () => [],
+        getSetting: async (k: string) => settings.get(k) ?? null, setSetting: async (k: string, v: unknown) => { settings.set(k, v); } },
+      feed: { vectorHash: async () => null, putVector: async () => {}, recordViolation: async () => 1, suspendStore: async (h: string) => { suspended.push(h); }, log: async () => {} },
+      envelopes: { add: async () => {} }, env, mediaDir: "/tmp", accountOf: (h: string) => h, log: () => {},
+      router: { call: async () => { calls++; return { output: { message: { content: JSON.stringify({ violation: true, category: "illegal", confidence: 0.99, summary: "Sells illegal drugs" }) }, finish_reason: "stop" }, model: "fake" }; } },
+    } as unknown as MarketTaskDeps;
+    const m = makeMarketTasks(d);
+    await m.tasks.index_store!({ handle: "coke" }, {} as never);
+    await m.tasks.index_store!({ handle: "coke" }, {} as never);
+    expect(suspended).toEqual(["coke"]);
+    expect(calls).toBe(1);
   });
 });

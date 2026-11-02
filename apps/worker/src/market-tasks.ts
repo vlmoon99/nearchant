@@ -70,11 +70,30 @@ export function makeMarketTasks(d: MarketTaskDeps) {
     const b = await d.content.getBusiness(handle);
     if (!b) return;
     const summary = ((await d.content.getProfile(handle))?.data as { summary?: string } | undefined)?.summary ?? "";
+    if (await moderateStoreProfile(handle, b.name, b.description)) return;
     await embed("store", handle, handle, [b.name, b.description, summary, [b.city, b.country].filter(Boolean).join(", ")].filter(Boolean).join("\n").slice(0, 4000));
     for (const i of await d.content.listItems(handle)) {
       if (await moderateItem(handle, i)) continue;
       await embed("item", i.id, handle, `${i.title}\n${i.description}`.slice(0, 2000));
     }
+  }
+  /** The store's own name and description: a clear violation pauses the store (checked once per text). */
+  async function moderateStoreProfile(handle: string, name: string, description: string): Promise<boolean> {
+    const h = sha(`${name}\n${description}`);
+    const seen = await d.content.getSetting<{ hash: string; removed: boolean }>(`storeMod:${handle}`);
+    if (seen?.hash === h) return seen.removed;
+    const v = await moderatePost(ask(handle, "moderate"), { caption: `Store name: ${name}\nAbout the store: ${description}`, hashtags: [], store: name, storeDescription: description });
+    const removed = shouldRemove(v);
+    await d.content.setSetting(`storeMod:${handle}`, { hash: h, removed, category: v.category, confidence: v.confidence, summary: v.summary, at: v.at });
+    if (removed) {
+      const identity = { accounts: [d.accountOf(handle)], emails: [(await d.content.getSetting<string>(`emailOf:${handle}`)) ?? ""].filter(Boolean) };
+      await d.feed.recordViolation("store", handle, identity, { category: v.category, confidence: v.confidence, summary: `store profile: ${v.summary}`, by: "ai" });
+      await d.feed.suspendStore(handle, `store profile: ${v.summary}`.slice(0, 300));
+      await d.feed.log("ai", "store.suspend", `store:${handle}`, { verdict: v });
+      d.log(`moderation: paused store ${handle} (${v.category}) — ${v.summary}`);
+      await d.notify?.(handle, "Your store was paused", [`Our moderation paused your store: ${v.summary}`, "If you think this is a mistake, reply to this email — a person will look at it."]).catch(() => {});
+    }
+    return removed;
   }
   /** Items for sale are checked like posts (title, description, photo). A removed item is hidden from the shop and
    *  counts as a violation; saving the same text again does not bring it back. Returns true when it is removed. */
