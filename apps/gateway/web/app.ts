@@ -318,7 +318,7 @@ async function signinPage() {
   const h = store.get(CUR);
   if (h && (await signIn(h).catch(() => false))) { location.reload(); return; }
   const h1 = document.querySelector("h1"); if (h1) h1.textContent = "Sign in";
-  $("#signin-msg").textContent = "No store key in this browser. Sign in with the NEAR wallet you linked, create a store, or open Nearchant in the browser where you made it.";
+  $("#signin-msg").textContent = "No store key in this browser. Get a sign-in link by email, use the NEAR wallet you linked, or create a store.";
 }
 
 // ── Wallet: Receive / Withdraw (nUSD from the store account, signed here with the store key) ─────────────────────

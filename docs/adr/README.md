@@ -25,3 +25,4 @@ Changing a default from `CLAUDE.md` or `architecture.md` needs a new ADR here.
 | [0018](0018-pivot-to-ai-content-store.md) | Pivot to the Figma product: AI content + analytics + NEAR payments for small sellers |
 | [0019](0019-models-media-and-trust-checks.md) | Two Sparks for the LLMs, Comfy Cloud for media, our own trust checks |
 | [0020](0020-mac-standby.md) | Mac standby: database replica + media copy, automatic takeover, manual failback |
+| [0021](0021-email.md) | Email via Resend: sign-in links, confirm links, new-order emails |
