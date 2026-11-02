@@ -32,9 +32,18 @@ and a public proof log.
    into the Intel TDX quote, the quote verified by Phala's DCAP verifier).
 6. **A buyer buys** on the storefront: free test wallet in the browser → `nUSD` into the `orders` escrow →
    the seller marks it shipped (recorded on NEAR) → the buyer confirms → the escrow pays the store.
-7. **Your own wallet, optional.** "Connect a NEAR wallet" links the owner's MyNearWallet account with a signed
-   message (NEP-413 — no transaction, no fee); after that it signs in to the store from any browser.
-8. **Analytics + wallet.** Views by source, sales, AI insights over the real numbers, balances read from chain,
+7. **Your own wallet or email, optional.** "Connect a NEAR wallet" links any NEAR wallet (Meteor, HOT, HERE, Intear,
+   MyNearWallet, … through NEAR Wallet Selector) with a signed message (NEP-413 — no transaction, no fee); or link an
+   email and sign in with a one-time link.
+8. **Buyers find stores in the shop feed** ([nearchant.com/feed](https://nearchant.com/feed)): "protein and creatine in
+   New York" → an AI search plan (goods, synonyms, place) + embeddings on NEAR AI → posts and shorts of the stores
+   that sell it there or ship there. Signed-in buyers (email or any NEAR wallet) like posts — the feed learns ("For
+   you", "More like this") — and report bad ones.
+9. **AI moderation while the owner sleeps.** A moderator agent (vision) checks every post before it goes public,
+   every item for sale and every report; clear violations (scams, illegal goods, replicas, …) are removed at once and
+   the store owner is told why; repeat offenders are suspended. A tailnet-only admin panel (password + moderator
+   name) shows reports, the AI's decisions with undo, and a violators list (NEAR accounts, emails, IPs).
+10. **Analytics + wallet.** Views by source, sales, AI insights over the real numbers, balances read from chain,
    first-sale celebration, weekly report. AI usage is metered and settled on chain (`billing`).
 
 Three money flows, all on NEAR testnet: **buyer → seller** (`orders` escrow), **seller → platform** (metered AI in
