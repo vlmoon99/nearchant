@@ -20,12 +20,18 @@ export interface FeedQuery {
   city?: string | null;
   /** The signed-in buyer: their likes steer "For you" and their own likes are marked. */
   buyerId?: string | null;
+  /** Only the posts this buyer liked (the "Liked" page). */
+  onlyLiked?: boolean;
+  /** Leave these posts out (e.g. the post a "More like this" list belongs to). */
+  exclude?: string[];
   limit?: number;
   offset?: number;
 }
 export interface FeedPost {
   id: string; handle: string; caption: string; publicImage: string; publicVideo: string | null; proofId: string | null; itemId: string | null;
   storeName: string; city: string | null; country: string | null; ships: string | null; likes: number; liked: boolean; score: number; publishedAt: Date;
+  /** Why it is in the results, in a few words ("In New York", "Ships worldwide"), when a place was searched. */
+  why: string | null;
 }
 
 const vec = (v: number[]) => `[${v.map((x) => (Number.isFinite(x) ? x : 0)).join(",")}]`;
@@ -131,6 +137,8 @@ export class FeedStore {
       where p.status = 'published' and p.removed_at is null and p.passed_at is null and b.suspended_at is null
         and p.idea->>'publicImage' is not null and ${region}
         and p.handle not in (select jsonb_array_elements_text(coalesce((select value from settings where key = 'showcase_hidden'), '[]'::jsonb)))
+        ${q.onlyLiked && q.buyerId ? sql`and exists(select 1 from likes l where l.post_id = p.id and l.buyer_id = ${q.buyerId})` : sql``}
+        ${q.exclude?.length ? sql`and p.id not in (${sql.join(q.exclude.map((x) => sql`${x}`), sql`, `)})` : sql``}
     `)) as unknown as Record<string, unknown>[];
     const now = Date.now();
     const scored = rows.map((r) => {
@@ -139,17 +147,26 @@ export class FeedStore {
       const fresh = Math.exp(-ageDays / 14), pop = Math.log1p(likes) / 4;
       // A named place: the store's own city ranks first; stores that never said where they are come last.
       const regionBoost = (city && String(r.city ?? "").toLowerCase() === city ? 0.08 : 0) - (country && !r.country ? 0.2 : 0);
-      const relevant = !qv && !tsq ? true : sem >= 0.45 || txt > 0;
+      const relevant = q.onlyLiked || (!qv && !tsq) ? true : sem >= 0.45 || txt > 0;
+      const why = !country ? null : city && String(r.city ?? "").toLowerCase() === city ? `In ${r.city}` : r.ships === "world" ? "Ships worldwide"
+        : r.country === country && r.ships === "country" ? `Ships across ${country}` : r.country === country ? `In ${r.city ?? country}` : !r.country ? "Location not set" : null;
       const score = qv || tsq ? sem * 1 + Math.min(txt, 0.5) * 0.8 + regionBoost + pop * 0.15 + fresh * 0.05 : (q.buyerId ? fy * 0.6 : 0) + pop * 0.3 + fresh * 0.4 + regionBoost;
       return { relevant, post: { id: String(r.id), handle: String(r.handle), caption: String(r.caption), publicImage: String(r.public_image), publicVideo: (r.public_video as string) ?? null,
         proofId: (r.proof_id as string) ?? null, itemId: (r.item_id as string) ?? null, storeName: String(r.store_name), city: (r.city as string) ?? null, country: (r.country as string) ?? null,
-        ships: (r.ships as string) ?? null, likes, liked: !!r.liked, score: Math.round(score * 1000) / 1000, publishedAt: new Date(r.published_at as string) } satisfies FeedPost };
+        ships: (r.ships as string) ?? null, likes, liked: !!r.liked, score: Math.round(score * 1000) / 1000, publishedAt: new Date(r.published_at as string), why } satisfies FeedPost };
     }).filter((x) => x.relevant).map((x) => x.post);
     scored.sort((a, b) => b.score - a.score || b.publishedAt.getTime() - a.publishedAt.getTime());
     // At most 3 posts per store in a row of results, so one big store can't fill the feed.
     const perStore = new Map<string, number>(), out: FeedPost[] = [], later: FeedPost[] = [];
     for (const p of scored) { const n = perStore.get(p.handle) ?? 0; (n < 3 ? out : later).push(p); perStore.set(p.handle, n + 1); }
     return [...out, ...later].slice(q.offset ?? 0, (q.offset ?? 0) + Math.min(q.limit ?? 24, 60));
+  }
+
+  /** "More like this": posts from any store closest in meaning to this one. */
+  async similar(postId: string, limit = 8): Promise<FeedPost[]> {
+    const row = (await this.db.select({ e: s.contentVectors.embedding }).from(s.contentVectors).where(and(eq(s.contentVectors.kind, "post"), eq(s.contentVectors.refId, postId))))[0];
+    if (!row) return [];
+    return (await this.feed({ vector: row.e as number[], exclude: [postId], limit: limit * 2 })).slice(0, limit);
   }
 
   // ── reports ──

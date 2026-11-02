@@ -4,7 +4,7 @@
 import type { FC } from "hono/jsx";
 import { Badge, Icon, Mark, UiPage, type UiConfig } from "./kit.js";
 
-export interface FeedTile { id: string; handle: string; caption: string; img: string; video: string | null; proofId: string | null; storeName: string; place: string | null; likes: number; liked: boolean }
+export interface FeedTile { id: string; handle: string; caption: string; img: string; video: string | null; proofId: string | null; storeName: string; place: string | null; likes: number; liked: boolean; why?: string | null }
 
 const playIcon = <span class="dot" style="position:absolute;top:10px;right:10px;width:30px;height:30px;background:rgba(0,0,0,.55)"><Icon n="play" s={14} c="#fff" /></span>;
 
@@ -18,7 +18,7 @@ export const FeedTiles: FC<{ posts: FeedTile[]; next: string | null }> = ({ post
         </div>
         <div class="spread" style="gap:8px;align-items:center"><span class="foot b clamp1" style="min-width:0">{p.storeName}</span>
           <button class="like" type="button" data-like={p.id} aria-pressed={p.liked ? "true" : "false"} aria-label="Like"><Icon n="heart" s={16} /><span data-n>{p.likes || ""}</span></button></div>
-        {p.place ? <span class="cap muted">{p.place}</span> : null}
+        {p.why || p.place ? <span class="cap muted">{p.why ?? p.place}</span> : null}
         <span class="foot clamp3">{p.caption}</span>
         {p.proofId ? <Badge label={`Proof #${p.proofId} on NEAR`} /> : null}
       </a>))}
@@ -26,11 +26,11 @@ export const FeedTiles: FC<{ posts: FeedTile[]; next: string | null }> = ({ post
   </>
 );
 
-export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: string; summary: string | null; posts: FeedTile[]; next: string | null; suggestions: string[]; forYou: boolean }> = ({ cfg, test, q, city, summary, posts, next, suggestions, forYou }) => (
+export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: string; summary: string | null; posts: FeedTile[]; next: string | null; suggestions: string[]; forYou: boolean; liked?: boolean }> = ({ cfg, test, q, city, summary, posts, next, suggestions, forYou, liked }) => (
   <UiPage title={q ? `${q} · Nearchant` : "Shop feed · Nearchant"} cfg={cfg} page="feed" test={test} buyer>
     <div class="land">
       <nav class="land-nav"><a class="land-logo" href="/"><Mark />Nearchant</a>
-        <span class="land-links sub"><a href="/feed">Feed</a><a href="/verify">Verify a post</a></span>
+        <span class="land-links sub"><a href="/feed">Feed</a><a href="/feed/liked">Liked</a><a href="/verify">Verify a post</a></span>
         <span class="row" style="gap:14px;align-items:center"><a class="sub" href="#" data-buyer-me>Sign in</a><a class="btn" href="/start">Sell here</a></span></nav>
       <section class="stack" style="max-width:1200px;margin:0 auto;padding:24px 16px 80px;gap:18px">
         <form class="feed-search" action="/feed" method="get">
@@ -39,8 +39,9 @@ export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: st
           <button class="btn" type="submit">Search</button>
         </form>
         {suggestions.length && !q ? <div class="row" style="gap:8px;flex-wrap:wrap"><span class="foot muted">Try</span>{suggestions.map((s) => <a class="chip" href={`/feed?q=${encodeURIComponent(s)}`}>{s}</a>)}</div> : null}
-        <div class="spread" style="align-items:baseline"><h1 class="t2" style="margin:0">{q ? (summary || q) : forYou ? "For you" : "New on Nearchant"}</h1>
+        <div class="spread" style="align-items:baseline"><h1 class="t2" style="margin:0">{liked ? "Posts you liked" : q ? (summary || q) : forYou ? "For you" : "New on Nearchant"}</h1>
           {q ? <a class="sub" href="/feed">Clear</a> : null}</div>
+        {liked && !posts.length ? <div class="card"><span class="headline">{forYou ? "Nothing liked yet" : "Sign in to see what you liked"}</span><span class="foot muted">Tap ♥ on posts you like — your feed learns from them.</span>{forYou ? null : <a class="btn" href="#" data-buyer-me>Sign in</a>}</div> : null}
         {q && !posts.length ? <div class="card"><span class="headline">No stores sell that here yet</span><span class="foot muted">Try other words, another city — or <a href="/start">open the first store for it</a>.</span></div> : null}
         <div class="grid4" data-feed-grid><FeedTiles posts={posts} next={null} /></div>
         {next ? <div data-feed-more={next} class="foot muted" style="text-align:center;padding:20px">Loading more…</div> : null}

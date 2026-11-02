@@ -47,6 +47,7 @@ describe("store feed", () => {
       posts: [post, ...Array.from({ length: 9 }, (_, k) => ({ ...post, id: `q${k}`, itemId: null, video: null, caption: `Post ${k}` }))] };
     const app = createApp({ ...(base as unknown as { app: unknown }), config, store: base.store, rail: { id: "fake", instruction: () => ({}) as never, status: async () => null }, onPaid: async () => {},
       client: { rpcUrl: "https://rpc", orders: "orders.nearchant.testnet", network: "testnet" }, handles: { get: async (h) => (h === "alice" ? alice : null) },
+      similar: async () => [{ id: "x1", handle: "bob", storeName: "Bob Denim", caption: "Selvedge jeans", img: "/files/bob/public/x1.png?w=640", video: false }, { id: "x2", handle: "alice", storeName: "Alice Wear", caption: "own post", img: "/f.png", video: false }],
       storefront: async (_h, view) => { views.push(view); return view?.postId && !sf.posts.some((p) => p.id === view.postId) ? { ...sf, posts: [] } : sf; } } as Deps);
     const store = await (await app.request("http://x/h/alice/", host("nearchant.com"))).text();
     expect(store).toContain('href="/h/alice/p/p1"');
@@ -59,6 +60,10 @@ describe("store feed", () => {
     expect(html).toContain('href="/h/alice/i/i-1"'); // Buy the item the post shows
     expect(html).toContain('property="og:image" content="https://nearchant.com/files/alice/public/p1.webp?w=1024"');
     expect(html).toContain("<video");
+    expect(html).toContain("More like this on Nearchant");
+    expect(html).toContain('href="https://nearchant.com/h/bob/p/x1?ref=similar"');
+    expect(html).not.toContain("own post"); // the store's own posts are under "More from", not here
+    expect(html).toContain('data-report-post="p1"');
     expect(views.at(-1)).toEqual({ source: "instagram", postId: "p1" });
     expect((await app.request("http://x/h/alice/p/nope", host("nearchant.com"))).status).toBe(404);
     expect((await app.request("http://x/h/alice/p/..%2Fx", host("nearchant.com"))).status).toBe(404);

@@ -50,6 +50,15 @@ describe("FeedStore", () => {
     expect(forYou[0]!.id).toBe(denim);
     expect(forYou[0]!.liked).toBe(true);
 
+    // The Liked page and "More like this".
+    expect((await f.feed({ buyerId: b.id, onlyLiked: true })).map((p) => p.id)).toEqual([denim]);
+    const sim = await f.similar(whey);
+    expect(sim.map((p) => p.id)).not.toContain(whey);
+    expect(sim.map((p) => p.id)).toEqual(expect.arrayContaining([wheyWorld, wheyLA])); // same meaning, other stores
+    expect(sim.map((p) => p.id)).not.toContain(denim);                                  // different meaning
+    expect(ny.find((p) => p.id === wheyWorld)!.why).toBe("Ships worldwide");
+    expect(ny.find((p) => p.id === whey)!.why).toBe("In New York");
+
     // Removal: gone from the feed, recorded against the store with its IPs, undone by a person.
     await f.logIp("store", "gymla", "203.0.113.7");
     const r = await f.removePost(wheyLA, { category: "scam", confidence: 0.92, summary: "fake brand", by: "ai", identity: { accounts: ["gymla.nearchant.testnet"], emails: ["la@example.com"] } });

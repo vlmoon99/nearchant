@@ -50,6 +50,7 @@ export async function signWithWallet(network: string, req: SignRequest, title = 
     for (const m of modules) {
       const b = document.createElement("button"); b.className = "w"; b.type = "button";
       const img = document.createElement("img"); img.src = m.metadata.iconUrl; img.alt = "";
+      img.onerror = () => { const ph = document.createElement("span"); ph.textContent = m.metadata.name.slice(0, 1); ph.style.cssText = "width:32px;height:32px;border-radius:8px;background:#f5f5f7;display:inline-flex;align-items:center;justify-content:center;font-weight:700;flex:none"; img.replaceWith(ph); };
       const name = document.createElement("span"); name.textContent = m.metadata.name;
       const note = document.createElement("small"); note.textContent = m.type === "injected" && !m.metadata.available ? "Browser extension — not installed here" : m.type === "browser" ? "Opens the wallet website" : m.type === "bridge" ? "Phone app (scan a QR code)" : "";
       name.append(note); b.append(img, name); list.append(b);

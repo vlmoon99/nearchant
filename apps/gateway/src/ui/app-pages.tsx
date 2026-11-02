@@ -16,7 +16,7 @@ export const PostCard: FC<{ p: Post; img: Img }> = ({ p, img }) => (
     <div class="img" style={img(p.imageMediaId) ? `background-image:url('${img(p.imageMediaId)}')` : ""}></div>
     <span class="sub b">{clip(p.caption ?? (p.idea as { angle?: string })?.angle ?? "New post", 70)}</span>
     <span class="foot muted">{when(p)}</span>
-    {p.proof ? <Badge /> : null}
+    {p.removedAt ? <span class="cap" style="color:#c0392b">Removed by moderation — {clip(p.removedReason ?? "", 60)}</span> : p.proof ? <Badge /> : null}
   </a>
 );
 
@@ -141,6 +141,8 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
   return (
     <Page cfg={cfg} test={test} title="Post" active="Posts" store={store}>
       <a class="sub" href="/app/posts">‹ Posts</a>
+      {p.removedAt ? <div class="card" style="background:#ffe5e3;gap:4px"><span class="callout b">This post was removed by moderation</span>
+        <span class="foot">{p.removedReason}. Buyers don’t see it. If you think this is a mistake, reply to the email we sent — a person will look at it.</span></div> : null}
       <PageHead kicker={clip(p.caption ?? "Post", 60)} title={p.status === "published" ? "Posted" : p.status === "scheduled" ? "Scheduled" : p.status === "ready" ? "Your post is ready" : "Post details"} />
       <div class="cols post-cols">
         <div class="stack s12">
@@ -167,7 +169,7 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
                 <span class="sub muted">Turn this post into a 10–15 s vertical video: the picture comes alive, a voice tells the story, captions on screen. Uses 3 picture credits.</span>
                 <button class="btn secondary" data-make-video={p.id}><Icon n="sparkle" />Make a video</button></>}
           </div> : null}
-          {p.status === "published" ? <div class="card" style="gap:10px"><span class="headline">Live on your store</span>
+          {p.status === "published" && !p.removedAt ? <div class="card" style="gap:10px"><span class="headline">Live on your store</span>
             <span class="foot muted">Buyers see it in your store’s feed and in the Nearchant shop feed. Share its link on Instagram or Telegram — people land on your store, where they can buy.</span>
             <div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn secondary" href={`/h/${store.handle}/p/${p.id}`} target="_blank" rel="noopener"><Icon n="globe" />View</a>
               <a class="btn" href={`/h/${store.handle}/p/${p.id}?ref=share`} data-share-proof={`/h/${store.handle}/p/${p.id}?ref=share`} data-share-title={store.name}><Icon n="link" />Share post link</a></div></div> : null}

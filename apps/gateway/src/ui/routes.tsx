@@ -91,7 +91,7 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
   };
   // The shop feed (ADR 0022): search by meaning + region, "For you" for signed-in buyers, infinite scroll.
   const tilesOf = (posts: FeedPost[]): FeedTile[] => posts.map((p) => ({ id: p.id, handle: p.handle, caption: p.caption, img: `/files/${p.publicImage}?w=640`,
-    video: p.publicVideo ? `/files/${p.publicVideo}` : null, proofId: p.proofId, storeName: p.storeName, place: [p.city, p.country].filter(Boolean).join(", ") || null, likes: p.likes, liked: p.liked }));
+    video: p.publicVideo ? `/files/${p.publicVideo}` : null, proofId: p.proofId, storeName: p.storeName, place: [p.city, p.country].filter(Boolean).join(", ") || null, likes: p.likes, liked: p.liked, why: p.why }));
   const feedQuery = (c: Context) => ({ q: (c.req.query("q") ?? "").trim().slice(0, 200), city: (c.req.query("city") ?? "").trim().slice(0, 60), offset: Math.max(0, Number(c.req.query("offset") ?? 0) || 0) });
   const nextOf = (q: string, city: string, offset: number, n: number) => (n === 24 ? `/feed?${new URLSearchParams({ ...(q ? { q } : {}), ...(city ? { city } : {}), offset: String(offset + 24) })}` : null);
   app.get("/feed", async (c) => {
@@ -106,6 +106,12 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const { q, city, offset } = feedQuery(c), buyer = d.buyerKey ? readSession(d.buyerKey, getCookie(c, "nc_buyer")) : null;
     const r = await feedFor({ feed: d.feedStore, ...(d.understand ? { understand: d.understand } : {}) }, q, buyer, offset, { city });
     return c.html(<FeedTiles posts={tilesOf(r.posts)} next={nextOf(q, city, offset, r.posts.length)} />);
+  });
+  app.get("/feed/liked", async (c) => {
+    if (!d.feedStore) return c.notFound();
+    const buyer = d.buyerKey ? readSession(d.buyerKey, getCookie(c, "nc_buyer")) : null;
+    const posts = buyer ? await d.feedStore.feed({ buyerId: buyer, onlyLiked: true, limit: 60 }) : [];
+    return c.html(<ExplorePage cfg={d.cfg} test={d.test} q="" city="" summary={null} posts={tilesOf(posts)} next={null} suggestions={[]} forYou={!!buyer} liked />);
   });
   app.get("/explore", (c) => c.redirect(`/feed${new URL(c.req.url).search}`, 301));
   app.get("/verify", (c) => verify(c, c.req.query("id")?.trim() || undefined));
@@ -193,9 +199,10 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const heat = Array.from({ length: 7 }, () => Array(6).fill(0) as number[]);
     for (const h of hours) heat[(h.dow + 6) % 7]![Math.min(5, Math.max(0, Math.ceil((h.hour + 1) / 3) - 3))]! += h.n;
     const media = new Map((await content.listMedia(s.handle)).map((m) => [m.id, m.key]));
+    const likeMap = d.feedStore ? await d.feedStore.likeCounts(published.map((p) => p.id)) : new Map<string, number>();
     const topPosts = published.map((p) => ({ id: p.id, caption: p.caption ?? "", img: p.imageMediaId && media.get(p.imageMediaId) ? `/files/${media.get(p.imageMediaId)}?w=320` : null,
-      when: p.publishedAt!.toLocaleDateString("en-US", { month: "short", day: "numeric" }), views: pv.get(p.id) ?? 0, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null }))
-      .sort((a, b) => b.views - a.views).slice(0, 5);
+      when: p.publishedAt!.toLocaleDateString("en-US", { month: "short", day: "numeric" }), views: pv.get(p.id) ?? 0, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null, likes: likeMap.get(p.id) ?? 0, removed: p.removedReason }))
+      .sort((a, b) => b.views + b.likes * 3 - (a.views + a.likes * 3)).slice(0, 5);
     return c.html(<AnalyticsPage cfg={d.cfg} test={d.test} store={s} range={range} days={days} sources={sources} insights={insights} topPosts={topPosts} heat={heat}
       totals={{ views: events.filter((e) => e.kind === "view").reduce((a, e) => a + e.n, 0), sales: sales.count, revenue: fmtU(sales.units), posts: published.length, proofs: published.filter((p) => p.proof).length }} />);
   }));

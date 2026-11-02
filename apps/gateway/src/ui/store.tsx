@@ -5,6 +5,8 @@ import { Badge, BuyerScripts, Icon, asset } from "./kit.js";
 
 export interface StoreItem { id: string; title: string; description: string; price: string; img: string | null; kind: string; options: string[] }
 export interface StorePost { id: string; itemId?: string | null; publishedAt: string; hashtags?: string[]; caption: string; img: string | null; video?: string | null; proofId: string | null; likes?: number }
+/** A post of another store shown under "More like this". */
+export interface SimilarPost { id: string; handle: string; storeName: string; caption: string; img: string; video: boolean }
 export interface StoreData { handle: string; name: string; account: string; summary: string; items: StoreItem[]; posts: StorePost[]; orders: number }
 export interface CheckoutCfg { base: string; rpcUrl: string; orders: string; network: string }
 
@@ -76,7 +78,7 @@ export const PostsPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean }> = 
 );
 
 /** One post, public: the picture or short, the caption, its proof on NEAR, the item it shows (Buy) and share links. */
-export const PublicPostPage: FC<{ s: StoreData; p: StorePost; cfg: CheckoutCfg; test: boolean; url: string; og: OgMeta; verifyUrl: string | null }> = ({ s, p, cfg, test, url, og, verifyUrl }) => {
+export const PublicPostPage: FC<{ s: StoreData; p: StorePost; cfg: CheckoutCfg; test: boolean; url: string; og: OgMeta; verifyUrl: string | null; similar?: SimilarPost[]; site?: string }> = ({ s, p, cfg, test, url, og, verifyUrl, similar = [], site = "" }) => {
   const item = p.itemId ? s.items.find((i) => i.id === p.itemId) : undefined;
   const more = s.posts.filter((x) => x.id !== p.id).slice(0, 4);
   const share = encodeURIComponent(`${url}?ref=share`), text = encodeURIComponent(`${s.name}: ${p.caption.slice(0, 120)}`);
@@ -110,6 +112,10 @@ export const PublicPostPage: FC<{ s: StoreData; p: StorePost; cfg: CheckoutCfg; 
       </div>
       {more.length ? <><div class="spread"><h2 class="t4">More from {s.name}</h2><a class="sub" href={`${cfg.base}posts`}>All posts ›</a></div>
         <div class="grid4">{more.map((x) => <PostTile p={x} base={cfg.base} />)}</div></> : null}
+      {similar.length ? <><div class="spread"><h2 class="t4">More like this on Nearchant</h2><a class="sub" href={`${site}/feed`}>Shop feed ›</a></div>
+        <div class="grid4">{similar.slice(0, 4).map((x) => <a class="post" href={`${site}/h/${x.handle}/p/${x.id}?ref=similar`} style="color:inherit">
+          <div class="img" style={`aspect-ratio:4/5;position:relative;background-image:url('${site}${x.img}')`}>{x.video ? <span class="dot" style="position:absolute;top:10px;right:10px;width:30px;height:30px;background:rgba(0,0,0,.55)"><Icon n="play" s={14} c="#fff" /></span> : null}</div>
+          <span class="foot b">{x.storeName}</span><span class="foot clamp2">{x.caption}</span></a>)}</div></> : null}
     </Shell>
   );
 };

@@ -63,6 +63,8 @@ export interface Deps {
   /** Content stores (ADR 0018): the buyer storefront data, or null for a classic card. */
   /** nearchant.com home page (no store in the host): rendered landing; unset → redirect to the dashboard. */
   landing?: () => Promise<unknown>;
+  /** "More like this" under a post: similar posts from any store (ADR 0022). */
+  similar?: (postId: string) => Promise<import("./ui/store.js").SimilarPost[]>;
   storefront?: (handle: string, view?: { source: string | null; itemId?: string; postId?: string }) => Promise<import("./ui/store.js").StoreData | null>;
   /** Job progress + files of an order (from the artifacts table). */
   progress?: (orderId: string) => Promise<{ stepsDone: string[]; files: { kind: string; url: string }[]; stopped: string | null }>;
@@ -174,7 +176,8 @@ export function createApp(d: Deps) {
     if (!sf || !p) return c.html(<NotFoundPage testToken={d.config.token.test} />, 404);
     const origin = storeOrigin(c, h.handle), url = `${origin}p/${p.id}`;
     const abs = (u: string | null) => (u ? new URL(u, origin).toString() : null);
-    return c.html(<PublicPostPage s={sf} p={p} cfg={cfgOf(c, h.handle)} test={d.config.token.test} url={url}
+    const similar = d.similar ? await d.similar(p.id).catch(() => []) : [];
+    return c.html(<PublicPostPage s={sf} p={p} cfg={cfgOf(c, h.handle)} test={d.config.token.test} url={url} similar={similar.filter((x) => x.handle !== h.handle)} site={d.config.public_url}
       verifyUrl={p.proofId ? `${d.config.public_url}/verify/${p.proofId}` : null}
       og={{ title: `${sf.name} on Nearchant`, description: p.caption.slice(0, 200), url, image: abs(p.img?.replace(/\?w=\d+/, "?w=1024") ?? null) }} />);
   });

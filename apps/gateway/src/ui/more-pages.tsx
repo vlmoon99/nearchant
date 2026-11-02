@@ -28,7 +28,7 @@ const Bars: FC<{ days: DayRow[] }> = ({ days }) => {
   );
 };
 
-export interface TopPost { id: string; caption: string; img: string | null; when: string; views: number; proofId: string | null }
+export interface TopPost { id: string; caption: string; img: string | null; when: string; views: number; proofId: string | null; likes?: number; removed?: string | null }
 const HEAT_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], HEAT_SLOTS = [9, 12, 15, 18, 21, 24];
 /** Best-time heatmap (Figma Analytics): rows Mon..Sun, columns 3-hour slots ending at 9, 12, …, 24. */
 const Heat: FC<{ heat: number[][] }> = ({ heat }) => {
@@ -71,7 +71,7 @@ export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView;
       <div class="card"><div class="spread"><span class="headline">Top posts</span><a class="foot" href="/app/posts?f=published">All posts</a></div>
         {topPosts.length ? topPosts.map((t) => <a class="row card white" style="flex-direction:row;gap:12px;align-items:center;padding:10px 12px;border:0;color:inherit" href={`/app/posts/${t.id}`}>
           <span style={`width:40px;height:40px;border-radius:8px;flex:none;background:var(--grouped) center/cover${t.img ? ` url('${t.img}')` : ""}`}></span>
-          <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="foot b clamp1">{t.caption}</span><span class="cap muted">{t.when} · {t.views} view{t.views === 1 ? "" : "s"} from its link</span></span>
+          <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="foot b clamp1">{t.caption}</span><span class="cap muted">{t.when} · {t.views} view{t.views === 1 ? "" : "s"} from its link{t.likes ? ` · ♥ ${t.likes}` : ""}{t.removed ? " · removed by moderation" : ""}</span></span>
           {t.proofId ? <span class="badge"><Icon n="shield" s={13} />Proof #{t.proofId}</span> : <span class="cap muted">no proof yet</span>}</a>)
           : <span class="foot muted">Published posts show up here with their views and proof on NEAR.</span>}
       </div>

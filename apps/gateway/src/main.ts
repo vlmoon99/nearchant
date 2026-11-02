@@ -175,6 +175,9 @@ if (checkoutJs) assetV.checkout = createHash("sha256").update(checkoutJs).digest
 const mailer = config.email && process.env.RESEND_API_KEY ? resendMailer({ apiKey: process.env.RESEND_API_KEY, from: config.email.from, apiUrl: config.email.api_url }) : undefined;
 if (!mailer) console.info("[gateway] email off (no RESEND_API_KEY)");
 
+// Shop feed store (ADR 0022), used by the store pages ("More like this") and the feed.
+const feedStore = conn ? new FeedStore(conn.db) : null;
+
 const app = createApp({
   ...(landing ? { landing } : {}),
   config,
@@ -268,6 +271,7 @@ const app = createApp({
         return { stepsDone: Object.keys(all).filter((k) => k !== "revision_note"), files, stopped: all.stopped ? `${all.stopped.kind}: ${all.stopped.reason}`.slice(0, 400) : null };
       }
     : undefined,
+  ...(feedStore ? { similar: async (postId: string) => (await feedStore.similar(postId, 8)).map((x) => ({ id: x.id, handle: x.handle, storeName: x.storeName, caption: x.caption, img: `/files/${x.publicImage}?w=640`, video: !!x.publicVideo })) } : {}),
   ...(conn ? { storefront: async (handle: string, view?: { source: string | null; itemId?: string; postId?: string }) => {
     const cs = new ContentStore(conn!.db);
     const b = await cs.getBusiness(handle);
@@ -316,7 +320,6 @@ const app = createApp({
 });
 
 // Shop feed + buyers (ADR 0022). Search: the search-planner reads the query, NEAR AI embeds it; both cached.
-const feedStore = conn ? new FeedStore(conn.db) : null;
 const buyerKey = createHash("sha256").update(`nearchant-buyer:${process.env.NEARCHANT_SECRET_KEY ?? "dev"}`).digest();
 const intentCache = new Map<string, { at: number; v: SearchIntent }>();
 async function understand(q: string): Promise<SearchIntent> {
