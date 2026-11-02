@@ -37,8 +37,11 @@ and a public proof log.
    email and sign in with a one-time link.
 8. **Buyers find stores in the shop feed** ([nearchant.com/feed](https://nearchant.com/feed)): "protein and creatine in
    New York" → an AI search plan (goods, synonyms, place) + embeddings on NEAR AI → posts and shorts of the stores
-   that sell it there or ship there. Signed-in buyers (email or any NEAR wallet) like posts — the feed learns ("For
-   you", "More like this") — and report bad ones.
+   that sell it there or ship there, plus **"Stores that sell it"** — which store sells which of the goods asked for.
+   Signed-in buyers (email or any NEAR wallet) like posts and follow stores — the feed learns ("For you", "More like
+   this", Following) — see their orders across stores, and report bad ones. **Ask the store**: each store's own AI
+   assistant answers shoppers from its public items, prices and delivery — never invented offers, escrow only.
+   Sellers see what shoppers search for (unmet demand) and ask; the opportunity analyst uses those searches too.
 9. **AI moderation while the owner sleeps.** A moderator agent (vision) checks every post before it goes public,
    every item for sale and every report; clear violations (scams, illegal goods, replicas, …) are removed at once and
    the store owner is told why; repeat offenders are suspended. A tailnet-only admin panel (password + moderator

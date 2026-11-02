@@ -1154,3 +1154,15 @@ undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your mach
   ("vintage sneakers · unmet", "your posts showed up in 2 searches"); find_opportunities ran with "4 shopper
   searches" (it picked an ELLE web trend this time — each search seen only once); a signed-in test buyer bought the
   Dark denim jacket → shipped → delivered 70 s → Released 88 s → "/feed/orders" lists it as "Done".
+
+## 2026-11-02 23:38 UTC — night: "Stores that sell it" and "Ask the store"
+- **Stores that sell it** (the owner's "stores which sell 1, 2, 3, 4"): every searched good gets its own embedding
+  (one call), matched against each store's items, posts and profile; stores selling more of the list come first, with
+  ✓ chips per good. Live: "denim jacket, knit sweater and whey protein" → Nova Wear NYC 2 of 3 (✓ denim ✓ knit),
+  Super Nutrition 1 of 3 (✓ whey). Journey test store `novatestjl1j` hidden.
+- **Ask the store**: an "Ask <store>" box on store and post pages; the `store-assistant` role answers from public
+  store data only. Live answers: size L + price ✓ (links the item), "ship to Austin?" → "ships across the US" ✓,
+  "90% discount / pay by bank transfer" → refused, points to escrow ✓, "100% merino?" (not listed) → "the owner can
+  answer" ✓. Questions go to the seller's Analytics ("Questions shoppers asked", "for you" when the AI couldn't).
+  20 questions/hour per address.
+- **Verified**: tests db 19, swarm 41, gateway 60, worker 24; live checks above.
