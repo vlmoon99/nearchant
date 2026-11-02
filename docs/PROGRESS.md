@@ -862,8 +862,9 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   then `ft_transfer`. Prefilled with the linked NEAR wallet. Amounts converted exactly (`web/units.ts`, tested).
 - **Verified live** (`apps/gateway/e2e/withdraw.mjs`): a new store withdrew 1 nUSD to relayer.nearchant.testnet and
   0.5 nUSD to nearchant.testnet — balances on chain moved by exactly 1.5 nUSD, no page errors.
-- Not verified yet: the registration path (receiver never held nUSD) — the re-run hit the shop-creation limit
-  (3 new stores per address per hour) after tonight's tests; retry scheduled.
+- **Verified at 00:38 UTC**: the registration path too — a fresh testnet account that never held nUSD received
+  0.5 nUSD; the store paid its registration (registered: false → true, balance 500000 units). (The first retry hit
+  the shop-creation limit — 3 new stores per address per hour — after tonight's tests.)
 - Seen: `InvalidNonceError` on the relayer while a test script signed with the same key from the Mac; the chain
   client's retry (fresh nonce, 4 tries) covers normal traffic.
 
