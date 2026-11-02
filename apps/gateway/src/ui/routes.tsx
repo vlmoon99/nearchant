@@ -46,7 +46,11 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
         const created = new Date(Number(BigInt(e.created_at) / 1_000_000n));
         Object.assign(v, { author: e.author_id, producer: e.producer, outputHash: e.output_hash, createdAt: created.toUTCString().replace(" GMT", " UTC"), reviewPassed: e.review ? e.review.passed : null, recomputed: null, match: null });
         const postId = e.task_id.startsWith("post:") ? e.task_id.slice(5) : null;
-        const post = postId && d.content ? await d.content.getPost(postId) : null;
+        const found = postId && d.content ? await d.content.getPost(postId) : null;
+        // Anyone can write to proof-log: the post counts only if this proof is the one the store's own account
+        // recorded for it (signer = the store account, and the post's recorded proof id = this id).
+        const post = found && e.author_id === d.accountOf(found.handle) && (found.proof as { proofId?: string } | null)?.proofId === id ? found : null;
+        if (found && !post) v.foreign = true;
         const pub = (post?.idea as { publicImage?: string } | undefined)?.publicImage;
         if (post && pub && d.mediaDir) {
           const bytes = await readFile(join(d.mediaDir, pub)).catch(() => null);
@@ -58,10 +62,11 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
           const b = await d.content!.getBusiness(post.handle);
           v.post = { caption: post.caption ?? "", img: `/files/${pub}?w=320`, store: b?.name ?? post.handle, href: `/h/${post.handle}/` };
         }
-        const a = /^nearai:(.+):([0-9a-f]{64})$/.exec(e.attestation_ref ?? "");
+        const a = post ? /^nearai:(.+):([0-9a-f]{64})$/.exec(e.attestation_ref ?? "") : null;
+        if (!post) v.reviewPassed = null;
         if (a) {
-          const check = d.mediaDir ? await readFile(join(d.mediaDir, "attestations", `${a[2]}.check.json`), "utf8").then((x) => JSON.parse(x) as { ok?: boolean }, () => null) : null;
-          v.attestation = { model: a[1]!, hash: a[2]!, ok: check ? !!check.ok : null };
+          const check = d.mediaDir ? await readFile(join(d.mediaDir, "attestations", `${a[2]}.check.json`), "utf8").then((x) => JSON.parse(x) as { ok?: boolean; gateway_tdx_verified?: boolean | null }, () => null) : null;
+          v.attestation = { model: a[1]!, hash: a[2]!, ok: check ? check.ok === true : null };
         }
       }
     }

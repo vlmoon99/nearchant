@@ -16,12 +16,12 @@ function setup(caption: string) {
   const rep = "ab".repeat(32);
   writeFileSync(join(mediaDir, "attestations", `${rep}.check.json`), JSON.stringify({ ok: true }));
   const entry = { proof_id: "21", task_id: "post:p1", author_id: "nova.nearchant.testnet", output_hash: h(`Soft linen.\n${h(pic)}`), producer: "nearchant:content-store", attestation_ref: `nearai:Qwen/Qwen3.6-35B-A3B-FP8:${rep}`, review: { passed: true }, created_at: "1793552641150717215" };
-  const post = { id: "p1", handle: "nova", caption, idea: { publicImage: "nova/public/p1.png" } };
+  const post = { id: "p1", handle: "nova", caption, idea: { publicImage: "nova/public/p1.png" }, proof: { proofId: "21" } };
   const content = { showcase: async () => ({ posts: [{ proofId: "21", storeName: "Nova Wear NYC", caption }] }), getPost: async () => post, getBusiness: async () => ({ name: "Nova Wear NYC" }) };
   const app = new Hono();
   mountUi(app, { cfg: { base: "/", rpcUrl: "", network: "testnet", token: "nUSD", decimals: 6, storeBase: "" }, test: true, css: "", js: undefined, sessionKey: Buffer.alloc(32),
-    content: content as never, accountOf: (x) => x, explorer: (a) => `https://testnet.nearblocks.io/address/${a}`, mediaDir,
-    proof: async (id) => (id === "21" ? entry : null), proofsContract: "proofs.nearchant.testnet" } as never);
+    content: content as never, accountOf: (x) => `${x}.nearchant.testnet`, explorer: (a) => `https://testnet.nearblocks.io/address/${a}`, mediaDir,
+    proof: async (id) => (id === "21" ? entry : id === "22" ? { ...entry, proof_id: "22", author_id: "attacker.testnet" } : null), proofsContract: "proofs.nearchant.testnet" } as never);
   return app;
 }
 
@@ -38,5 +38,12 @@ describe("verify a post", () => {
     expect(await (await app.request("http://x/verify/21")).text()).toContain("The post was changed after the proof");
     expect(await (await app.request("http://x/verify?id=99")).text()).toContain("No proof #99 on NEAR");
     expect(await (await app.request("http://x/verify")).text()).toContain("Latest proofs");
+  });
+
+  it("a proof someone else recorded for a store's post is shown as not from the store", async () => {
+    const html = await (await setup("Soft linen.").request("http://x/verify/22")).text();
+    expect(html).toContain("is not from a Nearchant store");
+    expect(html).not.toContain("The post is unchanged");
+    expect(html).not.toContain("Written by");
   });
 });

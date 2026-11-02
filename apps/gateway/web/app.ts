@@ -347,7 +347,9 @@ document.querySelector<HTMLFormElement>("#withdraw-form")?.addEventListener("sub
     if (units <= 0n) throw new Error("amount must be above 0");
     if (!(await rpcQuery({ request_type: "view_account", account_id: to }))) throw new Error(`${to} does not exist on NEAR ${cfg.network}`);
     const accountId = `${handle}.${cfg.accountSuffix}`;
-    const balance = BigInt((await viewCall<string>(cfg.tokenContract, "ft_balance_of", { account_id: accountId })) ?? "0");
+    const bal = await viewCall<string>(cfg.tokenContract, "ft_balance_of", { account_id: accountId });
+    if (bal === null) throw new Error("could not read the store balance from NEAR — try again in a moment");
+    const balance = BigInt(bal);
     if (units > balance) throw new Error(`the store has ${money(String(balance))}`);
     const account = new Account(accountId, new JsonRpcProvider({ url: cfg.rpcUrl }), new KeyPairSigner(KeyPair.fromString(key as KeyPairString)));
     if (!(await viewCall(cfg.tokenContract, "storage_balance_of", { account_id: to }))) {
@@ -355,7 +357,15 @@ document.querySelector<HTMLFormElement>("#withdraw-form")?.addEventListener("sub
       await account.callFunction({ contractId: cfg.tokenContract, methodName: "storage_deposit", args: { account_id: to, registration_only: true }, deposit: 1_250_000_000_000_000_000_000n, gas: 30n * 10n ** 12n });
     }
     out.textContent = `Sending ${money(String(units))} to ${to}…`;
-    await account.callFunction({ contractId: cfg.tokenContract, methodName: "ft_transfer", args: { receiver_id: to, amount: units.toString(), memo: "Nearchant withdrawal" }, deposit: 1n, gas: 30n * 10n ** 12n });
+    try {
+      await account.callFunction({ contractId: cfg.tokenContract, methodName: "ft_transfer", args: { receiver_id: to, amount: units.toString(), memo: "Nearchant withdrawal" }, deposit: 1n, gas: 30n * 10n ** 12n });
+    } catch (err) {
+      // The transfer may have landed even though the answer was lost: never let a retry send it twice.
+      const after = await viewCall<string>(cfg.tokenContract, "ft_balance_of", { account_id: accountId });
+      if (after !== null && BigInt(after) <= balance - units) { out.textContent = `Sent ${money(String(units))} to ${to} on NEAR.`; setTimeout(() => location.reload(), 2500); return; }
+      out.textContent = `Not sure the transfer went through (${(err as Error).message.slice(0, 120)}). Reload the page and check the balance before trying again.`;
+      return; // button stays disabled
+    }
     out.textContent = `Sent ${money(String(units))} to ${to} on NEAR.`;
     setTimeout(() => location.reload(), 2500);
   } catch (err) { out.textContent = (err as Error).message.slice(0, 200); btn.disabled = false; }

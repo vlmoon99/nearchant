@@ -269,11 +269,14 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
 
   // A post's short video: script → (clip ‖ voice) → ffmpeg. 3 picture credits, refunded on failure.
   const makeVideoTask: Task = async (payload) => {
-    const { postId } = payload as { postId: string };
+    const { postId, runId } = payload as { postId: string; runId?: string };
     const p = await d.content.getPost(postId);
     if (!p || !d.video) return;
     const idea = (p.idea ?? {}) as Record<string, unknown>;
-    const setVideo = (v: Record<string, unknown>) => d.content.updatePost(p.id, { idea: { ...idea, video: v } });
+    // A restarted video gets a new run id: an older run (cut off, retried later by the queue) must not write.
+    const current = async () => { const x = await d.content.getPost(p.id); return !runId || ((x?.idea as { video?: { runId?: string } } | undefined)?.video?.runId ?? runId) === runId; };
+    if (!(await current())) return;
+    const setVideo = async (v: Record<string, unknown>) => { if (!(await current())) throw new Error("superseded by a newer run"); await d.content.updatePost(p.id, { idea: { ...idea, video: { ...v, ...(runId ? { runId } : {}) } } }); };
     try {
       const mid = (idea.cleanImageMediaId as string | undefined) ?? p.imageMediaId ?? p.sourceMediaId; // no headline strip in the video
       const m = mid ? await d.content.getMedia(mid) : null;
@@ -299,8 +302,9 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
       await d.content.updatePost(p.id, { idea: { ...((now?.idea ?? idea) as object), video: { status: "ready", mediaId, key, script, seconds }, ...(publicVideo ? { publicVideo } : {}) } });
       d.log(`video ${p.id}: ${voice.seconds}s, ${Math.round(bytes.length / 1024)} KB`);
     } catch (e) {
+      if ((e as Error).message === "superseded by a newer run") return;
       await d.content.refund(p.handle, 0, 3);
-      await setVideo({ status: "failed", error: (e as Error).message.slice(0, 300) });
+      await setVideo({ status: "failed", error: (e as Error).message.slice(0, 300) }).catch(() => {});
       d.log(`video ${p.id} failed: ${(e as Error).message.slice(0, 200)}`);
     }
   };
@@ -331,12 +335,19 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
   const rewriteCaptionTask: Task = async (payload, helpers) => {
     const { postId, style } = payload as { postId: string; style: CaptionStyle };
     const p = await d.content.getPost(postId);
-    if (!p?.caption || !["ready", "scheduled"].includes(p.status)) return;
+    if (!p) return;
     const idea = (p.idea ?? {}) as Record<string, unknown>;
+    if (!p.caption || !["ready", "scheduled"].includes(p.status)) { await d.content.updatePost(p.id, { idea: { ...idea, rewrite: { status: "failed", style, error: "the post is no longer editable" } } }); return; }
     try {
       const profile = (await d.content.getProfile(p.handle))?.data as StyleProfile;
       const caption = await rewriteCaption(askFor(p.handle, "rewrite"), { profile, caption: p.caption, style });
-      await d.content.updatePost(p.id, { caption, idea: { ...idea, rewrite: { status: "ready", style } } });
+      // The post may have been published (proof bound to the old caption) or edited while the model answered.
+      const now = await d.content.getPost(p.id);
+      if (!now || !["ready", "scheduled"].includes(now.status) || now.caption !== p.caption) {
+        if (now) await d.content.updatePost(now.id, { idea: { ...(now.idea as object), rewrite: { status: "failed", style, error: "the post changed meanwhile" } } });
+        return;
+      }
+      await d.content.updatePost(p.id, { caption, idea: { ...(now.idea as object), rewrite: { status: "ready", style } } });
       await d.content.addSignal(p.handle, p.id, "edited", { before: p.caption, after: caption, by: `ai:${style}` });
       await helpers.addJob("check_post", { postId: p.id }, { jobKey: `check:${p.id}`, maxAttempts: 2 });
     } catch (e) {

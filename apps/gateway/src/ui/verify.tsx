@@ -6,6 +6,8 @@ import { Badge, Icon, Mark, UiPage, type UiConfig } from "./kit.js";
 
 export interface VerifyView {
   proofId: string; found: boolean;
+  /** The proof names a Nearchant post but was not recorded by that store: shown as not from the store. */
+  foreign?: boolean;
   author?: string; createdAt?: string; producer?: string; outputHash?: string; recomputed?: string | null; match?: boolean | null;
   reviewPassed?: boolean | null; attestation?: { model: string; hash: string; ok: boolean | null } | null;
   post?: { caption: string; img: string | null; store: string; href: string } | null;
@@ -30,8 +32,9 @@ export const VerifyPage: FC<{ cfg: UiConfig; test: boolean; v: VerifyView | null
           <input class="input" name="id" inputmode="numeric" placeholder="Proof number, e.g. 21" value={v?.proofId ?? ""} style="flex:1" />
           <button class="btn" type="submit"><Icon n="shield" />Check</button>
         </form>
-        {v && !v.found ? <div class="card"><span class="headline">No proof #{v.proofId} on NEAR</span><span class="foot muted">The number may be wrong — proofs are numbered from 0.</span></div> : null}
-        {v?.found ? <>
+        {v && !v.found ? <div class="card"><span class="headline">No proof #{v.proofId} on NEAR</span><span class="foot muted">The number may be wrong — proofs are numbered from 1.</span></div> : null}
+        {v?.found && v.foreign ? <div class="card" style="background:#fff3c4"><span class="headline">Proof #{v.proofId} is not from a Nearchant store</span><span class="foot">It points at a post, but it was recorded by {v.author}, not by that store's account — so it says nothing about the post.</span></div> : null}
+        {v?.found && !v.foreign ? <>
           <div class="card proof" style="gap:14px">
             <div class="spread"><span class="headline proof-t">Proof #{v.proofId} on NEAR</span>{v.match ? <Badge label="Verified · unchanged" /> : null}</div>
             {v.post ? <div class="row" style="gap:14px;align-items:center">
@@ -45,7 +48,7 @@ export const VerifyPage: FC<{ cfg: UiConfig; test: boolean; v: VerifyView | null
             <Row ok={true} title={`Published by ${v.author}`} detail={`Signed by that account's own key${v.createdAt ? ` · ${v.createdAt}` : ""}`} />
             <Row ok={v.reviewPassed ?? null} title={v.reviewPassed ? "Caption check passed" : v.reviewPassed === false ? "Caption check flagged an offer" : "No caption check"} detail="Levanto Sage (NEAR AI) looked for discounts, gifts, deadlines or prices the store never stated" />
             <Row ok={v.attestation ? v.attestation.ok : null} title={v.attestation ? `Written by ${v.attestation.model} in a NEAR AI TEE` : `Made by ${v.producer ?? "the store's AI"}`}
-              detail={v.attestation ? `Intel TDX quote verified, NEAR AI's key and our nonce bound into it · report ${v.attestation.hash.slice(0, 12)}…` : "Ran on the store's own GPUs (no TEE report)"} />
+              detail={v.attestation ? `${v.attestation.ok ? "Intel TDX quote verified, NEAR AI's key and our nonce bound into it" : v.attestation.ok === false ? "Our check of this report did not pass" : "Report published; our check has not completed"} · report ${v.attestation.hash.slice(0, 12)}…` : "Ran on the store's own GPUs (no TEE report)"} />
             {v.attestation ? <span class="foot"><a href={`/attestations/${v.attestation.hash}.json`} target="_blank" rel="noopener">Attestation report</a> · <a href={`/attestations/${v.attestation.hash}.check.json`} target="_blank" rel="noopener">our check</a></span> : null}
             <a class="btn near" href={v.contractUrl} target="_blank" rel="noopener"><Icon n="globe" />View on NEAR explorer</a>
             <span class="cap muted">Check it yourself: <code>near view proofs.nearchant.testnet get '{`{"proof_id":"${v.proofId}"}`}'</code></span>

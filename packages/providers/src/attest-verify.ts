@@ -7,7 +7,7 @@ export interface ReportCheck {
   nonce_ok: boolean; gateway_bound: boolean; compose_bound: boolean;
   models: { model: string; bound: boolean; gpu_nonce_ok: boolean; tdx_verified: boolean | null }[];
   gateway_tdx_verified: boolean | null; verifier: string; checked_at: string;
-  /** Every check that ran passed (null = the TDX verifier was not reachable). */
+  /** Every check ran and passed (false when the TDX verifier was not reachable — see the *_tdx_verified fields). */
   ok: boolean;
 }
 
@@ -51,6 +51,7 @@ export async function checkNearAiReport(raw: string, nonce: string, opts: { fetc
     return { model: m.model_name ?? "?", bound, gpu_nonce_ok, tdx_verified: tdx && m.intel_quote ? await phalaVerify(m.intel_quote, fetchFn) : null };
   }));
   const gateway_tdx_verified = tdx && g.intel_quote ? await phalaVerify(g.intel_quote, fetchFn) : null;
-  const ok = nonce_ok && gateway_bound && compose_bound && models.every((m) => m.bound && m.gpu_nonce_ok && m.tdx_verified !== false) && gateway_tdx_verified !== false;
+  // ok only when every check ran and passed: an unreachable TDX verifier (null) is not a pass.
+  const ok = nonce_ok && gateway_bound && compose_bound && models.every((m) => m.bound && m.gpu_nonce_ok && m.tdx_verified === true) && gateway_tdx_verified === true;
   return { nonce_ok, gateway_bound, compose_bound, models, gateway_tdx_verified, verifier: "nearchant attest-verify 1 + Phala DCAP", checked_at: (opts.now?.() ?? new Date()).toISOString(), ok };
 }

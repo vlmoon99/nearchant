@@ -1,7 +1,7 @@
 // The seller app's JSON API (ADR 0018): session, business, photos, analysis, opportunities, posts, items.
 // Pages call these with the session cookie set by POST /api/session (signed once with the store's NEAR key).
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { join, normalize } from "node:path";
 import sharp from "sharp";
 import type { Context, Hono } from "hono";
@@ -16,7 +16,7 @@ import { verifyNep413 } from "./nep413.js";
 export type SellerContent = Pick<ContentStore,
   "upsertBusiness" | "getBusiness" | "completeOnboarding" | "getProfile" | "setProfile" | "addMedia" | "listMedia" | "getMedia" |
   "upsertItem" | "listItems" | "getItem" | "listOpportunities" | "chooseOpportunities" | "createPosts" | "listPosts" | "getPost" | "updatePost" |
-  "choosePosts" | "addSignal" | "usage" | "setSetting" | "getSetting" | "reserve">;
+  "choosePosts" | "addSignal" | "usage" | "setSetting" | "getSetting" | "reserve" | "refund">;
 
 export interface SellerAppDeps {
   content: SellerContent;
@@ -85,21 +85,26 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
   // The message is "nearchant:wallet:<purpose>:<ms>" (10 min), the recipient our host, a nonce is used once.
   const usedNonces = new Map<string, number>();
   app.post("/api/wallet/verify", async (c) => {
+    // JSON only: a cross-site form (text/plain) must not be able to sign a visitor in to someone else's store.
+    if (!(c.req.header("content-type") ?? "").startsWith("application/json")) return c.json({ error: "JSON only" }, 415);
     const b = await json(c);
     const accountId = String(b.accountId ?? "").toLowerCase(), publicKey = String(b.publicKey ?? ""), signature = String(b.signature ?? "");
     const message = String(b.message ?? ""), recipient = String(b.recipient ?? ""), callbackUrl = b.callbackUrl == null ? null : String(b.callbackUrl);
     const nonce = Buffer.from(String(b.nonce ?? ""), "base64");
     const m = /^nearchant:wallet:(link|signin):(\d{13})$/.exec(message);
-    if (!m || Math.abs(now() - Number(m[2])) > 10 * 60_000) return c.json({ error: "expired or malformed message" }, 401);
+    if (!m || now() - Number(m[2]) > 10 * 60_000 || Number(m[2]) - now() > 60_000) return c.json({ error: "expired or malformed message" }, 401);
     if (recipient !== (d.walletRecipient ?? new URL(c.req.url).host)) return c.json({ error: "message is for another site" }, 401);
     if (nonce.length !== 32 || usedNonces.has(nonce.toString("hex"))) return c.json({ error: "nonce reused" }, 401);
     if (!/^[a-z0-9._-]{2,64}$/.test(accountId) || !verifyNep413({ message, nonce, recipient, callbackUrl }, publicKey, signature)) return c.json({ error: "bad signature" }, 401);
-    if (!(await d.isOwnerKey(accountId, publicKey))) return c.json({ error: "that key is not a full-access key of the wallet account" }, 403);
+    // Claim the nonce before the chain lookup, so two parallel requests can't both pass.
     usedNonces.set(nonce.toString("hex"), now());
-    for (const [k, t] of usedNonces) if (now() - t > 15 * 60_000) usedNonces.delete(k);
+    for (const [k, t] of usedNonces) if (now() - t > 20 * 60_000) usedNonces.delete(k);
+    if (!(await d.isOwnerKey(accountId, publicKey))) return c.json({ error: "that key is not a full-access key of the wallet account" }, 403);
     if (m[1] === "link") {
       const handle = seller(c);
       if (!handle) return c.json({ error: "sign in to your store first" }, 401);
+      const previous = await d.content.getSetting<string>(`walletOf:${handle}`);
+      if (previous && previous !== accountId) await d.content.setSetting(`wallet:${previous}`, null); // re-link revokes the old one
       await d.content.setSetting(`wallet:${accountId}`, handle);
       await d.content.setSetting(`walletOf:${handle}`, accountId);
       return c.json({ linked: accountId, handle });
@@ -131,13 +136,17 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     // made once and kept next to the media.
     const w = Number(c.req.query("w"));
     if ([320, 640, 1024].includes(w) && m[3] !== "mp4") {
-      const thumb = join(d.mediaDir, ".thumbs", `${key}.${w}.webp`);
+      // The source's mtime is part of the key: a replaced item photo gets a new resized copy.
+      const st = await stat(join(d.mediaDir, key)).catch(() => null);
+      if (!st) return c.notFound();
+      const thumb = join(d.mediaDir, ".thumbs", `${key}.${Math.floor(st.mtimeMs)}.${w}.webp`);
       let out: Uint8Array | null = await readFile(thumb).catch(() => null);
       if (!out) {
         const src = await readFile(join(d.mediaDir, key)).catch(() => null);
         if (!src) return c.notFound();
         out = new Uint8Array(await sharp(src).rotate().resize(w, w * 2, { fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toBuffer());
-        await mkdir(join(thumb, ".."), { recursive: true }); await writeFile(thumb, out);
+        await mkdir(join(thumb, ".."), { recursive: true });
+        const tmp = `${thumb}.${randomUUID()}.tmp`; await writeFile(tmp, out); await rename(tmp, thumb); // never serve half a file
       }
       return c.body(out as Uint8Array<ArrayBuffer>, 200, { "content-type": "image/webp", "cache-control": m[2] === "public" ? "public, max-age=86400" : "private, max-age=3600", "x-content-type-options": "nosniff" });
     }
@@ -254,11 +263,15 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     if (!["ready", "scheduled", "published"].includes(p.status) || !(p.imageMediaId ?? p.sourceMediaId)) return c.json({ error: "the post needs a picture first" }, 409);
     const v = ((p.idea ?? {}) as { video?: { status?: string; startedAt?: number } }).video;
     // A video still "in progress" after 15 min was cut off (e.g. a worker restart): it may be started again.
-    if (v && ["writing", "rendering"].includes(v.status ?? "") && now() - (v.startedAt ?? 0) < 15 * 60_000) return c.json({ status: v.status }, 202);
+    const inProgress = v && ["writing", "rendering"].includes(v.status ?? "");
+    if (inProgress && now() - (v!.startedAt ?? now()) < 15 * 60_000) return c.json({ status: v!.status }, 202);
     try { await d.content.reserve(handle, 0, 3, (await d.content.getBusiness(handle))?.plan ?? "free"); }
     catch (e) { if (e instanceof QuotaExceeded) return c.json({ error: e.message, code: "quota_exceeded" }, 402); throw e; }
-    await d.content.updatePost(p.id, { idea: { ...(p.idea as object), video: { status: "writing", startedAt: now() } } });
-    await d.enqueue("make_video", { postId: p.id }, `video:${p.id}:${now()}`);
+    // Restarting a cut-off video: the old run is superseded (it stops writing) and its credits come back.
+    if (inProgress) await d.content.refund(handle, 0, 3);
+    const runId = randomUUID();
+    await d.content.updatePost(p.id, { idea: { ...(p.idea as object), video: { status: "writing", startedAt: now(), runId } } });
+    await d.enqueue("make_video", { postId: p.id, runId }, `video:${p.id}:${runId}`);
     return c.json({ status: "writing" }, 202);
   }));
   // Caption chips: AI rewrites the caption shorter / playful / bolder (not after publishing — the proof is bound to it).
@@ -268,8 +281,9 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     const style = String((await json(c)).style ?? "");
     if (!["shorter", "playful", "bolder"].includes(style)) return c.json({ error: "style: shorter, playful or bolder" }, 400);
     if (!["ready", "scheduled"].includes(p.status)) return c.json({ error: "a published post can't be rewritten" }, 409);
+    if ((p.idea as { rewrite?: { status?: string } }).rewrite?.status === "writing") return c.json({ status: "writing" }, 202); // one at a time
     await d.content.updatePost(p.id, { idea: { ...(p.idea as object), rewrite: { status: "writing", style } } });
-    await d.enqueue("rewrite_caption", { postId: p.id, style }, `rewrite:${p.id}:${now()}`);
+    await d.enqueue("rewrite_caption", { postId: p.id, style }, `rewrite:${p.id}`);
     return c.json({ status: "writing" }, 202);
   }));
   app.post("/api/app/posts/:id/schedule", (c) => authed(c, async (handle) => {

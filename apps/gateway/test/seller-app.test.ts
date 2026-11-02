@@ -27,6 +27,7 @@ function fakeContent() {
     addSignal: async (h, postId, kind) => { db.signals.push({ h, postId, kind }); },
     getSetting: async (k: string) => db.settings.get(k) ?? null,
     setSetting: async (k: string, v: unknown) => { db.settings.set(k, v); },
+    refund: async (_h: string, _p: number, images: number) => { db.quota += images; },
     reserve: async (_h, _p, images) => { if (images > db.quota) throw new QuotaExceeded("images", 12); db.quota -= images; },
   };
   return { c: c as SellerContent, db };
@@ -240,7 +241,8 @@ describe("seller API", () => {
     expect(r.headers.get("content-type")).toBe("image/webp");
     const meta = await sharp(Buffer.from(await r.arrayBuffer())).metadata();
     expect([meta.width, meta.height]).toEqual([320, 400]);
-    expect(existsSync(join(mediaDir, ".thumbs", "nova/gen/p1.png.320.webp"))).toBe(true);
+    const { readdirSync } = await import("node:fs");
+    expect(readdirSync(join(mediaDir, ".thumbs", "nova/gen")).some((f) => /^p1\.png\.\d+\.320\.webp$/.test(f))).toBe(true); // keyed by the source's mtime
     expect((await app.request("http://x/files/nova/gen/p1.png?w=320")).status).toBe(403);   // still private
     expect((await app.request("http://x/files/nova/gen/p1.png?w=999", { headers: { cookie } })).headers.get("content-type")).toBe("image/png");
   });
@@ -259,7 +261,31 @@ describe("seller API", () => {
     const at = 1_790_000_000_000;
     const { app, cookie, db, jobs } = setup([], true, at);
     db.posts.push({ id: "s0", handle: "nova", status: "ready", imageMediaId: "m1", idea: { video: { status: "rendering", startedAt: at - 16 * 60_000 } } });
+    const before = db.quota;
     expect((await app.request("http://x/api/app/posts/s0/video", post({}, cookie))).status).toBe(202);
     expect(jobs.filter((j) => j.task === "make_video")).toHaveLength(1);
+    expect(db.quota).toBe(before);                                   // new run charged, cut-off run refunded
+    expect((jobs.at(-1)!.payload as { runId: string }).runId).toBe(db.posts.at(-1).idea.video.runId);
+  });
+
+  it("wallet: JSON only, no future-dated messages, re-linking revokes the old wallet", async () => {
+    const { KeyPair } = await import("near-api-js");
+    const { randomBytes } = await import("node:crypto");
+    const { walletSign } = await import("./wallet-helper.js");
+    const at = 1_790_000_000_000;
+    const w1 = KeyPair.fromRandom("ed25519"), w2 = KeyPair.fromRandom("ed25519");
+    const { app, cookie, db } = setup([w1.getPublicKey().toString(), w2.getPublicKey().toString()], false, at);
+    const body = (kp: any, account: string, purpose: string, ts = at) => {
+      const p = { message: `nearchant:wallet:${purpose}:${ts}`, nonce: randomBytes(32), recipient: "nearchant.com", callbackUrl: null } as any;
+      return { accountId: account, publicKey: kp.getPublicKey().toString(), signature: walletSign(kp, p), message: p.message, nonce: Buffer.from(p.nonce).toString("base64"), recipient: p.recipient, callbackUrl: null };
+    };
+    const form = { method: "POST", headers: { "content-type": "text/plain" }, body: JSON.stringify(body(w1, "a.testnet", "signin")) };
+    expect((await app.request("http://x/api/wallet/verify", form)).status).toBe(415);
+    expect((await app.request("http://x/api/wallet/verify", post(body(w1, "a.testnet", "signin", at + 5 * 60_000)))).status).toBe(401);
+    await app.request("http://x/api/wallet/verify", post(body(w1, "a.testnet", "link"), cookie));
+    await app.request("http://x/api/wallet/verify", post(body(w2, "b.testnet", "link"), cookie));
+    expect(db.settings.get("wallet:a.testnet")).toBeNull();
+    expect((await app.request("http://x/api/wallet/verify", post(body(w1, "a.testnet", "signin")))).status).toBe(404);
+    expect((await app.request("http://x/api/wallet/verify", post(body(w2, "b.testnet", "signin")))).status).toBe(200);
   });
 });

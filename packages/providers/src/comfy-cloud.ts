@@ -46,17 +46,17 @@ export class ComfyCloud {
     const pid = j.prompt_id;
     for (let i = 0; i < 300; i++) {
       await new Promise((res) => setTimeout(res, 2000));
-      const s = await this.fetchFn(`${this.base}/job/${pid}/status`, { headers: this.h() }).then((x) => x.json() as Promise<{ status?: string }>).catch(() => ({} as { status?: string }));
+      const s = await this.fetchFn(`${this.base}/job/${pid}/status`, { headers: this.h(), signal: AbortSignal.timeout(30_000) }).then((x) => x.json() as Promise<{ status?: string }>).catch(() => ({} as { status?: string }));
       if (s.status) onStatus?.(s.status);
       if (!s.status || !["success", "error", "non_retryable_error", "lost", "cancelled"].includes(s.status)) continue;
       if (s.status !== "success") throw new ComfyError(`job ended as ${s.status}`);
       type File = { filename: string; subfolder?: string; type?: string };
-      const job = (await (await this.fetchFn(`${this.base}/jobs/${pid}`, { headers: this.h() })).json()) as { outputs?: Record<string, Record<string, unknown>> };
+      const job = (await (await this.fetchFn(`${this.base}/jobs/${pid}`, { headers: this.h(), signal: AbortSignal.timeout(30_000) })).json()) as { outputs?: Record<string, Record<string, unknown>> };
       // Images, animated WEBP/WEBM and videos are all listed as files under some output key.
       const im = Object.values(job.outputs ?? {}).flatMap((o) => Object.values(o).filter(Array.isArray).flat() as File[]).find((f) => f && typeof f.filename === "string");
       if (!im) throw new ComfyError("job has no picture");
       const q = new URLSearchParams({ filename: im.filename, subfolder: im.subfolder ?? "", type: im.type ?? "output" });
-      const v = await this.fetchFn(`${this.base}/view?${q}`, { headers: this.h(), redirect: "manual" });
+      const v = await this.fetchFn(`${this.base}/view?${q}`, { headers: this.h(), redirect: "manual", signal: AbortSignal.timeout(30_000) });
       const loc = v.headers.get("location");
       if (!loc) throw new ComfyError(`view: HTTP ${v.status}`, v.status);
       const f = await this.fetchFn(loc, { signal: AbortSignal.timeout(120_000) }); // signed link: no key to the storage host

@@ -22,10 +22,11 @@ describe("NEAR AI attestation report check", () => {
     const j = JSON.parse(raw); j.gateway_attestation.signing_address = "ab".repeat(32);
     expect((await checkNearAiReport(JSON.stringify(j), nonce, { tdx: false })).gateway_bound).toBe(false);
   });
-  it("an unreachable verifier is 'unknown', not a failure", async () => {
+  it("an unreachable verifier is 'unknown' — and not ok", async () => {
     const c = await checkNearAiReport(raw, nonce, { fetch: phala("down") });
     expect(c.gateway_tdx_verified).toBeNull();
-    expect(c.ok).toBe(true);
+    expect(c.gateway_bound).toBe(true);
+    expect(c.ok).toBe(false);
   });
   it("reads REPORTDATA from a TDX v4 quote and refuses other data", () => {
     expect(quoteReportData((JSON.parse(raw) as any).gateway_attestation.intel_quote)).toHaveLength(128);
