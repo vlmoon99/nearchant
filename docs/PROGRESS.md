@@ -783,7 +783,7 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   Receive/Withdraw buttons yet (not built), the app keeps its own top bar (the Figma frame shows the browser's).
 - Next: "Connect a NEAR wallet" (Figma onboarding 1).
 
-## 2026-11-02 00:30 UTC — store grid in Safari; onboarding sizes; onboarding polling fix
+## 2026-11-01 22:40 UTC (machine clock) — store grid in Safari; onboarding sizes; onboarding polling fix
 
 - Owner (screenshot, Safari): store "Latest posts" overlapped — a tall video card stretched the row and Safari
   sized the aspect-ratio pictures from that height; badges stretched; "Safe to buy" text overflowed. Fixed:
@@ -798,7 +798,7 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   run: posts ready ~90 s after "make my posts", button enabled, onboarding completed.
 - Seen: Cloudflare injects its Web Analytics beacon, which our CSP blocks (console error only).
 
-## 2026-11-02 01:30 UTC — night: Sparks run LLMs only; "Connect a NEAR wallet"
+## 2026-11-01 23:05 UTC — night: Sparks run LLMs only; "Connect a NEAR wallet"
 
 - **Sparks (owner: pictures + video only on Comfy)**: gx10-8695 — local ComfyUI + image engine stopped (restart=no),
   image service now in Comfy Cloud mode (`COMPOSE_PROFILES=tailnet,tunnel,cloudimage,video`); available memory
@@ -817,7 +817,7 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Not verified: the round trip through MyNearWallet's own UI (needs a person with a wallet). The callback page
   reads the result from the URL hash or query.
 
-## 2026-11-02 01:50 UTC — night: our own check of NEAR AI attestation reports (step 14)
+## 2026-11-01 23:20 UTC — night: our own check of NEAR AI attestation reports (step 14)
 
 - `packages/providers/src/attest-verify.ts` checks each NEAR AI report without trusting NEAR AI: our nonce comes
   back (freshness); the gateway's Intel TDX quote REPORTDATA = NEAR AI's signing key ‖ our nonce; MRCONFIGID carries
@@ -830,7 +830,7 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   down = unknown) — providers 17; live `https://nearchant.com/attestations/24459fc5…f425.check.json` (proof #18).
 - Not done: NVIDIA NRAS (needs a key), Phala deploy (owner account).
 
-## 2026-11-02 02:30 UTC — night: submission docs, walkthrough video, 11× smaller pictures
+## 2026-11-01 23:35 UTC — night: submission docs, walkthrough video, 11× smaller pictures
 
 - README (story, architecture, libraries) and `docs/demo-script.md` (90 s) describe the current product: headline
   pictures, 8-second shorts, the Levanto Sage caption check, the attestation check, Connect a NEAR wallet, two
@@ -842,7 +842,7 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   original; grids, store, landing and onboarding use it. **Verified**: 1.29 MB PNG → 119 KB WebP; tests 38.
   (The first recording showed an empty picture box: the 1.3 MB PNG had not loaded yet.)
 
-## 2026-11-02 03:30 UTC — night: regression green; "Verify a post"; hidden test stores
+## 2026-11-01 23:50 UTC — night: regression green; "Verify a post"; hidden test stores
 
 - **Regression**: journey e2e on nearchant.com (posts 128 s, paid → shipped → Released 64 s, no page errors),
   `make demo` in Docker, CI green on every push tonight; WebKit + desktop onboarding checked earlier.
@@ -854,7 +854,7 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Public pages show only the demo store: setting `showcase_hidden` lists the 13 other test stores (Kyiv/skull era
   and test runs); "Kyiv" no longer appears on nearchant.com's home or verify pages.
 
-## 2026-11-02 04:10 UTC — night: Wallet Receive / Withdraw
+## 2026-11-02 00:05 UTC — night: Wallet Receive / Withdraw
 
 - Wallet page (Figma): **Receive** shows the store account with Copy; **Withdraw** sends nUSD from the store account
   to any NEAR account, signed in the browser with the store key (the server never sees it): checks the account
