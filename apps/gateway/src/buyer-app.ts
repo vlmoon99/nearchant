@@ -163,13 +163,13 @@ export function mountBuyerApp(app: Hono<any>, d: BuyerAppDeps): void {
 
   // ── feed API (infinite scroll; the first page is rendered by /feed) ──
   app.get("/api/feed", async (c) => {
-    const r = await feedFor(d, c.req.query("q") ?? "", buyerId(c), Number(c.req.query("offset") ?? 0) || 0, { city: c.req.query("city"), country: c.req.query("country") });
+    const r = await feedFor(d, c.req.query("q") ?? "", buyerId(c), Number(c.req.query("offset") ?? 0) || 0, { city: c.req.query("city"), country: c.req.query("country"), visitorCountry: process.env.TRUST_PROXY === "cloudflare" ? c.req.header("cf-ipcountry") ?? null : null });
     return c.json(r);
   });
 }
 
 /** Runs a search (or "For you" without a query). Without AI it still works on words. */
-export async function feedFor(d: Pick<BuyerAppDeps, "feed" | "understand">, q: string, buyerId: string | null, offset = 0, place: { city?: string | undefined; country?: string | undefined } = {}): Promise<{ intent: SearchIntent | null; posts: FeedPost[] }> {
+export async function feedFor(d: Pick<BuyerAppDeps, "feed" | "understand">, q: string, buyerId: string | null, offset = 0, place: { city?: string | undefined; country?: string | undefined; visitorCountry?: string | null } = {}): Promise<{ intent: SearchIntent | null; posts: FeedPost[] }> {
   const query = q.trim().slice(0, 200);
   let intent: SearchIntent | null = null;
   if (query) {
@@ -177,6 +177,7 @@ export async function feedFor(d: Pick<BuyerAppDeps, "feed" | "understand">, q: s
     intent ??= { summary: query, terms: query.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1), city: null, country: null, vector: null };
   }
   const city = place.city?.trim() || intent?.city || null, country = place.country?.trim().toUpperCase() || intent?.country || null;
-  const posts = await d.feed.feed({ vector: intent?.vector ?? null, terms: intent?.terms ?? [], city, country, buyerId, offset, limit: 24 });
+  const visitor = /^[A-Z]{2}$/.test(place.visitorCountry ?? "") && place.visitorCountry !== "XX" && place.visitorCountry !== "T1" ? place.visitorCountry! : null;
+  const posts = await d.feed.feed({ vector: intent?.vector ?? null, terms: intent?.terms ?? [], city, country, buyerId, offset, limit: 24, preferCountry: visitor });
   return { intent: intent ? { ...intent, city, country, vector: null } : null, posts };
 }

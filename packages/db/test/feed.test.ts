@@ -50,6 +50,9 @@ describe("FeedStore", () => {
     expect(forYou[0]!.id).toBe(denim);
     expect(forYou[0]!.liked).toBe(true);
 
+    // A visitor from Ukraine sees the Kyiv store that ships worldwide first in the default feed.
+    expect((await f.feed({ preferCountry: "UA" }))[0]!.handle).toBe("gymworld");
+
     // Following: a feed of followed stores, and they rank higher in "For you".
     expect(await f.follow(b.id, "gymla", true)).toBe(1);
     expect(await f.follows(b.id, "gymla")).toBe(true);

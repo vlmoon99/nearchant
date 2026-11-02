@@ -97,14 +97,14 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
   app.get("/feed", async (c) => {
     if (!d.feedStore) return c.notFound();
     const { q, city, offset } = feedQuery(c), buyer = d.buyerKey ? readSession(d.buyerKey, getCookie(c, "nc_buyer")) : null;
-    const r = await feedFor({ feed: d.feedStore, ...(d.understand ? { understand: d.understand } : {}) }, q, buyer, offset, { city });
+    const r = await feedFor({ feed: d.feedStore, ...(d.understand ? { understand: d.understand } : {}) }, q, buyer, offset, { city, visitorCountry: process.env.TRUST_PROXY === "cloudflare" ? c.req.header("cf-ipcountry") ?? null : null });
     return c.html(<ExplorePage cfg={d.cfg} test={d.test} q={q} city={city} summary={r.intent?.summary ?? null} posts={tilesOf(r.posts)} next={nextOf(q, city, offset, r.posts.length)}
       suggestions={d.suggestions ? await d.suggestions().catch(() => []) : []} forYou={!!buyer} />);
   });
   app.get("/feed/more", async (c) => {
     if (!d.feedStore) return c.notFound();
     const { q, city, offset } = feedQuery(c), buyer = d.buyerKey ? readSession(d.buyerKey, getCookie(c, "nc_buyer")) : null;
-    const r = await feedFor({ feed: d.feedStore, ...(d.understand ? { understand: d.understand } : {}) }, q, buyer, offset, { city });
+    const r = await feedFor({ feed: d.feedStore, ...(d.understand ? { understand: d.understand } : {}) }, q, buyer, offset, { city, visitorCountry: process.env.TRUST_PROXY === "cloudflare" ? c.req.header("cf-ipcountry") ?? null : null });
     return c.html(<FeedTiles posts={tilesOf(r.posts)} next={nextOf(q, city, offset, r.posts.length)} />);
   });
   app.get("/feed/liked", async (c) => {

@@ -24,6 +24,8 @@ export interface FeedQuery {
   onlyLiked?: boolean;
   /** Only posts of stores this buyer follows (the "Following" feed). */
   onlyFollowing?: boolean;
+  /** The visitor's country (from the CDN): a soft boost for stores there or shipping worldwide, never a filter. */
+  preferCountry?: string | null;
   /** Leave these posts out (e.g. the post a "More like this" list belongs to). */
   exclude?: string[];
   limit?: number;
@@ -166,10 +168,12 @@ export class FeedStore {
       // A named place: the store's own city ranks first; stores that never said where they are come last.
       const regionBoost = (city && String(r.city ?? "").toLowerCase() === city ? 0.08 : 0) - (country && !r.country ? 0.2 : 0);
       const followBoost = r.followed ? 0.25 : 0;
+      const pc = q.preferCountry?.toUpperCase();
+      const nearBoost = pc && !country && (r.country === pc || r.ships === "world") ? 0.12 : 0;
       const relevant = q.onlyLiked || q.onlyFollowing || (!qv && !tsq) ? true : sem >= 0.45 || txt > 0;
       const why = !country ? null : city && String(r.city ?? "").toLowerCase() === city ? `In ${r.city}` : r.ships === "world" ? "Ships worldwide"
         : r.country === country && r.ships === "country" ? `Ships across ${country}` : r.country === country ? `In ${r.city ?? country}` : !r.country ? "Location not set" : null;
-      const score = qv || tsq ? sem * 1 + Math.min(txt, 0.5) * 0.8 + regionBoost + pop * 0.15 + fresh * 0.05 : (q.buyerId ? fy * 0.6 : 0) + pop * 0.3 + fresh * 0.4 + regionBoost + followBoost;
+      const score = qv || tsq ? sem * 1 + Math.min(txt, 0.5) * 0.8 + regionBoost + nearBoost / 2 + pop * 0.15 + fresh * 0.05 : (q.buyerId ? fy * 0.6 : 0) + pop * 0.3 + fresh * 0.4 + regionBoost + followBoost + nearBoost;
       return { relevant, post: { id: String(r.id), handle: String(r.handle), caption: String(r.caption), publicImage: String(r.public_image), publicVideo: (r.public_video as string) ?? null,
         proofId: (r.proof_id as string) ?? null, itemId: (r.item_id as string) ?? null, storeName: String(r.store_name), city: (r.city as string) ?? null, country: (r.country as string) ?? null,
         ships: (r.ships as string) ?? null, likes, liked: !!r.liked, score: Math.round(score * 1000) / 1000, publishedAt: new Date(r.published_at as string), why } satisfies FeedPost };
