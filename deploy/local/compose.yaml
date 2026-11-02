@@ -18,6 +18,7 @@ x-app: &app
     IMAGE_API_KEY: ${IMAGE_API_KEY:-}
     COMFY_API_KEY: ${COMFY_API_KEY:-}
     RESEND_API_KEY: ${RESEND_API_KEY:-}     # email sign-in + order notices (ADR 0021)
+    ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}     # admin panel on the tailnet (ADR 0022)
     REPLAY_DIR: ${REPLAY_DIR:-}
     PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8787}
     TRUST_PROXY: ${TRUST_PROXY:-}
@@ -113,6 +114,13 @@ services:
     image: alpine/socat@sha256:beb4a68d9e4fe6b0f21ea774a0fde6c31f580dde6368939ed70100c5385b015e
     network_mode: host
     command: ["TCP-LISTEN:8787,bind=${TAILNET_IP:-127.0.0.2},fork,reuseaddr", "TCP:127.0.0.1:8787"]
+    profiles: [tailnet]
+    restart: unless-stopped
+
+  admin-tailnet: # admin panel (moderation + image lab, ADR 0022) on the tailnet IP — never through the tunnel
+    image: alpine/socat@sha256:beb4a68d9e4fe6b0f21ea774a0fde6c31f580dde6368939ed70100c5385b015e
+    network_mode: host
+    command: ["TCP-LISTEN:8790,bind=${TAILNET_IP:-127.0.0.2},fork,reuseaddr", "TCP:127.0.0.1:8790"]
     profiles: [tailnet]
     restart: unless-stopped
 

@@ -109,7 +109,7 @@ export const WalletPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; ba
   </Page>
 );
 
-export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; b: { name: string; kind: string; description: string; links: string[] }; tone: string; colors: string[]; wishes: string; usage: { posts: number; limit: number }; wallet?: string | null; plan: string; created: string; telegramBot?: string | null; email?: string | null; emailOn?: boolean }> = ({ cfg, test, store, b, tone, colors, wishes, usage, wallet, plan, created, telegramBot, email, emailOn }) => (
+export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; b: { name: string; kind: string; description: string; links: string[]; city?: string | null; country?: string | null; ships?: string | null; placeBy?: string | null }; tone: string; colors: string[]; wishes: string; usage: { posts: number; limit: number }; wallet?: string | null; plan: string; created: string; telegramBot?: string | null; email?: string | null; emailOn?: boolean }> = ({ cfg, test, store, b, tone, colors, wishes, usage, wallet, plan, created, telegramBot, email, emailOn }) => (
   <Page cfg={cfg} test={test} title="Settings" active="Settings" store={store}>
     <PageHead kicker={store.name} title="Settings" />
     <div class="cols">
@@ -119,6 +119,13 @@ export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
           <label class="field">What you sell<textarea class="input" name="description" maxlength={600}>{b.description}</textarea></label>
           <label class="field">Link<input class="input" name="link" value={b.links[0] ?? ""} /></label>
           <input type="hidden" name="kind" value={b.kind} />
+          <button class="btn" type="submit">Save</button><output class="foot"></output>
+        </form>
+        <form class="card" id="settings-place"><span class="headline">Where you sell</span>
+          <span class="foot muted">Buyers who search the shop feed for your city — or for places you ship to — find your posts.{b.placeBy === "ai" ? " AI filled this in from your description; check it." : ""}</span>
+          <div class="row" style="gap:10px;flex-wrap:wrap"><label class="field" style="flex:2 1 160px">City<input class="input" name="city" value={b.city ?? ""} maxlength={60} placeholder="New York" /></label>
+            <label class="field" style="flex:1 1 90px">Country<input class="input" name="country" value={b.country ?? ""} maxlength={2} placeholder="US" style="text-transform:uppercase" /></label></div>
+          <label class="field">You deliver<select class="input" name="ships">{[["", "—"], ["local", "In my city only"], ["country", "Across my country"], ["world", "Worldwide"]].map(([v, l]) => <option value={v} selected={(b.ships ?? "") === v}>{l}</option>)}</select></label>
           <button class="btn" type="submit">Save</button><output class="foot"></output>
         </form>
         <form class="card" id="settings-brand"><span class="headline">Brand — AI writes like you</span>

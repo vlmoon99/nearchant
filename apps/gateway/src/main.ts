@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { Hono } from "hono";
 // Gateway entry. env: DATABASE_URL (else in-memory), NEAR_RELAYER_KEY (buyer sponsorship), MEDIA_DIR, PUBLIC_URL, PORT.
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -15,6 +16,7 @@ import { loadAgentEnv, makeAsker, planSearch, type AgentEnv } from "@nearchant/s
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
 import { createApp } from "./app.js";
 import { mountSellerApp } from "./seller-app.js";
+import { mountModeration } from "./admin/moderation.js";
 import { mountBuyerApp, type SearchIntent } from "./buyer-app.js";
 import { emailHtml, resendMailer } from "./email.js";
 import { LandingPage } from "./ui/landing.js";
@@ -404,7 +406,12 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
 if (conn && process.env.ADMIN_PORT) {
   const lab = parse(readFileSync(join(configDir, "image-lab.yaml"), "utf8")) as { variants: LabVariant[] };
   const workflows = Object.fromEntries([...new Set(lab.variants.map((v) => v.workflow))].map((f) => [f, JSON.parse(readFileSync(join(configDir, "image-lab", f), "utf8"))]));
-  const admin = labApp({ db: conn.db, comfy: process.env.COMFY_API_KEY ? new ComfyCloud(process.env.COMFY_API_KEY) : null, variants: lab.variants, workflows, mediaDir });
+  // Moderation (ADR 0022) + its login guard every admin page, the image lab included.
+  const admin = new Hono();
+  if (!process.env.ADMIN_PASSWORD) console.warn("[admin] ADMIN_PASSWORD is not set — nobody can sign in to the admin panel");
+  mountModeration(admin, { feed: feedStore!, content: new ContentStore(conn.db), mediaDir, password: process.env.ADMIN_PASSWORD ?? "", accountOf: (h) => `${h}.${accounts.root}`,
+    key: createHash("sha256").update(`nearchant-admin:${process.env.NEARCHANT_SECRET_KEY ?? "dev"}`).digest() });
+  admin.route("/", labApp({ db: conn.db, comfy: process.env.COMFY_API_KEY ? new ComfyCloud(process.env.COMFY_API_KEY) : null, variants: lab.variants, workflows, mediaDir }));
   serve({ fetch: admin.fetch, hostname: "0.0.0.0", port: Number(process.env.ADMIN_PORT) }, (i) => console.info(`[admin] image lab on :${i.port} (publish on the tailnet only)`));
 }
 

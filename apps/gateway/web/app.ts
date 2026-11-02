@@ -284,6 +284,10 @@ function sellerApp() {
     e.preventDefault(); const f = e.target as HTMLFormElement; const v = (n: string) => (f.elements.namedItem(n) as HTMLInputElement).value.trim();
     try { await api("/api/app/business", { name: v("name"), kind: v("kind"), description: v("description"), links: v("link") ? [v("link")] : [] }); f.querySelector("output")!.textContent = "Saved ✓"; } catch (err) { f.querySelector("output")!.textContent = (err as Error).message; }
   });
+  document.querySelector<HTMLFormElement>("#settings-place")?.addEventListener("submit", async (e) => {
+    e.preventDefault(); const f = e.target as HTMLFormElement; const v = (n: string) => (f.elements.namedItem(n) as HTMLInputElement).value.trim();
+    try { await api("/api/app/place", { city: v("city"), country: v("country"), ships: v("ships") }); f.querySelector("output")!.textContent = "Saved ✓ — shoppers searching there will find you"; } catch (err) { f.querySelector("output")!.textContent = (err as Error).message; }
+  });
   document.querySelector<HTMLFormElement>("#settings-brand")?.addEventListener("submit", async (e) => {
     e.preventDefault(); const f = e.target as HTMLFormElement;
     try { await api("/api/app/profile/wishes", { wishes: (f.elements.namedItem("wishes") as HTMLTextAreaElement).value }); f.querySelector("output")!.textContent = "Saved ✓ — the next posts follow it"; } catch (err) { f.querySelector("output")!.textContent = (err as Error).message; }

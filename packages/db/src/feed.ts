@@ -112,7 +112,7 @@ export class FeedStore {
     const semantic = qv ? sql`greatest(coalesce(1 - (pv.embedding <=> ${qv}), 0), coalesce(1 - (iv.embedding <=> ${qv}), 0), coalesce((1 - (sv.embedding <=> ${qv})) * 0.9, 0))` : sql`0`;
     const text = tsq ? sql`ts_rank(${doc}, ${tsq})` : sql`0`;
     const region = country
-      ? sql`(b.ships = 'world' or (b.country = ${country} and (b.ships = 'country' or ${city}::text is null or lower(b.city) = ${city})))`
+      ? sql`(b.ships = 'world' or b.country is null or (b.country = ${country} and (b.ships = 'country' or b.ships is null or ${city}::text is null or lower(b.city) = ${city})))`
       : sql`true`;
     const rows = (await this.db.execute(sql`
       with me as (select ${buyerVec} as v)
@@ -137,7 +137,8 @@ export class FeedStore {
       const sem = Number(r.sem), txt = Number(r.txt), fy = Number(r.fy), likes = Number(r.likes);
       const ageDays = (now - new Date(r.published_at as string).getTime()) / 86_400_000;
       const fresh = Math.exp(-ageDays / 14), pop = Math.log1p(likes) / 4;
-      const regionBoost = city && String(r.city ?? "").toLowerCase() === city ? 0.08 : 0;
+      // A named place: the store's own city ranks first; stores that never said where they are come last.
+      const regionBoost = (city && String(r.city ?? "").toLowerCase() === city ? 0.08 : 0) - (country && !r.country ? 0.2 : 0);
       const relevant = !qv && !tsq ? true : sem >= 0.45 || txt > 0;
       const score = qv || tsq ? sem * 1 + Math.min(txt, 0.5) * 0.8 + regionBoost + pop * 0.15 + fresh * 0.05 : (q.buyerId ? fy * 0.6 : 0) + pop * 0.3 + fresh * 0.4 + regionBoost;
       return { relevant, post: { id: String(r.id), handle: String(r.handle), caption: String(r.caption), publicImage: String(r.public_image), publicVideo: (r.public_video as string) ?? null,

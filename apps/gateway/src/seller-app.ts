@@ -18,7 +18,7 @@ import { verifyNep413 } from "./nep413.js";
 export type SellerContent = Pick<ContentStore,
   "upsertBusiness" | "getBusiness" | "completeOnboarding" | "getProfile" | "setProfile" | "addMedia" | "listMedia" | "getMedia" |
   "upsertItem" | "listItems" | "getItem" | "listOpportunities" | "chooseOpportunities" | "createPosts" | "listPosts" | "getPost" | "updatePost" |
-  "choosePosts" | "addSignal" | "usage" | "setSetting" | "getSetting" | "reserve" | "refund">;
+  "choosePosts" | "addSignal" | "usage" | "setSetting" | "getSetting" | "reserve" | "refund" | "setPlace">;
 
 export interface SellerAppDeps {
   content: SellerContent;
@@ -250,6 +250,17 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     if (!["products", "services", "both"].includes(kind)) return c.json({ error: "kind: products, services or both" }, 400);
     if (description.length > 600 || links.some((l) => l.length > 200)) return c.json({ error: "description up to 600 characters, links up to 200" }, 400);
     await d.content.upsertBusiness({ handle, name, kind, description, links, language: String(b.language ?? "en").slice(0, 5) });
+    return c.json({ ok: true });
+  }));
+
+  // Where the store is and ships (ADR 0022, shop feed region). The owner's choice is final; the AI never overwrites it.
+  app.post("/api/app/place", (c) => authed(c, async (handle) => {
+    const b = await json(c);
+    const city = String(b.city ?? "").trim().slice(0, 60) || null, country = String(b.country ?? "").trim().toUpperCase() || null, ships = String(b.ships ?? "") || null;
+    if (country && !/^[A-Z]{2}$/.test(country)) return c.json({ error: "country: a two-letter code, e.g. US" }, 400);
+    if (ships && !["local", "country", "world"].includes(ships)) return c.json({ error: "ships: local, country or world" }, 400);
+    await d.content.setPlace(handle, { city, country, ships, by: "owner" });
+    await d.enqueue("index_store", { handle }, `index-store:${handle}`).catch(() => {});
     return c.json({ ok: true });
   }));
 

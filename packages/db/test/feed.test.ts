@@ -33,6 +33,10 @@ describe("FeedStore", () => {
     expect(ny.map((p) => p.id)).not.toContain(wheyLA);     // local store in another city
     expect(ny.map((p) => p.id)).not.toContain(denim);      // not relevant
     expect(ny[0]!.id).toBe(whey);                          // same city ranks first
+    // A store with no place shows up too, after the ones that are there.
+    const nowhere = await store(c, f, "gymnowhere", "Gym Nowhere", {}, "Whey protein", 1);
+    const ny2 = (await f.feed({ vector: v(1), terms: ["protein"], country: "US", city: "New York" })).map((p) => p.id);
+    expect(ny2.indexOf(nowhere)).toBeGreaterThan(ny2.indexOf(whey));
 
     // Words alone (no embedding available) still find it.
     expect((await f.feed({ terms: ["denim"] })).map((p) => p.id)).toEqual([denim]);
