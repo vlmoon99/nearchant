@@ -867,6 +867,18 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - Seen: `InvalidNonceError` on the relayer while a test script signed with the same key from the Mac; the chain
   client's retry (fresh nonce, 4 tries) covers normal traffic.
 
+## 2026-11-02 00:35 UTC — night: post page per Figma (Post ready / Post proof); caption chips
+
+- Post page: status title ("Your post is ready" / "Scheduled" / "Posted") + "‹ Posts"; on phones the picture is at
+  most half the screen tall, the video is 260 px wide; proof card adds **Share proof link** (the `/verify/<n>` page,
+  native share sheet on phones). **Verified** in Chrome at 393 px (picture 353×392, no errors).
+- **Caption chips** Shorter / Playful / Bolder (Figma "Shorter · Playful · Ukrainian", English-only now): role
+  `caption-editor` (Qwen3.8 seat, no reasoning) rewrites keeping every fact, adding no offer; the new caption is
+  re-checked by Levanto Sage; published posts can't be rewritten (their proof is bound to the caption).
+  **Verified** live: a 160-character caption → "We test how these SoHo pieces layer so they last. A simple wardrobe
+  that covers many days. See how they fit together." (check 0.02). Tests: gateway 43, swarm 36.
+- Fixed tonight's PROGRESS times to the machine clock (earlier entries were estimates, ~2 h ahead).
+
 ### Owner actions
 - Try "Connect a NEAR wallet": Settings → NEAR wallet in your store (testnet MyNearWallet account), then sign in
   with it from another browser. Tell me if MyNearWallet shows an error.
