@@ -42,7 +42,7 @@ const Heat: FC<{ heat: number[][] }> = ({ heat }) => {
   </div>);
 };
 
-export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; range: number; totals: { views: number; sales: number; revenue: string; posts: number; proofs: number }; days: DayRow[]; sources: [string, number][]; insights: Insights | null; topPosts?: TopPost[]; heat?: number[][] }> = ({ cfg, test, store, range, totals, topPosts = [], heat, days, sources, insights }) => (
+export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; range: number; totals: { views: number; sales: number; revenue: string; posts: number; proofs: number; likes?: number; followers?: number }; days: DayRow[]; sources: [string, number][]; insights: Insights | null; topPosts?: TopPost[]; heat?: number[][] }> = ({ cfg, test, store, range, totals, topPosts = [], heat, days, sources, insights }) => (
   <Page cfg={cfg} test={test} title="Analytics" active="Analytics" store={store}>
     <PageHead kicker={`Last ${range} days`} title="Analytics">
       {[7, 30, 90].map((r) => <a class={`chip ${r === range ? "on" : ""}`} href={`/app/analytics?d=${r}`}>{r} days</a>)}
@@ -50,7 +50,7 @@ export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView;
     <div class="grid4">
       <Stat label="Store views" value={String(totals.views)} />
       <Stat label="Sales" value={totals.revenue} delta={`${totals.sales} order${totals.sales === 1 ? "" : "s"}`} />
-      <Stat label="Posts published" value={String(totals.posts)} />
+      <Stat label="Posts published" value={String(totals.posts)} delta={totals.likes || totals.followers ? `♥ ${totals.likes ?? 0} · ${totals.followers ?? 0} follower${totals.followers === 1 ? "" : "s"}` : undefined} />
       <Stat label="Proofs on NEAR" value={String(totals.proofs)} delta={totals.proofs ? "all verified" : undefined} />
     </div>
     <div class="cols">

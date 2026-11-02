@@ -210,7 +210,7 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
       when: p.publishedAt!.toLocaleDateString("en-US", { month: "short", day: "numeric" }), views: pv.get(p.id) ?? 0, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null, likes: likeMap.get(p.id) ?? 0, removed: p.removedReason }))
       .sort((a, b) => b.views + b.likes * 3 - (a.views + a.likes * 3)).slice(0, 5);
     return c.html(<AnalyticsPage cfg={d.cfg} test={d.test} store={s} range={range} days={days} sources={sources} insights={insights} topPosts={topPosts} heat={heat}
-      totals={{ views: events.filter((e) => e.kind === "view").reduce((a, e) => a + e.n, 0), sales: sales.count, revenue: fmtU(sales.units), posts: published.length, proofs: published.filter((p) => p.proof).length }} />);
+      totals={{ views: events.filter((e) => e.kind === "view").reduce((a, e) => a + e.n, 0), sales: sales.count, revenue: fmtU(sales.units), posts: published.length, proofs: published.filter((p) => p.proof).length, likes: [...likeMap.values()].reduce((a, n) => a + n, 0), followers: d.feedStore ? await d.feedStore.followers(s.handle) : 0 }} />);
   }));
 
   app.get("/app/wallet", (c) => withStore(c, async (s) => {
