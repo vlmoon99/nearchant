@@ -92,12 +92,17 @@ export function marketQueries(p: StyleProfile, place = ""): string[] {
 }
 
 /** Opportunities from the profile, items and web results; drops anything without evidence. */
-export async function findOpportunities(ask: Asker, p: StyleProfile, items: { title: string; price: string }[], search?: (q: string) => Promise<SearchResult[]>, place = ""): Promise<{ opportunities: OpportunityDraft[]; searched: number }> {
+/** What shoppers searched in the Nearchant shop feed (ADR 0022): real marketplace demand, anonymous. */
+export interface ShopperDemand { goods: string; searches: number; empty: number }
+export const DEMAND_SOURCE = "nearchant:searches";
+
+export async function findOpportunities(ask: Asker, p: StyleProfile, items: { title: string; price: string }[], search?: (q: string) => Promise<SearchResult[]>, place = "", demand: ShopperDemand[] = []): Promise<{ opportunities: OpportunityDraft[]; searched: number }> {
   const results: SearchResult[] = [];
   if (search) for (const q of marketQueries(p, place)) results.push(...(await search(q).catch(() => [])).slice(0, 5));
   const raw = await ask<{ opportunities?: unknown[] }>("opportunity-analyst", [
     block("profile", p), block("items", items.length ? items : "no prices yet"), results.length ? block("search_results", results.slice(0, 12)) : "No web results available: base trends only on the profile and say so.",
-  ].join("\n\n"));
+    demand.length ? `${block("shopper_searches", demand)}\nThese are real searches by shoppers on Nearchant in the store's country (last 30 days; "empty" = searches that found no store). A trend may rest on them: then set "source" to "${DEMAND_SOURCE}" and name the search and its count in "why".` : "",
+  ].filter(Boolean).join("\n\n"));
   const urls = new Set(results.map((r) => r.url));
   const seen = new Set<string>();
   const opportunities = (raw.opportunities ?? []).map((o) => (o ?? {}) as Record<string, unknown>).map((o): OpportunityDraft => ({
@@ -109,7 +114,7 @@ export async function findOpportunities(ask: Asker, p: StyleProfile, items: { ti
   })).filter((o) => {
     if (!o.title || !o.why || seen.has(o.kind)) return false;
     // A trend must rest on a real search result; a price claim needs the store's own prices.
-    if (o.kind === "trend" && !urls.has(o.source)) return false;
+    if (o.kind === "trend" && !urls.has(o.source) && !(o.source === DEMAND_SOURCE && demand.length)) return false;
     if (o.kind === "price" && !items.length) return false;
     seen.add(o.kind);
     return true;

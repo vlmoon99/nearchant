@@ -235,6 +235,7 @@ const contentTasks = makeContentTasks({
     try { const v = await withTimeout(market.moderate(postId), 120_000); return !!v && (await contentStore.getPost(postId))?.removedAt != null; }
     catch (e) { await workerUtils.addJob("moderate_post", { postId }, { jobKey: `moderate:${postId}`, maxAttempts: 5, runAt: new Date(Date.now() + 60_000) }); throw e; }
   },
+  demand: async (handle) => feedStore.demand({ days: 30, country: (await contentStore.getBusiness(handle))?.country ?? null, limit: 12 }),
   afterPublish: async (postId) => { await workerUtils.addJob("index_post", { postId }, { jobKey: `index:${postId}`, maxAttempts: 5 }); },
   fontsDir: process.env.FONTS_DIR ?? join(root, "assets/fonts"),
   ...(labRender ? { labRender } : {}),

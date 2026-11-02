@@ -9,7 +9,7 @@ import type { ResultEnvelope } from "@nearchant/contracts";
 import { assSubtitles, compose, pickAccent, totalSeconds } from "./video-compose.js";
 import type { Tts } from "./tts.js";
 import { NO_TEXT, applyHeadline, headlineAss } from "./image-text.js";
-import { block, rewriteCaption, type CaptionStyle, checkCaption, type CaptionCheck, writeVideoScript, analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type StyleProfile } from "@nearchant/swarm";
+import { block, rewriteCaption, type CaptionStyle, checkCaption, type CaptionCheck, writeVideoScript, analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type ShopperDemand, type StyleProfile } from "@nearchant/swarm";
 
 export interface ContentTaskDeps {
   content: ContentStore;
@@ -30,6 +30,8 @@ export interface ContentTaskDeps {
   fontsDir?: string;
   /** Moderation before a post goes public (ADR 0022): true = the moderator removed it. Errors never block publishing. */
   moderateBeforePublish?: (postId: string) => Promise<boolean>;
+  /** Shop-feed demand in the store's country (ADR 0022) for the opportunity analyst. */
+  demand?: (handle: string) => Promise<ShopperDemand[]>;
   /** After publishing: search vectors etc. */
   afterPublish?: (postId: string) => Promise<void>;
   /** Side effects sent once per key (chain calls). */
@@ -104,13 +106,14 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     if (!profile?.products) throw new Error(`no profile for ${handle}`);
     const items = (await d.content.listItems(handle)).map((i) => ({ title: i.title, price: `${Number(i.priceUnits) / 10 ** d.decimals} USD` }));
     try {
-      const { opportunities, searched } = await findOpportunities(askFor(handle, "opportunities"), profile, items, d.search);
+      const demand = d.demand ? await d.demand(handle).catch(() => []) : [];
+      const { opportunities, searched } = await findOpportunities(askFor(handle, "opportunities"), profile, items, d.search, "", demand);
       await d.content.replaceOpportunities(handle, opportunities.map((o) => ({
         kind: o.kind, title: o.title, why: o.why, estimateUnits: String(BigInt(o.estimate_usd_month) * 10n ** BigInt(d.decimals)),
         data: { action: o.action, confidence: o.confidence, source: o.source },
       })));
       await d.content.setProfile(handle, { status: "ready" });
-      d.log(`opportunities ${handle}: ${opportunities.length} (from ${searched} web results)`);
+      d.log(`opportunities ${handle}: ${opportunities.length} (from ${searched} web results, ${demand.length} shopper searches)`);
     } catch (e) {
       // The profile is still useful without opportunities: the owner can go on and make posts.
       await d.content.setProfile(handle, { status: "ready", error: `opportunities: ${(e as Error).message.slice(0, 200)}` });

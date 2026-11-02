@@ -8,7 +8,7 @@ month. Return ONLY a JSON object:
   "action": "the one thing to do, e.g. 'Post the 3 linen items on Friday evening'",
   "estimate_usd_month": 120,
   "confidence": "low | medium | high",
-  "source": "url of the search result it is based on, or 'profile'"
+  "source": "url of the search result it is based on, 'nearchant:searches' when it rests on shopper_searches, or 'profile'"
 }]}
 Give 3 or 4 opportunities, at most one of each kind. "trend": something buyers search for or talk about now that
 matches the store's products (only from the search results). "price": only if items have prices — whether a price
