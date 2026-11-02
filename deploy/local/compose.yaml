@@ -22,6 +22,7 @@ x-app: &app
     TRUST_PROXY: ${TRUST_PROXY:-}
     TTS_URL: ${TTS_URL:-}
     TTS_API_KEY: ${TTS_API_KEY:-}
+    FENCE_URL: ${FENCE_URL:-}             # standby fence (ADR 0020): wait while the Mac standby is primary
   volumes: ["media:/app/.media"]
   depends_on: { db: { condition: service_healthy } }
 
@@ -112,6 +113,13 @@ services:
     network_mode: host
     command: ["TCP-LISTEN:8787,bind=${TAILNET_IP:-127.0.0.2},fork,reuseaddr", "TCP:127.0.0.1:8787"]
     profiles: [tailnet]
+    restart: unless-stopped
+
+  db-tailnet: # standby replication (ADR 0020): the database on the tailnet IP, for the standby's address only
+    image: alpine/socat@sha256:beb4a68d9e4fe6b0f21ea774a0fde6c31f580dde6368939ed70100c5385b015e
+    network_mode: host
+    command: ["TCP-LISTEN:55432,bind=${TAILNET_IP:-127.0.0.2},fork,reuseaddr,range=${STANDBY_IP:-127.0.0.1}/32", "TCP:127.0.0.1:55432"]
+    profiles: [standby]
     restart: unless-stopped
 
   tunnel:     # optional: public reach without opening ports (ADR 0008). `docker compose --profile tunnel up`

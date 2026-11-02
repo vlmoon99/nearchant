@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { makeWorkerUtils, type WorkerUtils } from "graphile-worker";
 import { parse } from "yaml";
-import { Artifacts, ContentStore, PLAN_LIMITS, Envelopes, Outbox, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, type Connection, type Service, type Store } from "@nearchant/db";
+import { Artifacts, ContentStore, PLAN_LIMITS, Envelopes, Outbox, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, waitWhileFenced, type Connection, type Service, type Store } from "@nearchant/db";
 import { TelegramApi, handleUpdate, type TgUpdate } from "./telegram.js";
 import { marketOrderId, type HireCreated } from "./market.js";
 import { formatUnits } from "./config.js";
@@ -21,6 +21,9 @@ import { labApp } from "./admin/lab.js";
 import { ComfyCloud, type LabVariant } from "@nearchant/providers";
 import { RateLimit, sponsorBuyer } from "./buyers.js";
 import { loadGatewayConfig } from "./config.js";
+
+// Standby fence (ADR 0020): while the Mac standby serves the site, this node waits instead of using a stale database.
+await waitWhileFenced(process.env.FENCE_URL);
 
 const configDir = resolve(process.env.NEARCHANT_CONFIG_DIR ?? join(import.meta.dirname, "../../../config"));
 const config = loadGatewayConfig(join(configDir, "gateway.yaml"), {

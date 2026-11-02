@@ -1,0 +1,87 @@
+# Mac standby (ADR 0020): a streaming replica of the Spark's database, always on, plus the whole site in profile
+# `active`, started by watchdog.py only when the Spark is down. Secrets come from ./.env (written by setup.sh from the
+# Keychain; git-ignored).
+name: nearchant-standby
+x-app: &app
+  build: { context: ../.., dockerfile: deploy/Dockerfile }
+  image: nearchant/app:standby
+  restart: unless-stopped
+  environment: &appenv
+    DATABASE_URL: postgres://nearchant:${POSTGRES_PASSWORD:-nearchant-dev}@db:5432/nearchant
+    MEDIA_DIR: /app/.media
+    MEDIA_PUBLIC: /media
+    NEARCHANT_SECRET_KEY: ${NEARCHANT_SECRET_KEY:?run setup.sh}
+    NEAR_RELAYER_KEY: ${NEAR_RELAYER_KEY:-}
+    NEARAI_API_KEY: ${NEARAI_API_KEY:-}
+    SEARXNG_URL: http://search:8080
+    PROVIDERS_FILE: providers.cloud.yaml   # the Sparks' models are down with them: text on NEAR AI, pictures on Comfy Cloud
+    IMAGE_API_KEY: ${IMAGE_API_KEY:-}
+    COMFY_API_KEY: ${COMFY_API_KEY:-}
+    PUBLIC_URL: https://nearchant.com
+    TRUST_PROXY: cloudflare
+  volumes: ["${STANDBY_MEDIA:?run setup.sh}:/app/.media"]
+  depends_on: { db: { condition: service_healthy } }
+  profiles: [active]
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: nearchant
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nearchant-dev}
+      POSTGRES_DB: nearchant
+      PRIMARY_HOST: ${PRIMARY_HOST:?run setup.sh}
+      REPL_PASSWORD: ${REPL_PASSWORD:?run setup.sh}
+    entrypoint: ["sh", "/standby/db-entry.sh"]
+    ports: ["127.0.0.1:55433:5432"]
+    volumes: ["db:/var/lib/postgresql/data", "./db-entry.sh:/standby/db-entry.sh:ro"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U nearchant"], interval: 5s, retries: 60 }
+    restart: unless-stopped
+
+  gateway:
+    <<: *app
+    command: ["node", "apps/gateway/dist/main.js"]
+    ports: ["127.0.0.1:8797:8787"]
+    environment: { <<: *appenv, PORT: "8787" }
+
+  worker:
+    <<: *app
+    command: ["node", "apps/worker/dist/main.js"]
+    environment: { <<: *appenv, RENDERER_URL: http://renderer:8080, FACTCHECK_A2A_URL: "http://gateway:8787/h/verity/a2a/v1" }
+
+  image-cloud:
+    build: { context: ../image-engine/service }
+    image: nearchant/image:standby
+    environment: { IMAGE_BACKEND: comfy_cloud, COMFY_API_KEY: "${COMFY_API_KEY:-}", IMAGE_QUALITY: medium, MODEL_NAME: qwen-image-edit, API_KEY: "${IMAGE_API_KEY:-}" }
+    networks: { default: { aliases: [image] } }
+    profiles: [active]
+    restart: unless-stopped
+
+  search:
+    image: searxng/searxng@sha256:3602e6ddbeba037f5d800d1ed9d296a8b93c9f5b3cf9d05fa179d0e766dd59a1
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        printf 'use_default_settings: true\nserver:\n  limiter: false\n  image_proxy: false\n  secret_key: "%s"\nsearch:\n  formats: [html, json]\n'
+        "$$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')" > /etc/searxng/settings.yml;
+        exec /usr/local/searxng/entrypoint.sh
+    profiles: [active]
+    restart: unless-stopped
+
+  renderer:
+    image: marpteam/marp-cli@sha256:3cf660df7b9737f875e57f7169dff0b08d1d3ab604ea2d655ab761102942fa42
+    entrypoint: ["sh", "-c", "[ -f _renderer.md ] || echo '# renderer' > _renderer.md; exec docker-entrypoint --server --allow-local-files ."]
+    volumes: ["${STANDBY_MEDIA}:/home/marp/app"]
+    profiles: [active]
+    restart: unless-stopped
+
+  tunnel:     # the same Cloudflare tunnel as the Spark: nearchant.com comes here while the Spark is down
+    image: cloudflare/cloudflared:2026.10.7
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment: { TUNNEL_TOKEN: "${CF_TUNNEL_TOKEN:-}" }
+    profiles: [active]
+    restart: unless-stopped
+
+volumes:
+  db: {}

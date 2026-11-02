@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 //      SEARXNG_URL?, RENDERER_URL, MEDIA_DIR, MEDIA_PUBLIC
 import { join, resolve } from "node:path";
 import { run, type Task } from "graphile-worker";
-import { Artifacts, ContentStore, Envelopes, Outbox, PgStore, Sealer, connect, runMigrations } from "@nearchant/db";
+import { Artifacts, ContentStore, Envelopes, Outbox, PgStore, Sealer, connect, runMigrations, waitWhileFenced } from "@nearchant/db";
 import { Chain, loadAccounts } from "@nearchant/near";
 import { PIPELINE, hireAgent, loadAgentEnv, runStep, type JobDeps, type Step } from "@nearchant/swarm";
 import { agentKey } from "@nearchant/db";
@@ -22,6 +22,9 @@ import { makeTts } from "./tts.js";
 import { makeContentTasks } from "./content-tasks.js";
 import { ComfyCloud, fillWorkflow, type LabVariant } from "@nearchant/providers";
 import { localMedia, marpServerRender, searxng } from "./tools.js";
+
+// Standby fence (ADR 0020): while the Mac standby serves the site, this node waits instead of using a stale database.
+await waitWhileFenced(process.env.FENCE_URL);
 
 const root = resolve(import.meta.dirname, "../../..");
 const need = (k: string) => process.env[k] ?? (console.error(`${k} is not set`), process.exit(2));
