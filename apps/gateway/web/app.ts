@@ -376,18 +376,27 @@ document.querySelector<HTMLFormElement>("#withdraw-form")?.addEventListener("sub
   } catch (err) { out.textContent = (err as Error).message.slice(0, 200); btn.disabled = false; }
 });
 
-// ── NEAR wallet (NEP-413 sign message via MyNearWallet) ───────────────────────────────────────────────────────────
-const WALLET = cfg.network === "mainnet" ? "https://app.mynearwallet.com" : "https://testnet.mynearwallet.com";
+// ── NEAR wallet (NEP-413 sign message) through NEAR Wallet Selector: Meteor, HOT, HERE, Intear, MyNearWallet, …
+// (web/wallet.ts, loaded on demand). Browser wallets answer here; redirect wallets come back to /app/wallet-connect.
 const b64 = (u: Uint8Array) => btoa(String.fromCharCode(...u));
-function walletGo(purpose: "link" | "signin") {
+async function walletGo(purpose: "link" | "signin", btn?: HTMLElement) {
   const nonce = crypto.getRandomValues(new Uint8Array(32));
   const req = { purpose, message: `nearchant:wallet:${purpose}:${Date.now()}`, nonce: b64(nonce), recipient: location.host, callbackUrl: `${location.origin}/app/wallet-connect`, back: location.pathname };
   sessionStorage.setItem("nc-wallet", JSON.stringify(req));
-  const u = new URL("/sign-message", WALLET);
-  u.searchParams.set("message", req.message); u.searchParams.set("nonce", req.nonce); u.searchParams.set("recipient", req.recipient); u.searchParams.set("callbackUrl", req.callbackUrl);
-  location.href = u.toString();
+  const out = document.querySelector<HTMLElement>("#wallet-out, #signin-msg");
+  try {
+    if (btn) btn.setAttribute("disabled", "");
+    const { signWithWallet } = (await import(document.querySelector<HTMLLinkElement>("link[data-wallet-js]")?.href ?? "/assets/wallet.js")) as typeof import("./wallet.js");
+    const signed = await signWithWallet(cfg.network, { message: req.message, recipient: req.recipient, nonce, callbackUrl: req.callbackUrl }, purpose === "link" ? "Link your NEAR wallet" : "Sign in with your NEAR wallet");
+    if (!signed) return;
+    sessionStorage.removeItem("nc-wallet");
+    const r = await api<{ handle: string; linked?: string }>("/api/wallet/verify", { ...signed, message: req.message, nonce: req.nonce, recipient: req.recipient, callbackUrl: req.callbackUrl });
+    if (out) out.textContent = r.linked ? `Linked ${r.linked} to your store.` : "Signed in.";
+    location.href = r.linked ? "/app/settings#wallet" : "/app";
+  } catch (err) { if (out) out.textContent = (err as Error).message; }
+  finally { btn?.removeAttribute("disabled"); }
 }
-document.querySelectorAll<HTMLElement>("[data-wallet]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); walletGo(b.dataset.wallet as "link" | "signin"); }));
+document.querySelectorAll<HTMLElement>("[data-wallet]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); void walletGo(b.dataset.wallet as "link" | "signin", b); }));
 
 async function walletConnectPage() {
   const msg = $("#wallet-msg");
@@ -397,7 +406,9 @@ async function walletConnectPage() {
   if (!req || !accountId || !publicKey || !signature) { msg.textContent = q.get("error") ? `The wallet said: ${q.get("error")}` : "No signature came back from the wallet. Try again from Settings."; return; }
   sessionStorage.removeItem("nc-wallet");
   try {
-    const r = await api<{ handle: string; linked?: string }>("/api/wallet/verify", { accountId, publicKey, signature, message: req.message, nonce: req.nonce, recipient: req.recipient, callbackUrl: req.callbackUrl });
+    const body = { accountId, publicKey, signature, message: req.message, nonce: req.nonce, recipient: req.recipient, callbackUrl: req.callbackUrl };
+    if (req.purpose === "buyer") { await api("/api/buyer/wallet", body); msg.textContent = "Signed in."; location.href = /^\/(?!\/)/.test(req.back) ? req.back : "/feed"; return; }
+    const r = await api<{ handle: string; linked?: string }>("/api/wallet/verify", body);
     msg.textContent = r.linked ? `Linked ${r.linked} to your store.` : "Signed in.";
     location.href = r.linked ? "/app/settings#wallet" : "/app";
   } catch (err) { msg.textContent = (err as Error).message; }

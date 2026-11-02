@@ -194,3 +194,20 @@ svg { flex-shrink: 0; }
 
 /* Phone: the post picture should not fill the whole screen (Figma Post ready). */
 @media (max-width: 899px) { .post-cols .post > .img { max-height: 46vh; } }
+
+/* Shop feed + buyers (ADR 0022) */
+.feed-search{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.feed-q{flex:1 1 320px;position:relative;display:flex;align-items:center}
+.feed-q svg{position:absolute;left:14px;pointer-events:none}
+.feed-q .input{padding-left:42px;width:100%}
+.feed-city{flex:0 1 200px}
+@media(max-width:640px){.feed-city{flex:1 1 60%}.feed-search .btn{flex:1 1 30%}}
+.like{display:inline-flex;align-items:center;gap:4px;border:0;background:none;padding:4px 2px;color:var(--label2,#6e6e73);font:600 13px/1 inherit;cursor:pointer;flex:none}
+.like[aria-pressed="true"]{color:#ff2d55}
+.like[aria-pressed="true"] svg path{fill:#ff2d55}
+.sheet-back{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:900}
+@media(min-width:640px){.sheet-back{align-items:center}}
+.sheet{width:100%;max-width:440px;max-height:88vh;overflow:auto;border-radius:20px 20px 0 0;background:#fff;gap:12px;position:relative}
+@media(min-width:640px){.sheet{border-radius:20px}}
+.sheet-x{position:absolute;right:12px;top:8px;border:0;background:none;font-size:24px;color:var(--label2,#6e6e73);cursor:pointer}
+.feed-tile video{background:#000}

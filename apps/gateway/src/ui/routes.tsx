@@ -6,7 +6,9 @@ import { OnboardingPage } from "./onboarding.js";
 import { CreatePage, HomePage, PostPage, PostsPage, SignInPage, checklistFor, type StoreView } from "./app-pages.js";
 import { createHash } from "node:crypto";
 import { UiPage, assetV, type UiConfig } from "./kit.js";
-import { ExplorePage } from "./explore.js";
+import { ExplorePage, FeedTiles, type FeedTile } from "./explore.js";
+import { feedFor, type SearchIntent } from "../buyer-app.js";
+import type { FeedPost, FeedStore } from "@nearchant/db";
 import { AnalyticsPage, Celebration, ReportPage, SettingsPage, WalletPage, type Insights } from "./more-pages.js";
 import { readSession } from "../seller-app.js";
 import { VerifyPage, type VerifyView } from "./verify.js";
@@ -25,6 +27,13 @@ export interface UiDeps {
   content?: ContentStore;
   /** Email sign-in is set up (ADR 0021). */
   emailOn?: boolean;
+  /** Shop feed (ADR 0022). */
+  feedStore?: FeedStore;
+  understand?: (q: string) => Promise<SearchIntent>;
+  buyerKey?: Buffer;
+  suggestions?: () => Promise<string[]>;
+  buyerJs?: string;
+  walletJs?: string;
   accountOf: (handle: string) => string;
   explorer: (accountId: string) => string;
   orders?: (handle: string) => Promise<{ orderId: string; serviceId: string; amount: string; brief: string; state: string; createdAt: string }[]>;
@@ -35,6 +44,11 @@ export interface UiDeps {
 export function mountUi(app: Hono<any>, d: UiDeps): void {
   assetV.css = createHash("sha256").update(d.css).digest("hex").slice(0, 10);
   if (d.js) assetV.js = createHash("sha256").update(d.js).digest("hex").slice(0, 10);
+  for (const [k, body] of [["buyer", d.buyerJs], ["wallet", d.walletJs]] as const) {
+    if (!body) continue;
+    assetV[k] = createHash("sha256").update(body).digest("hex").slice(0, 10);
+    app.get(`/assets/${k}.js`, (c) => c.body(body, 200, { "content-type": "text/javascript; charset=utf-8", "cache-control": c.req.query("v") ? "public, max-age=31536000, immutable" : "public, max-age=300" }));
+  }
   app.get("/assets/ui.css", (c) => c.body(d.css, 200, { "content-type": "text/css; charset=utf-8", "cache-control": "public, max-age=300" }));
   app.get("/assets/app.js", (c) => (d.js ? c.body(d.js, 200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=300" }) : c.text("app.js not built", 503)));
   app.get("/start", (c) => c.html(<OnboardingPage cfg={d.cfg} test={d.test} />));
@@ -75,13 +89,25 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     }
     return c.html(<VerifyPage cfg={d.cfg} test={d.test} v={v} latest={latest} />);
   };
-  app.get("/explore", async (c) => {
-    if (!d.content) return c.notFound();
-    const b = c.req.query("before"), before = b && !Number.isNaN(Date.parse(b)) ? new Date(b) : undefined;
-    const rows = await d.content.feed({ limit: 24, ...(before ? { before } : {}) });
-    const posts = rows.map((p) => ({ id: p.id, handle: p.handle, caption: p.caption, img: `/files/${p.publicImage}?w=640`, video: !!p.publicVideo, proofId: p.proofId, storeName: p.storeName }));
-    return c.html(<ExplorePage cfg={d.cfg} test={d.test} posts={posts} next={rows.length === 24 ? rows.at(-1)!.publishedAt.toISOString() : null} />);
+  // The shop feed (ADR 0022): search by meaning + region, "For you" for signed-in buyers, infinite scroll.
+  const tilesOf = (posts: FeedPost[]): FeedTile[] => posts.map((p) => ({ id: p.id, handle: p.handle, caption: p.caption, img: `/files/${p.publicImage}?w=640`,
+    video: p.publicVideo ? `/files/${p.publicVideo}` : null, proofId: p.proofId, storeName: p.storeName, place: [p.city, p.country].filter(Boolean).join(", ") || null, likes: p.likes, liked: p.liked }));
+  const feedQuery = (c: Context) => ({ q: (c.req.query("q") ?? "").trim().slice(0, 200), city: (c.req.query("city") ?? "").trim().slice(0, 60), offset: Math.max(0, Number(c.req.query("offset") ?? 0) || 0) });
+  const nextOf = (q: string, city: string, offset: number, n: number) => (n === 24 ? `/feed?${new URLSearchParams({ ...(q ? { q } : {}), ...(city ? { city } : {}), offset: String(offset + 24) })}` : null);
+  app.get("/feed", async (c) => {
+    if (!d.feedStore) return c.notFound();
+    const { q, city, offset } = feedQuery(c), buyer = d.buyerKey ? readSession(d.buyerKey, getCookie(c, "nc_buyer")) : null;
+    const r = await feedFor({ feed: d.feedStore, ...(d.understand ? { understand: d.understand } : {}) }, q, buyer, offset, { city });
+    return c.html(<ExplorePage cfg={d.cfg} test={d.test} q={q} city={city} summary={r.intent?.summary ?? null} posts={tilesOf(r.posts)} next={nextOf(q, city, offset, r.posts.length)}
+      suggestions={d.suggestions ? await d.suggestions().catch(() => []) : []} forYou={!!buyer} />);
   });
+  app.get("/feed/more", async (c) => {
+    if (!d.feedStore) return c.notFound();
+    const { q, city, offset } = feedQuery(c), buyer = d.buyerKey ? readSession(d.buyerKey, getCookie(c, "nc_buyer")) : null;
+    const r = await feedFor({ feed: d.feedStore, ...(d.understand ? { understand: d.understand } : {}) }, q, buyer, offset, { city });
+    return c.html(<FeedTiles posts={tilesOf(r.posts)} next={nextOf(q, city, offset, r.posts.length)} />);
+  });
+  app.get("/explore", (c) => c.redirect(`/feed${new URL(c.req.url).search}`, 301));
   app.get("/verify", (c) => verify(c, c.req.query("id")?.trim() || undefined));
   app.get("/verify/:id", (c) => verify(c, c.req.param("id")));
   const content = d.content;

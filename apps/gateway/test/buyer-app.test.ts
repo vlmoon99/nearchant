@@ -1,0 +1,100 @@
+import { randomBytes } from "node:crypto";
+import { Hono } from "hono";
+import { KeyPair } from "near-api-js";
+import { describe, expect, it } from "vitest";
+import type { FeedStore } from "@nearchant/db";
+import { feedFor, mountBuyerApp } from "../src/buyer-app.js";
+import { walletSign } from "./wallet-helper.js";
+
+function setup() {
+  const buyers = new Map<string, { id: string; email: string | null; wallet: string | null; status: string }>();
+  const likes = new Set<string>(), reports: Record<string, unknown>[] = [], jobs: [string, Record<string, unknown>][] = [], ips: string[] = [], mails: { to: string; text: string }[] = [];
+  const settings = new Map<string, unknown>();
+  const find = (k: "email" | "wallet", v: string) => [...buyers.values()].find((b) => b[k] === v);
+  const make = (k: "email" | "wallet", v: string) => find(k, v) ?? (buyers.set(`b${buyers.size}`, { id: `b${buyers.size}`, email: k === "email" ? v : null, wallet: k === "wallet" ? v : null, status: "active" }), find(k, v)!);
+  const feed = {
+    buyerByEmail: async (e: string) => make("email", e), buyerByWallet: async (w: string) => make("wallet", w), getBuyer: async (id: string) => buyers.get(id) ?? null, touchBuyer: async () => {},
+    logIp: async (_k: string, _id: string, ip: string) => { ips.push(ip); },
+    like: async (b: string, p: string, on: boolean) => { if (on) likes.add(`${b}:${p}`); else likes.delete(`${b}:${p}`); return [...likes].filter((x) => x.endsWith(`:${p}`)).length; },
+    likedBy: async (b: string, ids: string[]) => new Set(ids.filter((p) => likes.has(`${b}:${p}`))),
+    addReport: async (r: Record<string, unknown>) => { reports.push(r); return reports.length; }, recentReports: async () => 0,
+    feed: async (q: Record<string, unknown>) => [{ id: "p1", q }],
+  } as unknown as FeedStore;
+  const app = new Hono();
+  const owner = KeyPair.fromRandom("ed25519");
+  mountBuyerApp(app, {
+    feed, isOwnerKey: async (a, pk) => a === "alice.testnet" && pk === owner.getPublicKey().toString(),
+    content: { getPost: async (id) => (id === "p1" ? { id, handle: "nova", status: "published", removedAt: null } : id === "gone" ? { id, handle: "nova", status: "published", removedAt: new Date() } : null),
+      getSetting: async <T,>(k: string) => (settings.get(k) as T) ?? null, setSetting: async (k, v) => { settings.set(k, v); }, getBusiness: async (h) => (h === "nova" ? { handle: h } : null) },
+    enqueue: async (t, p) => { jobs.push([t, p]); }, key: Buffer.alloc(32, 3), secureCookies: false, walletRecipient: "nearchant.com", publicUrl: "https://nearchant.com",
+    mail: async (m) => { mails.push(m); },
+  });
+  return { app, buyers, likes, reports, jobs, ips, mails, owner };
+}
+const post = (body: unknown, cookie?: string) => ({ method: "POST", headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) }, body: JSON.stringify(body) });
+const cookieOf = (r: Response) => r.headers.get("set-cookie")!.split(";")[0]!;
+
+describe("buyers", () => {
+  it("signs in with an email link (button page, once) and goes back to the page they came from", async () => {
+    const t = setup();
+    expect((await t.app.request("http://x/api/buyer/email", post({ email: "Buyer@Example.com", back: "/h/nova/p/p1" }))).status).toBe(200);
+    const link = /https:\/\/nearchant\.com(\/auth\/buyer\?t=[\w.-]+)/.exec(t.mails[0]!.text)![1]!;
+    expect(await (await t.app.request(`http://x${link}`)).text()).toContain('action="/auth/buyer"');
+    const form = { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `t=${new URL(`http://x${link}`).searchParams.get("t")}` };
+    const r = await t.app.request("http://x/auth/buyer", form);
+    expect(r.status).toBe(303);
+    expect(r.headers.get("location")).toBe("/h/nova/p/p1");
+    expect(r.headers.get("set-cookie")).toMatch(/nc_buyer=b0\./);
+    expect((await t.app.request("http://x/auth/buyer", form)).status).toBe(400); // once
+    const me = await t.app.request("http://x/api/buyer/me", { headers: { cookie: cookieOf(r) } });
+    expect(await me.json()).toMatchObject({ email: "buyer@example.com" });
+    // An open redirect is not possible.
+    await t.app.request("http://x/api/buyer/email", post({ email: "b2@example.com", back: "//evil.example" }));
+    const link2 = /(\/auth\/buyer\?t=[\w.-]+)/.exec(t.mails[1]!.text)![1]!;
+    const r2 = await t.app.request("http://x/auth/buyer", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `t=${new URL(`http://x${link2}`).searchParams.get("t")}` });
+    expect(r2.headers.get("location")).toBe("/feed");
+  });
+
+  it("signs in with any NEAR wallet (NEP-413), refusing other sites, reused nonces and keys that are not the account's", async () => {
+    const t = setup();
+    const msg = (nonce = randomBytes(32), recipient = "nearchant.com", kp = t.owner) => {
+      const message = `nearchant:buyer:signin:${Date.now()}`;
+      return { accountId: "alice.testnet", publicKey: kp.getPublicKey().toString(), signature: walletSign(kp, { message, nonce, recipient, callbackUrl: null }), message, nonce: nonce.toString("base64"), recipient };
+    };
+    const ok = msg();
+    const r = await t.app.request("http://x/api/buyer/wallet", post(ok));
+    expect(await r.json()).toMatchObject({ wallet: "alice.testnet" });
+    expect((await t.app.request("http://x/api/buyer/wallet", post(ok))).status).toBe(401);            // nonce reused
+    expect((await t.app.request("http://x/api/buyer/wallet", post(msg(undefined, "evil.example")))).status).toBe(401);
+    expect((await t.app.request("http://x/api/buyer/wallet", post(msg(undefined, undefined, KeyPair.fromRandom("ed25519"))))).status).toBe(403);
+    expect((await t.app.request("http://x/api/buyer/wallet", { method: "POST", headers: { "content-type": "text/plain" }, body: JSON.stringify(msg()) })).status).toBe(415);
+  });
+
+  it("likes and reports need a signed-in buyer; reports go to the moderator; banned buyers can't", async () => {
+    const t = setup();
+    expect((await t.app.request("http://x/api/feed/like", post({ postId: "p1" }))).status).toBe(401);
+    const s = await t.app.request("http://x/api/buyer/wallet", post((() => { const n = randomBytes(32), message = `nearchant:buyer:signin:${Date.now()}`; return { accountId: "alice.testnet", publicKey: t.owner.getPublicKey().toString(), signature: walletSign(t.owner, { message, nonce: n, recipient: "nearchant.com", callbackUrl: null }), message, nonce: n.toString("base64"), recipient: "nearchant.com" }; })()));
+    const cookie = cookieOf(s);
+    expect(await (await t.app.request("http://x/api/feed/like", post({ postId: "p1" }, cookie))).json()).toEqual({ likes: 1, liked: true });
+    expect((await t.app.request("http://x/api/feed/like", post({ postId: "gone" }, cookie))).status).toBe(404);
+    expect(await (await t.app.request("http://x/api/feed/liked?ids=p1,p2", { headers: { cookie } })).json()).toEqual({ liked: ["p1"] });
+    expect((await t.app.request("http://x/api/report", post({ postId: "p1", reason: "nonsense" }, cookie))).status).toBe(400);
+    expect(await (await t.app.request("http://x/api/report", post({ postId: "p1", reason: "counterfeit", note: "fake logo" }, cookie))).json()).toEqual({ report: 1 });
+    expect(t.jobs[0]).toEqual(["moderate_post", { postId: "p1", reportId: 1 }]);
+    await t.app.request("http://x/api/report", post({ handle: "nova", reason: "scam", note: "never shipped" }, cookie));
+    expect(t.jobs[1]).toEqual(["moderate_store", { handle: "nova", reportId: 2 }]);
+    expect(t.reports[0]).toMatchObject({ targetKind: "post", handle: "nova", reporterBuyerId: "b0", reason: "counterfeit" });
+    t.buyers.get("b0")!.status = "banned";
+    expect((await t.app.request("http://x/api/feed/like", post({ postId: "p1" }, cookie))).status).toBe(401);
+  });
+
+  it("search: the AI plan and vector go to the feed query; without AI it searches words", async () => {
+    let seen: Record<string, unknown> = {};
+    const feed = { feed: async (q: Record<string, unknown>) => { seen = q; return []; } } as unknown as FeedStore;
+    const r = await feedFor({ feed, understand: async () => ({ summary: "Protein in New York", terms: ["protein", "whey"], city: "New York", country: "US", vector: [0.1, 0.2] }) }, "protein nyc", "b1");
+    expect(seen).toMatchObject({ terms: ["protein", "whey"], city: "New York", country: "US", vector: [0.1, 0.2], buyerId: "b1" });
+    expect(r.intent).toMatchObject({ summary: "Protein in New York", vector: null }); // the vector is not sent to the page
+    await feedFor({ feed, understand: async () => { throw new Error("model down"); } }, "Denim jacket", null, 0, { city: "Austin", country: "us" });
+    expect(seen).toMatchObject({ terms: ["denim", "jacket"], city: "Austin", country: "US", vector: null });
+  });
+});

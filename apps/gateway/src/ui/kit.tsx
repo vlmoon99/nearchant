@@ -18,6 +18,8 @@ const P: Record<string, string> = {
   lock: '<rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>', copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
   store: '<path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M5 13v7h14v-7"/>',
   download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+  heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
+  flag: '<path d="M5 21V4h11l-1.5 4L16 12H5"/>',
   play: '<path d="M7 4v16l13-8z"/>',
   chevron: '<path d="m9 6 6 6-6 6"/>',
   camera: '<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/>',
@@ -31,13 +33,13 @@ export const Icon: FC<{ n: string; s?: number; c?: string }> = ({ n, s = 18, c }
 
 /** Content fingerprints of the served assets: a deploy changes the URL, so Cloudflare's edge cache can't serve old
  *  CSS/JS with new pages. Set once at startup (routes.tsx / main.ts). */
-export const assetV: Record<"css" | "js" | "checkout", string> = { css: "", js: "", checkout: "" };
+export const assetV: Record<"css" | "js" | "checkout" | "buyer" | "wallet", string> = { css: "", js: "", checkout: "", buyer: "", wallet: "" };
 export const asset = (path: string, k: keyof typeof assetV) => (assetV[k] ? `${path}?v=${assetV[k]}` : path);
 
 export interface UiConfig { base: string; rpcUrl: string; network: string; token: string; decimals: number; storeBase: string; tokenContract?: string; accountSuffix?: string }
 
 /** HTML page with the UI stylesheet, the client config and the app script. */
-export const UiPage: FC<PropsWithChildren<{ title: string; cfg: UiConfig; page: string; test?: boolean }>> = ({ title, cfg, page, test, children }) => (
+export const UiPage: FC<PropsWithChildren<{ title: string; cfg: UiConfig; page: string; test?: boolean; buyer?: boolean }>> = ({ title, cfg, page, test, buyer, children }) => (
   <html lang="en">
     <head>
       <meta charset="utf-8" />
@@ -47,6 +49,7 @@ export const UiPage: FC<PropsWithChildren<{ title: string; cfg: UiConfig; page: 
       <link rel="stylesheet" href={asset("/assets/ui.css", "css")} />
       <script type="application/json" id="nc-config" dangerouslySetInnerHTML={{ __html: JSON.stringify({ ...cfg, page }).replaceAll("<", "\\u003c") }}></script>
       <script type="module" src={asset("/assets/app.js", "js")}></script>
+      {buyer ? <BuyerScripts network={cfg.network} /> : null}
     </head>
     <body>
       {test ? <div class="cap" style="text-align:center;padding:4px;background:#fff3c4;color:#5c4a00">TEST network — payments use free test tokens</div> : null}
@@ -103,4 +106,12 @@ export const CreateSteps: FC<{ step: 1 | 2 | 3 }> = ({ step }) => (
   <div class="csteps">{["Photos & idea", "AI makes it", "Review & publish"].map((t, i) => (
     <>{i ? <span class="csteps-line"></span> : null}<span class={`csteps-s ${i + 1 === step ? "on" : i + 1 < step ? "done" : ""}`}><i>{i + 1 < step ? "✓" : i + 1}</i>{t}</span></>
   ))}</div>
+);
+
+/** Buyer scripts (ADR 0022): likes, reports, sign-in; the wallet chooser loads on demand. */
+export const BuyerScripts: FC<{ network: string }> = ({ network }) => (
+  <>
+    <script type="application/json" id="nc-buyer" dangerouslySetInnerHTML={{ __html: JSON.stringify({ network, walletJs: asset("/assets/wallet.js", "wallet") }).replaceAll("<", "\\u003c") }}></script>
+    <script type="module" src={asset("/assets/buyer.js", "buyer")}></script>
+  </>
 );

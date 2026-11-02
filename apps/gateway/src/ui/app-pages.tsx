@@ -168,7 +168,7 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
                 <button class="btn secondary" data-make-video={p.id}><Icon n="sparkle" />Make a video</button></>}
           </div> : null}
           {p.status === "published" ? <div class="card" style="gap:10px"><span class="headline">Live on your store</span>
-            <span class="foot muted">Buyers see it in your store’s feed and on Explore. Share its link on Instagram or Telegram — people land on your store, where they can buy.</span>
+            <span class="foot muted">Buyers see it in your store’s feed and in the Nearchant shop feed. Share its link on Instagram or Telegram — people land on your store, where they can buy.</span>
             <div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn secondary" href={`/h/${store.handle}/p/${p.id}`} target="_blank" rel="noopener"><Icon n="globe" />View</a>
               <a class="btn" href={`/h/${store.handle}/p/${p.id}?ref=share`} data-share-proof={`/h/${store.handle}/p/${p.id}?ref=share`} data-share-title={store.name}><Icon n="link" />Share post link</a></div></div> : null}
           <div class="card proof">

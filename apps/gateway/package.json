@@ -4,13 +4,13 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "description": "Control-plane API: public + admin surfaces, seller cards, CORS, webhooks (architecture.md §9).",
+  "description": "Control-plane API: public + admin surfaces, seller cards, CORS, webhooks (architecture.md \u00a79).",
   "scripts": {
     "build": "tsc -p tsconfig.json && pnpm build:web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "start": "node dist/main.js",
-    "build:web": "esbuild ./web/checkout.ts --bundle --format=esm --target=es2022 --platform=browser --alias:util=./web/util-shim.js --minify --outfile=dist/web/checkout.js && esbuild ./web/app.ts --bundle --format=esm --target=es2022 --platform=browser --alias:util=./web/util-shim.js --minify --outfile=dist/web/app.js"
+    "build:web": "esbuild ./web/checkout.ts --bundle --format=esm --target=es2022 --platform=browser --alias:util=./web/util-shim.js --minify --outfile=dist/web/checkout.js && esbuild ./web/app.ts --bundle --format=esm --target=es2022 --platform=browser --alias:util=./web/util-shim.js --minify --outfile=dist/web/app.js && esbuild ./web/wallet.ts --bundle --format=esm --target=es2022 --platform=browser --alias:util=./web/util-shim.js --alias:crypto=./web/crypto-shim.js --alias:http=./web/empty-shim.js --alias:https=./web/empty-shim.js --alias:near-api-js=near-api-js-v6 --define:process.env.NODE_ENV='\"production\"' --define:global=globalThis --minify --outfile=dist/web/wallet.js --log-level=warning && esbuild ./web/buyer.ts --bundle --format=esm --target=es2022 --platform=browser --minify --outfile=dist/web/buyer.js"
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",
@@ -27,8 +27,21 @@
     "yaml": "^2.9.1"
   },
   "devDependencies": {
+    "@near-wallet-selector/bitte-wallet": "10.1.4",
+    "@near-wallet-selector/core": "10.1.4",
+    "@near-wallet-selector/here-wallet": "10.1.4",
+    "@near-wallet-selector/hot-wallet": "10.1.4",
+    "@near-wallet-selector/intear-wallet": "10.1.4",
+    "@near-wallet-selector/meteor-wallet": "10.1.4",
+    "@near-wallet-selector/modal-ui": "10.1.4",
+    "@near-wallet-selector/my-near-wallet": "10.1.4",
+    "@near-wallet-selector/near-mobile-wallet": "10.1.4",
+    "@near-wallet-selector/okx-wallet": "10.1.4",
+    "@near-wallet-selector/sender": "10.1.4",
     "@types/node": "^24.19.2",
+    "buffer": "6.0.3",
     "esbuild": "^0.28.2",
+    "near-api-js-v6": "npm:near-api-js@6",
     "playwright-core": "^1.64.1"
   }
 }

@@ -1,10 +1,10 @@
 // Buyer storefront (Figma "Storefront for buyers"): store page + item page with the existing escrow checkout
 // (web/checkout.ts hooks onto form.order[data-service] and the #nc-config tag).
 import type { FC, PropsWithChildren } from "hono/jsx";
-import { Badge, Icon, asset } from "./kit.js";
+import { Badge, BuyerScripts, Icon, asset } from "./kit.js";
 
 export interface StoreItem { id: string; title: string; description: string; price: string; img: string | null; kind: string; options: string[] }
-export interface StorePost { id: string; itemId?: string | null; publishedAt: string; hashtags?: string[]; caption: string; img: string | null; video?: string | null; proofId: string | null }
+export interface StorePost { id: string; itemId?: string | null; publishedAt: string; hashtags?: string[]; caption: string; img: string | null; video?: string | null; proofId: string | null; likes?: number }
 export interface StoreData { handle: string; name: string; account: string; summary: string; items: StoreItem[]; posts: StorePost[]; orders: number }
 export interface CheckoutCfg { base: string; rpcUrl: string; orders: string; network: string }
 
@@ -18,12 +18,12 @@ const Shell: FC<PropsWithChildren<{ title: string; s: StoreData; cfg: CheckoutCf
       <meta property="og:description" content={og.description} /><meta property="og:url" content={og.url} /><meta name="description" content={og.description} />
       {og.image ? <><meta property="og:image" content={og.image} /><meta name="twitter:card" content="summary_large_image" /></> : null}</> : null}<link rel="stylesheet" href={asset("/assets/ui.css", "css")} />
     <script type="application/json" id="nc-config" dangerouslySetInnerHTML={{ __html: JSON.stringify(cfg).replaceAll("<", "\\u003c") }}></script>
-    <script type="module" src={asset("/assets/checkout.js", "checkout")}></script></head>
+    <script type="module" src={asset("/assets/checkout.js", "checkout")}></script><BuyerScripts network={cfg.network} /></head>
     <body>
       {test ? <div class="cap" style="text-align:center;padding:4px;background:#fff3c4;color:#5c4a00">TEST network — payments use free test tokens</div> : null}
       <header class="spread" style="padding:14px 20px;border-bottom:1px solid var(--sep)">
         <a class="row" href={cfg.base} style="align-items:center;gap:10px;color:inherit"><span class="dot" style="width:28px;height:28px;background:linear-gradient(135deg,#ff9966,#b052de)"></span><span class="headline">{s.name}</span></a>
-        <span class="foot muted">Powered by Nearchant</span>
+        <span class="row" style="gap:14px;align-items:center"><a class="foot" href="/feed">Shop feed</a><a class="foot" href="#" data-buyer-me>Sign in</a></span>
       </header>
       <main class="stack" style="max-width:1200px;margin:0 auto;padding:24px 20px 80px;gap:24px">{children}</main>
     </body></html>
@@ -49,6 +49,7 @@ export const StorePage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean }> = 
       <div class="grid4">{s.posts.slice(0, 8).map((p) => <PostTile p={p} base={cfg.base} />)}</div></> : null}
     <div class="card proof" style="flex-direction:row;gap:14px;align-items:center"><Icon n="shield" s={24} c="#007A4F" />
       <span class="stack s8" style="gap:4px;flex:1;min-width:0"><span class="headline proof-t">Safe to buy</span><span class="foot">Pay in test USDC (nUSD). Your money waits in escrow on NEAR and goes to {s.name} only when you confirm you got your order. Not delivered in time? You get it back automatically.</span></span></div>
+    <span class="cap muted" style="text-align:center">Something wrong with this store? <a href="#" data-report-store={s.handle}>Report it</a></span>
   </Shell>
 );
 
@@ -59,7 +60,8 @@ export const PostTile: FC<{ p: StorePost; base: string }> = ({ p, base }) => (
   <a class="post" href={`${base}p/${p.id}`} style="color:inherit">
     <div class="img" style={`aspect-ratio:4/5;position:relative;${p.img ? `background-image:url('${p.img}')` : ""}`}>
       {p.video ? <span class="dot" style="position:absolute;top:10px;right:10px;width:30px;height:30px;background:rgba(0,0,0,.55)"><Icon n="play" s={14} c="#fff" /></span> : null}</div>
-    <span class="foot clamp3">{p.caption}</span>
+    <div class="spread" style="gap:8px;align-items:flex-start"><span class="foot clamp3" style="min-width:0">{p.caption}</span>
+      <button class="like" type="button" data-like={p.id} aria-pressed="false" aria-label="Like"><Icon n="heart" s={16} /><span data-n>{p.likes || ""}</span></button></div>
     {p.proofId ? <Badge label={`Proof #${p.proofId} on NEAR`} /> : null}
   </a>
 );
@@ -97,6 +99,9 @@ export const PublicPostPage: FC<{ s: StoreData; p: StorePost; cfg: CheckoutCfg; 
             <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="callout b">{item.title}</span><span class="foot muted">{item.price} · paid safely through escrow on NEAR</span></span>
             <span class="btn">Buy</span></a>
             : s.items.length ? <a class="btn" href={cfg.base}>Shop {s.name}</a> : null}
+          <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="chip like" type="button" data-like={p.id} aria-pressed="false"><Icon n="heart" s={16} /><span>Like</span><span data-n>{p.likes || ""}</span></button>
+            <button class="chip" type="button" data-report-post={p.id}><Icon n="flag" s={14} />Report</button></div>
           <div class="row" style="gap:8px;flex-wrap:wrap"><span class="foot muted">Share</span>
             <a class="chip" href={`https://t.me/share/url?url=${share}&text=${text}`} target="_blank" rel="noopener"><Icon n="send" s={14} />Telegram</a>
             <a class="chip" href={`https://x.com/intent/post?url=${share}&text=${text}`} target="_blank" rel="noopener">X</a>

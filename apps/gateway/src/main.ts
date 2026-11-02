@@ -5,15 +5,17 @@ import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { makeWorkerUtils, type WorkerUtils } from "graphile-worker";
 import { parse } from "yaml";
-import { Artifacts, ContentStore, PLAN_LIMITS, Envelopes, Outbox, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, waitWhileFenced, type Connection, type Service, type Store } from "@nearchant/db";
+import { Artifacts, ContentStore, FeedStore, PLAN_LIMITS, Envelopes, Outbox, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, waitWhileFenced, type Connection, type Service, type Store } from "@nearchant/db";
+import { sql } from "drizzle-orm";
 import { TelegramApi, handleUpdate, type TgUpdate } from "./telegram.js";
 import { marketOrderId, type HireCreated } from "./market.js";
 import { formatUnits } from "./config.js";
 import { Router } from "@nearchant/providers";
-import { loadAgentEnv, makeAsker, type AgentEnv } from "@nearchant/swarm";
+import { loadAgentEnv, makeAsker, planSearch, type AgentEnv } from "@nearchant/swarm";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
 import { createApp } from "./app.js";
 import { mountSellerApp } from "./seller-app.js";
+import { mountBuyerApp, type SearchIntent } from "./buyer-app.js";
 import { emailHtml, resendMailer } from "./email.js";
 import { LandingPage } from "./ui/landing.js";
 import { assetV } from "./ui/kit.js";
@@ -74,6 +76,13 @@ async function anyChainQuote(amountUnits: string) {
 // Flow 3 seller side: synchronous A2A tasks run with the service's Agent Environment, metered to the seller.
 let router: Router | null = null;
 const envs = new Map<string, AgentEnv>();
+async function getRouter(): Promise<Router> {
+  if (!router) {
+    router = Router.fromConfig(parse(readFileSync(join(configDir, process.env.PROVIDERS_FILE ?? "providers.yaml"), "utf8")));
+    await router.discover();
+  }
+  return router;
+}
 async function executeA2a(handle: { account_id: string }, service: Service, text: string, paymentId: string): Promise<string> {
   if (!router) {
     router = Router.fromConfig(parse(readFileSync(join(configDir, process.env.PROVIDERS_FILE ?? "providers.yaml"), "utf8")));
@@ -271,11 +280,12 @@ const app = createApp({
       if (one && one.handle === handle && one.status === "published" && !one.passedAt && !one.removedAt) posts.push(one);
     }
     const fmt = (u: string) => `${formatUnits(u, config.token.decimals)} ${config.token.symbol}`;
+    const likes = await new FeedStore(conn!.db).likeCounts(posts.map((p) => p.id));
     return {
       handle, name: b.name, account: `${handle}.${accounts.root}`, summary: prof?.summary ?? b.description,
       orders: (await store.listOrders(handle, 500)).filter((o) => ["paid", "in_progress", "delivered", "released"].includes(o.state)).length,
       items: items.map((i) => ({ id: i.id, title: i.title, description: i.description, price: fmt(i.priceUnits), kind: i.kind, options: i.options as string[], img: i.photoMediaId ? `/files/${handle}/public/item-${i.id}.jpg?w=640&v=${createHash("sha256").update(`${i.photoMediaId}|${i.title}`).digest("hex").slice(0, 8)}` : null })),
-      posts: posts.map((p) => ({ id: p.id, itemId: p.itemId, publishedAt: (p.publishedAt ?? p.createdAt).toISOString(), hashtags: (p.hashtags as string[]) ?? [], caption: p.caption ?? "", img: (p.idea as { publicImage?: string }).publicImage ? `/files/${(p.idea as { publicImage: string }).publicImage}?w=640` : null, video: (p.idea as { publicVideo?: string }).publicVideo ? `/files/${(p.idea as { publicVideo: string }).publicVideo}?v=${((p.idea as { video?: { mediaId?: string } }).video?.mediaId ?? "").slice(-8)}` : null, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null })),
+      posts: posts.map((p) => ({ id: p.id, itemId: p.itemId, publishedAt: (p.publishedAt ?? p.createdAt).toISOString(), hashtags: (p.hashtags as string[]) ?? [], caption: p.caption ?? "", img: (p.idea as { publicImage?: string }).publicImage ? `/files/${(p.idea as { publicImage: string }).publicImage}?w=640` : null, video: (p.idea as { publicVideo?: string }).publicVideo ? `/files/${(p.idea as { publicVideo: string }).publicVideo}?v=${((p.idea as { video?: { mediaId?: string } }).video?.mediaId ?? "").slice(-8)}` : null, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null, likes: likes.get(p.id) ?? 0 })),
     };
   } } : {}),
   onPaid: async (id) => {
@@ -303,6 +313,36 @@ const app = createApp({
   },
 });
 
+// Shop feed + buyers (ADR 0022). Search: the search-planner reads the query, NEAR AI embeds it; both cached.
+const feedStore = conn ? new FeedStore(conn.db) : null;
+const buyerKey = createHash("sha256").update(`nearchant-buyer:${process.env.NEARCHANT_SECRET_KEY ?? "dev"}`).digest();
+const intentCache = new Map<string, { at: number; v: SearchIntent }>();
+async function understand(q: string): Promise<SearchIntent> {
+  const key = q.trim().toLowerCase();
+  const hit = intentCache.get(key);
+  if (hit && Date.now() - hit.at < 30 * 60_000) return hit.v;
+  const r = await getRouter();
+  if (!envs.has("content-store")) envs.set("content-store", loadAgentEnv(join(configDir, "../envs/content-store")));
+  const ask = makeAsker(envs.get("content-store")!, r, async () => {});
+  const plan = await Promise.race([planSearch(ask, q), new Promise<never>((_, rej) => setTimeout(() => rej(new Error("planner timeout")), 15_000))]).catch(() => null);
+  const text = plan ? [plan.goods.join(", "), plan.terms.join(" ")].filter(Boolean).join("\n") : q;
+  const vector = await r.call({ capability: "embed", dataClass: "public", timeoutMs: 10_000, input: { input: [text || q] } })
+    .then((e) => (e.output as { vectors?: number[][] }).vectors?.[0] ?? null).catch(() => null);
+  const v: SearchIntent = { summary: plan?.summary || q, terms: plan?.terms.length ? plan.terms : q.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1), city: plan?.city ?? null, country: plan?.country ?? null, vector };
+  if (intentCache.size > 500) intentCache.clear();
+  intentCache.set(key, { at: Date.now(), v });
+  return v;
+}
+/** "Try" chips on the feed: real item titles from stores with posts, refreshed every 10 minutes. */
+let sugg: { at: number; v: string[] } = { at: 0, v: [] };
+async function suggestions(): Promise<string[]> {
+  if (!conn || Date.now() - sugg.at < 10 * 60_000) return sugg.v;
+  const rows = (await conn.db.execute(sql`select distinct on (lower(i.title)) i.title from items i join businesses b on b.handle = i.handle where i.active and b.suspended_at is null
+    and exists (select 1 from posts p where p.handle = i.handle and p.status = 'published' and p.removed_at is null) order by lower(i.title) limit 30`)) as unknown as { title: string }[];
+  sugg = { at: Date.now(), v: rows.map((r) => r.title).sort(() => Math.random() - 0.5).slice(0, 6) };
+  return sugg.v;
+}
+
 // The seller app API (ADR 0018): needs Postgres for content and the secret key for session cookies.
 if (conn && process.env.NEARCHANT_SECRET_KEY) {
   mountSellerApp(app, {
@@ -322,6 +362,15 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     videoEnabled: !!(process.env.TTS_URL && process.env.COMFY_API_KEY),
     walletRecipient: new URL(config.public_url).host,
     ...(mailer ? { mail: mailer } : {}), publicUrl: config.public_url,
+  });
+  const queueJob = async (task: string, payload: Record<string, unknown>, jobKey?: string) => {
+    if (!queue) throw new Error("no job queue (DATABASE_URL unset)");
+    await queue.addJob(task, payload, { ...(jobKey ? { jobKey } : {}), maxAttempts: 3 });
+  };
+  mountBuyerApp(app, {
+    feed: feedStore!, content: new ContentStore(conn.db), isOwnerKey, enqueue: queueJob, understand, key: buyerKey,
+    secureCookies: config.public_url.startsWith("https://"), walletRecipient: new URL(config.public_url).host, publicUrl: config.public_url,
+    ...(mailer ? { mail: mailer } : {}),
   });
 }
 {
@@ -345,6 +394,9 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     explorer: (a) => `https://${config.network === "mainnet" ? "" : "testnet."}nearblocks.io/address/${a}`,
     proof: (id) => chain.view(accounts.proofs, "get", { proof_id: id }),
     proofsContract: accounts.proofs, mediaDir,
+    ...(feedStore ? { feedStore, understand, buyerKey, suggestions: async () => suggestions() } : {}),
+    ...(existsSync(join(import.meta.dirname, "../dist/web/buyer.js")) ? { buyerJs: readFileSync(join(import.meta.dirname, "../dist/web/buyer.js"), "utf8") } : {}),
+    ...(existsSync(join(import.meta.dirname, "../dist/web/wallet.js")) ? { walletJs: readFileSync(join(import.meta.dirname, "../dist/web/wallet.js"), "utf8") } : {}),
   });
 }
 

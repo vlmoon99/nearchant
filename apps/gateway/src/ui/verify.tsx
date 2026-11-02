@@ -24,7 +24,7 @@ const Row: FC<{ ok: boolean | null | undefined; title: string; detail: string }>
 export const VerifyPage: FC<{ cfg: UiConfig; test: boolean; v: VerifyView | null; latest: { id: string; store: string; caption: string }[] }> = ({ cfg, test, v, latest }) => (
   <UiPage title={v ? `Proof #${v.proofId} · Nearchant` : "Verify a post · Nearchant"} cfg={cfg} page="verify" test={test}>
     <div class="land">
-      <nav class="land-nav"><a class="land-logo" href="/"><Mark />Nearchant</a><span class="land-links sub"><a href="/explore">Explore</a><a href="/verify">Verify a post</a></span><a class="btn" href="/start">Create your store</a></nav>
+      <nav class="land-nav"><a class="land-logo" href="/"><Mark />Nearchant</a><span class="land-links sub"><a href="/feed">Shop feed</a><a href="/verify">Verify a post</a></span><a class="btn" href="/start">Create your store</a></nav>
       <section class="stack" style="max-width:760px;margin:0 auto;padding:40px 16px 80px;gap:20px">
         <h1 class="t1">Verify a post</h1>
         <p class="body muted" style="margin:0">Every published post has a proof on NEAR: a fingerprint of its caption and picture, who published it, when, and which AI wrote it. Check one here — the page reads NEAR directly.</p>
