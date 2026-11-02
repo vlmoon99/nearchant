@@ -127,7 +127,15 @@ export function makeMarketTasks(d: MarketTaskDeps) {
       for (const p of posts) { const v = await moderate(p.id, null); if (v && shouldRemove(v)) removed = true; }
       await d.feed.decideReport(reportId, removed ? "auto_removed" : "open", "ai", { checkedPosts: posts.length, removed });
     },
-    index_post: async (payload) => { const { postId } = payload as { postId: string }; await indexPost(postId); const p = await d.content.getPost(postId); if (p) await indexStore(p.handle); },
+    index_post: async (payload) => {
+      const { postId } = payload as { postId: string };
+      await indexPost(postId);
+      const p = await d.content.getPost(postId);
+      if (!p) return;
+      // A new store gets its place with its first published post (the feed's region search needs it).
+      if (!(await d.content.getBusiness(p.handle))?.placeBy) await place(p.handle).catch((e) => d.log(`place ${p.handle}: ${(e as Error).message}`));
+      await indexStore(p.handle);
+    },
     index_store: async (payload) => { await indexStore((payload as { handle: string }).handle); },
     find_place: async (payload) => { await place((payload as { handle: string }).handle); },
     // Once at start (and daily): places, vectors and moderation for everything published before this existed.
