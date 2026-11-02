@@ -126,6 +126,18 @@ export class ContentStore {
     await this.db.insert(s.posts).values(rows);
     return { batchId, ids: rows.map((r) => r.id) };
   }
+  /** Where the store is and ships (ADR 0022); an owner's choice is never overwritten by the AI. */
+  async setPlace(handle: string, p: { city: string | null; country: string | null; ships: string | null; by: "owner" | "ai" }): Promise<void> {
+    const where = p.by === "ai" ? and(eq(s.businesses.handle, handle), sql`coalesce(${s.businesses.placeBy}, '') <> 'owner'`) : eq(s.businesses.handle, handle);
+    await this.db.update(s.businesses).set({ city: p.city, country: p.country, ships: p.ships, placeBy: p.by }).where(where);
+  }
+  async listBusinesses(limit = 1000): Promise<Business[]> {
+    return this.db.select().from(s.businesses).orderBy(desc(s.businesses.createdAt)).limit(limit);
+  }
+  /** Published posts of every store, newest first (backfills). */
+  async publishedPosts(limit = 500): Promise<Post[]> {
+    return this.db.select().from(s.posts).where(and(eq(s.posts.status, "published"), isNull(s.posts.passedAt))).orderBy(desc(s.posts.publishedAt)).limit(limit);
+  }
   async getPost(id: string): Promise<Post | null> {
     return (await this.db.select().from(s.posts).where(eq(s.posts.id, id)))[0] ?? null;
   }

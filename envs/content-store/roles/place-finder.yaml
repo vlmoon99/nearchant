@@ -1,0 +1,6 @@
+prompt: prompts/place-finder.md
+seat: main
+output: json
+temperature: 0
+reasoning: false
+max_tokens: 200

@@ -1,0 +1,6 @@
+prompt: prompts/search-planner.md
+seat: main
+output: json
+temperature: 0
+reasoning: false
+max_tokens: 500

@@ -6,3 +6,4 @@ export * from "./shops.js";
 export * from "./content.js";
 export * from "./fence.js";
 export * from "./feed.js";
+export * from "./mail.js";

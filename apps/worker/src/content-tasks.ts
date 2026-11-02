@@ -28,6 +28,10 @@ export interface ContentTaskDeps {
   video?: { render: (prompt: string, picture: Buffer) => Promise<Buffer>; tts: Tts; fontsDir: string; storeLink?: (handle: string) => string };
   /** Fonts for text we put on pictures and videos (headline strip, captions). */
   fontsDir?: string;
+  /** Moderation before a post goes public (ADR 0022): true = the moderator removed it. Errors never block publishing. */
+  moderateBeforePublish?: (postId: string) => Promise<boolean>;
+  /** After publishing: search vectors etc. */
+  afterPublish?: (postId: string) => Promise<void>;
   /** Side effects sent once per key (chain calls). */
   outbox: { enqueue(key: string, kind: string, payload: unknown): Promise<unknown> };
 }
@@ -249,8 +253,14 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     }
     const vid = (p.idea as { video?: { status?: string; key?: string } }).video;
     const publicVideo = vid?.status === "ready" && vid.key ? await publishVideo(p.handle, p.id, vid.key) : null;
-    await d.content.updatePost(p.id, { status: "published", publishedAt: new Date(), idea: { ...(p.idea as object), publicImage: publicKey, ...(publicVideo ? { publicVideo } : {}) } });
+    // The moderator looks first; a removed post is marked removed and gets no proof (it never shows publicly).
+    let removed = false;
+    try { removed = (await d.moderateBeforePublish?.(p.id)) ?? false; } catch (e) { d.log(`moderation before publish failed (${(e as Error).message}) — publishing, checked again later`); }
+    const fresh = (await d.content.getPost(p.id)) ?? p;
+    await d.content.updatePost(p.id, { status: "published", publishedAt: new Date(), idea: { ...(fresh.idea as object), publicImage: publicKey, ...(publicVideo ? { publicVideo } : {}) } });
+    if (removed) { d.log(`published ${p.id} — removed by moderation, not shown`); return; }
     await d.outbox.enqueue(`proof:post:${p.id}`, "post.proof", { postId: p.id, handle: p.handle, entry: postProofEntry({ id: p.id, caption: p.caption ?? "", imageSha256: m?.sha256 ?? null, idea: p.idea }) });
+    await d.afterPublish?.(p.id).catch((e) => d.log(`after publish ${p.id}: ${(e as Error).message}`));
     d.log(`published ${p.id}`);
   };
 

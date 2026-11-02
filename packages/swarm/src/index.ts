@@ -4,3 +4,4 @@ export * from "./steps.js";
 export * from "./runner.js";
 export * from "./hire.js";
 export * from "./content.js";
+export * from "./marketplace.js";

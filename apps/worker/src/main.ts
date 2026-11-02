@@ -3,8 +3,8 @@ import { createHash } from "node:crypto";
 // env: DATABASE_URL, NEARCHANT_SECRET_KEY, NEAR_RELAYER_KEY, NEARAI_API_KEY / NC_LOCAL_LLM_KEY (or REPLAY_DIR),
 //      SEARXNG_URL?, RENDERER_URL, MEDIA_DIR, MEDIA_PUBLIC
 import { join, resolve } from "node:path";
-import { run, type Task } from "graphile-worker";
-import { Artifacts, ContentStore, Envelopes, Outbox, PgStore, Sealer, connect, runMigrations, waitWhileFenced } from "@nearchant/db";
+import { makeWorkerUtils, run, type Task } from "graphile-worker";
+import { Artifacts, ContentStore, Envelopes, FeedStore, Outbox, PgStore, Sealer, connect, emailHtml, resendMailer, runMigrations, waitWhileFenced } from "@nearchant/db";
 import { Chain, loadAccounts } from "@nearchant/near";
 import { PIPELINE, hireAgent, loadAgentEnv, runStep, type JobDeps, type Step } from "@nearchant/swarm";
 import { agentKey } from "@nearchant/db";
@@ -20,6 +20,7 @@ import { makeRouter } from "./router.js";
 import { checkNearAiReport } from "@nearchant/providers";
 import { makeTts } from "./tts.js";
 import { makeContentTasks } from "./content-tasks.js";
+import { makeMarketTasks } from "./market-tasks.js";
 import { ComfyCloud, fillWorkflow, type LabVariant } from "@nearchant/providers";
 import { localMedia, marpServerRender, searxng } from "./tools.js";
 
@@ -213,11 +214,32 @@ const video = comfy && videoVariant && process.env.TTS_URL ? {
   },
 } : undefined;
 
+// Marketplace (ADR 0022): moderator agent, search vectors, store places.
+const feedStore = new FeedStore(conn.db);
+const workerUtils = await makeWorkerUtils({ connectionString: need("DATABASE_URL") });
+const gwEmail = (gw as { email?: { from: string; api_url: string } }).email;
+const mailer = gwEmail && process.env.RESEND_API_KEY ? resendMailer({ apiKey: process.env.RESEND_API_KEY, from: gwEmail.from, apiUrl: gwEmail.api_url }) : null;
+const contentEnv = loadAgentEnv(join(root, "envs/content-store"));
+const market = makeMarketTasks({
+  content: contentStore, feed: feedStore, envelopes, router, env: contentEnv, mediaDir, accountOf: (h) => `${h}.${accounts.root}`,
+  log: (m) => console.info(`[market] ${m}`),
+  ...(mailer ? { notify: async (handle: string, subject: string, lines: string[]) => {
+    const to = await contentStore.getSetting<string>(`emailOf:${handle}`);
+    if (to) await mailer({ to, subject, text: lines.join("\n\n"), html: emailHtml({ title: subject, lines }), idempotencyKey: `notify:${handle}:${createHash("sha256").update(subject + lines.join()).digest("hex").slice(0, 16)}` });
+  } } : {}),
+});
+const withTimeout = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`timeout ${ms} ms`)), ms))]);
+
 const contentTasks = makeContentTasks({
+  moderateBeforePublish: async (postId) => {
+    try { const v = await withTimeout(market.moderate(postId), 120_000); return !!v && (await contentStore.getPost(postId))?.removedAt != null; }
+    catch (e) { await workerUtils.addJob("moderate_post", { postId }, { jobKey: `moderate:${postId}`, maxAttempts: 5, runAt: new Date(Date.now() + 60_000) }); throw e; }
+  },
+  afterPublish: async (postId) => { await workerUtils.addJob("index_post", { postId }, { jobKey: `index:${postId}`, maxAttempts: 5 }); },
   fontsDir: process.env.FONTS_DIR ?? join(root, "assets/fonts"),
   ...(labRender ? { labRender } : {}),
   ...(video ? { video } : {}),
-  content: contentStore, envelopes, router, outbox, env: loadAgentEnv(join(root, "envs/content-store")), mediaDir,
+  content: contentStore, envelopes, router, outbox, env: contentEnv, mediaDir,
   accountOf: (h) => `${h}.${accounts.root}`, decimals: Number(gw.token?.decimals ?? 6),
   ...(process.env.SEARXNG_URL ? { search: searxng(process.env.SEARXNG_URL) } : {}),
   log: (m) => console.info(`[content] ${m}`),
@@ -228,8 +250,9 @@ const runner = await run({
   concurrency: Number(process.env.WORKER_CONCURRENCY ?? 4),
   noHandleSignals: false,
   pollInterval: 1000,
-  taskList: { ...contentTasks, deck_step: deckStep, outbox_drain: outboxDrain, billing_settle: billingSettle, escrow_timers: escrowTimers },
-  crontab: ["* * * * * outbox_drain ?jobKey=outbox_drain", "*/5 * * * * billing_settle ?jobKey=billing_settle", "*/10 * * * * escrow_timers ?jobKey=escrow_timers"].join("\n"),
+  taskList: { ...contentTasks, ...market.tasks, deck_step: deckStep, outbox_drain: outboxDrain, billing_settle: billingSettle, escrow_timers: escrowTimers },
+  crontab: ["* * * * * outbox_drain ?jobKey=outbox_drain", "*/5 * * * * billing_settle ?jobKey=billing_settle", "*/10 * * * * escrow_timers ?jobKey=escrow_timers", "17 4 * * * feed_backfill ?jobKey=feed_backfill"].join("\n"),
 });
+await workerUtils.addJob("feed_backfill", {}, { jobKey: "feed_backfill", maxAttempts: 2 }); // places, vectors, moderation for older content
 console.info("[worker] up: write_insights, analyze_business, find_opportunities, generate_posts, learn_taste, deck_step, outbox_drain, billing_settle, escrow_timers");
 await runner.promise;
