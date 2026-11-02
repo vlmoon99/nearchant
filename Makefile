@@ -47,3 +47,17 @@ logs: ## follow gateway + worker logs
 doctor: ## check the local stack and model endpoints
 	@curl -sf http://localhost:8787/health && echo || echo "gateway: down"
 	@$(COMPOSE) ps --format '{{.Service}}: {{.Status}}'
+
+# Mac standby (ADR 0020, deploy/standby/README.md)
+standby-setup: ## Mac standby: replica of the Spark DB + media, watchdog that takes over nearchant.com when the Spark is down
+	deploy/standby/setup.sh
+
+standby-build: ## rebuild the Mac standby images from this checkout (after deploying new code to the Spark)
+	docker compose -f deploy/standby/compose.yaml --env-file deploy/standby/.env --profile active build
+
+standby-status: ## role, last Spark check, last media copy, replica lag
+	@curl -s http://127.0.0.1:8799/status || echo "watchdog: not running"
+	@docker compose -p nearchant-standby exec -T db psql -U nearchant -d nearchant -Atc "select case when pg_is_in_recovery() then 'replica, last change replayed ' || coalesce((now() - pg_last_xact_replay_timestamp())::text || ' ago', '?') else 'PRIMARY (serving)' end"
+
+failback: ## after a takeover: move the data back and serve nearchant.com from the Spark again
+	deploy/standby/failback.sh

@@ -9,10 +9,12 @@
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/.env"
+SPARK_DIR=$(sed -n 's/^SPARK_DIR=//p' "$HERE/.env")   # keep ~ for the Spark (sh expands it when sourcing)
 STATE="$HOME/Library/Application Support/nearchant-standby"
 role=$(cat "$STATE/role" 2>/dev/null || echo standby)
 [ "$role" = primary ] || { echo "this Mac is not primary (role: $role) — nothing to switch back"; exit 1; }
-dc() { docker compose -f "$HERE/compose.yaml" --env-file "$HERE/.env" "$@"; }
+RUN=$(dirname "$STANDBY_MEDIA")/run   # the copy setup.sh installs (the one the watchdog uses)
+dc() { docker compose -f "$RUN/compose.yaml" --env-file "$RUN/.env" "$@"; }
 spark() { ssh -o BatchMode=yes -o ConnectTimeout=8 "$SPARK_SSH" "cd $SPARK_DIR && $1"; }
 spark "docker compose ps db --status running -q | grep -q ." || { echo "the Spark's database is not running"; exit 1; }
 ts=$(date -u +%Y%m%dT%H%M%SZ)

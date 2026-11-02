@@ -8,7 +8,7 @@ set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 PRIMARY_HOST=${PRIMARY_HOST:-100.64.0.13}
 SPARK_SSH=${SPARK_SSH:-server@$PRIMARY_HOST}
-SPARK_DIR=${SPARK_DIR:-~/nearchant/deploy/local}
+SPARK_DIR=${SPARK_DIR:-'~/nearchant/deploy/local'}  # ~ expands on the Spark
 STANDBY_IP=${STANDBY_IP:-$(tailscale ip -4 2>/dev/null || /Applications/Tailscale.app/Contents/MacOS/Tailscale ip -4)}
 STANDBY_MEDIA=${STANDBY_MEDIA:-$HOME/nearchant-standby/media}
 kc() { security find-generic-password -a nearchant -s "$1" -w 2>/dev/null; }
@@ -58,9 +58,16 @@ echo "2/3 the Spark is ready (replication slot mac_standby, db on $PRIMARY_HOST:
 
 # 3 · this Mac
 cd "$HERE"
-docker compose --env-file .env build -q
+docker compose --env-file .env --profile active build -q
 docker compose --env-file .env up -d db
-python3 "$HERE/watchdog.py" sync-once
+# launchd may not read ~/Documents (macOS privacy): the watchdog runs from a copy outside it. The copy's compose
+# file points its build contexts at this checkout (only used for builds, which run from here).
+RUN=$(dirname "$STANDBY_MEDIA")/run
+REPO=$(cd "$HERE/../.." && pwd)
+mkdir -p "$RUN"
+cp "$HERE/watchdog.py" "$HERE/db-entry.sh" "$HERE/.env" "$RUN/"
+sed -e "s|context: \.\./\.\.|context: $REPO|" -e "s|context: \.\./image-engine/service|context: $REPO/deploy/image-engine/service|" "$HERE/compose.yaml" > "$RUN/compose.yaml"
+python3 "$RUN/watchdog.py" sync-once
 PLIST=$HOME/Library/LaunchAgents/com.nearchant.standby.plist
 mkdir -p "$HOME/Library/Logs"
 cat > "$PLIST" <<EOF
@@ -68,7 +75,7 @@ cat > "$PLIST" <<EOF
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>Label</key><string>com.nearchant.standby</string>
-  <key>ProgramArguments</key><array><string>/usr/bin/python3</string><string>$HERE/watchdog.py</string></array>
+  <key>ProgramArguments</key><array><string>/usr/bin/python3</string><string>$RUN/watchdog.py</string></array>
   <key>EnvironmentVariables</key><dict><key>PATH</key><string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
   <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
   <key>StandardOutPath</key><string>$HOME/Library/Logs/nearchant-standby.log</string>

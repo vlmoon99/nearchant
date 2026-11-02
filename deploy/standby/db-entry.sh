@@ -6,7 +6,7 @@ PGDATA=${PGDATA:-/var/lib/postgresql/data}
 if [ ! -s "$PGDATA/PG_VERSION" ]; then
   mkdir -p "$PGDATA" && chown postgres:postgres "$PGDATA" && chmod 700 "$PGDATA"
   until PGPASSWORD="$REPL_PASSWORD" gosu postgres pg_basebackup -h "$PRIMARY_HOST" -p "${PRIMARY_PORT:-55432}" -U replicator \
-      -D "$PGDATA" -R -X stream -S mac_standby --progress; do
+      -D "$PGDATA" -R -X stream -S mac_standby -c fast --progress; do
     echo "standby: primary not reachable yet, retrying in 30 s"; rm -rf "${PGDATA:?}"/* 2>/dev/null || true; sleep 30
   done
   echo "standby: cloned from $PRIMARY_HOST"

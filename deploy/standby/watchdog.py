@@ -150,9 +150,13 @@ def main() -> None:
     last_ok, last_sync = time.time(), 0.0
     if role() == "primary":
         compose("--profile", "active", "up", "-d")  # after a Mac restart while primary
+    prev = role()
     while True:
         try:
             r = role()
+            if r != prev:  # e.g. failback.sh finished: the 3-minute clock starts again from now
+                log(f"role {prev} → {r}")
+                last_ok, prev = time.time(), r
             if r == "standby":
                 if http_ok(f"http://{PRIMARY}:8787/health"):
                     last_ok = time.time()

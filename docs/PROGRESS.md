@@ -1033,3 +1033,22 @@ undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your mach
 - Published Super Nutrition's first post now (owner's request to see it); posts 2–3 stay on 7 and 8 Nov.
 - **Verified**: worker published it and recorded proof #27; https://supernutrition.nearchant.com/ and
   /h/supernutrition/ show it in Posts (with ▶ short) and the post page opens; gateway tests 48.
+
+## 2026-11-02 18:26 UTC — Mac standby: nearchant.com survives a Spark outage (ADR 0020)
+- **Owner asked**: after the power cut took the Sparks (and the site) down, the Mac should hold the data all the time
+  and keep the site running for development.
+- **Done**: `deploy/standby/` — streaming replica of the Spark's Postgres on the Mac (slot `mac_standby`, Spark
+  DB on its tailnet IP for the Mac only, `replicator` password in the Keychain as `NC_REPL_PASSWORD`), media copied
+  every minute, launchd watchdog (takeover after 3 min: Spark silent on the tailnet + site down in public + Mac
+  online → promote, start gateway/worker/tunnel on the Mac, NEAR AI for text), fence (`FENCE_URL` +
+  `waitWhileFenced`; the watchdog stops a returning Spark), `make failback`, `make standby-status|build|setup`.
+- **Verified (live, full cycle)**: stopped the Spark's site at 18:14:57 → the Mac took over at 18:17:56, nearchant.com
+  200 at 18:18:15 (~3 min 20 s down); on the Mac: store page, signed-in seller app, Explore, pictures, new visits
+  written. Restarted the Spark's site: its gateway and worker waited ("[fence] … is primary"), the watchdog stopped
+  them within a minute, site stayed on the Mac. `failback.sh` 18:19:50 → 18:20:21 (58 posts, 19 stores, 15 orders
+  restored on the Spark; the Spark's old DB kept in `~/nearchant-backups/` there), Mac re-cloned, streaming 0 bytes
+  behind. Tests: db 16 (fence), gateway 48, worker 18, watchdog rule 5 (python unittest).
+- **Not verified**: a real power cut of both Sparks (simulated by stopping the Spark's site; the DB stayed up);
+  AI calls on NEAR AI from the Mac during a takeover (no post was made in the 2 minutes).
+- **Owner notes**: the Mac must be awake with Docker Desktop running to stand by. After deploying new code to the
+  Spark run `make standby-build` on the Mac. If the Mac takes over: run `make failback` once the Spark is back.
