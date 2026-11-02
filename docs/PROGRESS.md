@@ -880,7 +880,7 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   that covers many days. See how they fit together." (check 0.02). Tests: gateway 43, swarm 36.
 - Fixed tonight's PROGRESS times to the machine clock (earlier entries were estimates, ~2 h ahead).
 
-## 2026-11-02 01:45 UTC — night: ADR 0019; Phala deploy prepared and rehearsed
+## 2026-11-02 01:00 UTC — night: ADR 0019; Phala deploy prepared and rehearsed
 
 - **ADR 0019** (two Sparks for the LLMs, Comfy Cloud for media, text on media is ours, Sage + attestation checks,
   NEP-413 wallet) + index.
