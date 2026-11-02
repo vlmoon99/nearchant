@@ -321,6 +321,12 @@ const viewCall = async <T>(contract: string, method: string, args: unknown): Pro
   const r = await rpcQuery<{ result: number[] }>({ request_type: "call_function", account_id: contract, method_name: method, args_base64: btoa(JSON.stringify(args)) });
   return r ? JSON.parse(new TextDecoder().decode(new Uint8Array(r.result))) as T : null;
 };
+// "Share proof link": the public /verify page for this post (native share sheet on phones, else copy).
+document.querySelectorAll<HTMLAnchorElement>("[data-share-proof]").forEach((a) => a.addEventListener("click", async (e) => {
+  e.preventDefault();
+  const url = new URL(a.dataset.shareProof!, location.origin).toString();
+  try { if (navigator.share) await navigator.share({ title: "Proof on NEAR", url }); else { await navigator.clipboard.writeText(url); a.lastChild!.textContent = "Link copied"; } } catch { /* cancelled */ }
+}));
 document.querySelector<HTMLElement>("[data-receive]")?.addEventListener("click", () => $("#receive-card").classList.toggle("hidden"));
 document.querySelectorAll<HTMLElement>("[data-copy]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); void navigator.clipboard?.writeText(b.dataset.copy!); b.textContent = "Copied"; }));
 document.querySelector<HTMLElement>("[data-withdraw-open]")?.addEventListener("click", () => $("#withdraw-form").classList.toggle("hidden"));

@@ -138,11 +138,12 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
   const check = (p.idea as { check?: { invented_offer: number; flagged: boolean } } | null)?.check;
   return (
     <Page cfg={cfg} test={test} title="Post" active="Posts" store={store}>
-      <PageHead kicker={`Posts › ${clip(p.caption ?? "Post", 40)}`} title="Post details" />
+      <a class="sub" href="/app/posts">‹ Posts</a>
+      <PageHead kicker={clip(p.caption ?? "Post", 60)} title={p.status === "published" ? "Posted" : p.status === "scheduled" ? "Scheduled" : p.status === "ready" ? "Your post is ready" : "Post details"} />
       <div class="cols post-cols">
         <div class="stack s12">
           <div class="post"><div class="img" style={img(p.imageMediaId) ? `background-image:url('${img(p.imageMediaId)}');aspect-ratio:4/5` : "aspect-ratio:4/5"}></div></div>
-          {video?.status === "ready" && video.key ? <video src={`/files/${video.key}?v=${(video.mediaId ?? "").slice(-8)}`} controls playsinline preload="metadata" style="width:100%;max-width:360px;aspect-ratio:9/16;border-radius:16px;background:#000"></video> : null}
+          {video?.status === "ready" && video.key ? <video src={`/files/${video.key}?v=${(video.mediaId ?? "").slice(-8)}`} controls playsinline preload="metadata" style="width:100%;max-width:260px;align-self:center;aspect-ratio:9/16;border-radius:16px;background:#000"></video> : null}
           {check?.flagged ? <div class="card" style="background:#fff3c4;gap:4px"><span class="callout b">Check this caption before it goes live</span>
             <span class="foot">Our AI check (Levanto Sage on NEAR AI) thinks it may promise something your store doesn’t say — a discount, free delivery, a gift, a deadline or a different price ({Math.round(check.invented_offer * 100)}% sure). Edit it, or post it if the offer is real.</span></div> : null}
           <textarea class="input" id="caption" data-post={p.id} rows={6}>{p.caption ?? ""}</textarea>
@@ -167,6 +168,7 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
               {[["Proof", `#${proof.proofId}`], ["Fingerprint (SHA-256)", `${proof.outputHash?.slice(0, 10)}…${proof.outputHash?.slice(-8)}`], ["Made by", madeBy(p)], ["Owner", store.account], ["Contract", proof.contract ?? ""]].map(([k, v]) => <div class="spread"><span class="foot muted">{k}</span><span class="foot b">{v}</span></div>)}
               {writerOf(p)?.reportHash ? <span class="foot">TEE attestation: <a href={`/attestations/${writerOf(p)!.reportHash}.json`} target="_blank" rel="noopener">report</a> · <a href={`/attestations/${writerOf(p)!.reportHash}.check.json`} target="_blank" rel="noopener">our check</a> (Intel TDX quote verified, NEAR AI's key and our nonce bound into it)</span> : null}
               <a class="btn near" href={explorer} target="_blank" rel="noopener"><Icon n="globe" />View on NEAR explorer</a>
+              <a class="btn secondary" href={`/verify/${proof.proofId}`} data-share-proof={`/verify/${proof.proofId}`}><Icon n="link" />Share proof link</a>
             </> : <span class="foot">When this post goes live we record its fingerprint, the time and the AI that made it on NEAR — buyers can verify it’s really from {store.name}.</span>}
           </div>
         </div>
