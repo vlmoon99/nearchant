@@ -1005,3 +1005,22 @@ undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your mach
   Boost Content database master because the Gigabyte (node1) does not answer — that is their system, untouched.
 - **Verified**: gateway tests 47 (new: export only for the owner); live screenshots desktop 1440 and phone 393 (no
   sideways scroll, no page errors); export on nearchant.com returns 200 with 11 posts as an attachment.
+
+## 2026-11-02 10:19 UTC — Store feed: buyers see posts on Nearchant itself
+- **Owner asked**: see a shop's posts as a buyer, so the store does not depend on other social networks (they only
+  bring people in).
+- **Done**:
+  - Store page: post tiles open the post (▶ marks a short); "All N posts" → `/h/<store>/posts`.
+  - Public post page `/h/<store>/p/<id>` (also `<store>.nearchant.com/p/<id>`): picture or short, caption,
+    hashtags, date, Proof #n → `/verify/<n>`, **Buy** card for the item the post shows (or "Shop <store>"),
+    share to Telegram / X / WhatsApp, "More from <store>". Open Graph tags so a shared link shows the picture
+    in Telegram/Instagram/X.
+  - **Explore** `nearchant.com/explore`: newest posts of every store (hidden test stores left out), "Older posts"
+    paging; linked from the landing, Verify and Explore navs. Landing sample posts open their post page.
+  - A post page visit is a view of that post (with ?ref= source), so Analytics → Top posts counts real views.
+  - Seller app, published post: "Live on your store" card — View, Share post link.
+- **Verified**: db tests 14 (feed: newest first, paging, hidden stores), gateway 48 (new: feed, post page, proof
+  link, Buy link, og:image, 404s, subdomain URLs, view recorded); live on nearchant.com — store, post page desktop
+  + phone 393, Explore, no page errors, no sideways scroll; 2 visits → 2 view events with the post id in Postgres.
+- **Not verified**: link previews inside the Telegram/Instagram apps (needs a real share); posts with an item
+  link (Nova's current posts have none, so they show "Shop Nova Wear NYC").

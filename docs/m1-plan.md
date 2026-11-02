@@ -69,6 +69,10 @@ Deadlines unchanged: feature freeze 12 Nov, submission 14 Nov 23:59 UTC.
 8. [x] Wallet: Receive (account + copy) and Withdraw (nUSD to the owner's NEAR account, signed in the browser).
 6. [x] Morning report in PROGRESS.md: done / verified / owner actions.
 
+## After the night (owner asks)
+9. [x] Store feed: buyers see a store's posts on Nearchant itself (store feed, public post page with proof + Buy +
+       link previews, Explore of all stores); social networks bring people in, Nearchant is where they look and buy.
+
 ## Status
 
 See `PROGRESS.md` for dated entries.
