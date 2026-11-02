@@ -19,9 +19,11 @@ resolves cases in an admin panel reachable from the tailnet only.
 - **Buyers**: own accounts (`buyers`), signed in by email link (ADR 0021) or any NEAR wallet through NEAR Wallet
   Selector (Meteor, HOT, HERE, Intear, MyNearWallet, …) with a NEP-413 signed message. Separate cookie from sellers.
   Sellers' "Connect a NEAR wallet" moves to the selector too.
-- **Likes**: one per buyer per post. **Reports**: signed-in buyers (or anyone, rate-limited by IP) pick a reason.
-- **Moderation agent** (`moderator` role, vision, temperature 0): checks every post when it is published and every
-  report. A violation (scam, illegal goods, sexual content, violence, hate, counterfeit, spam) is **removed at once**
+- **Likes**: one per buyer per post. **Follows**: buyers follow stores (Following feed; followed stores rank higher in
+  "For you"). **Reports**: signed-in buyers pick a reason (rate-limited per buyer and IP). "More like this" under a
+  post shows the nearest posts of other stores by meaning.
+- **Moderation agent** (`moderator` role, vision, temperature 0): checks every post before it goes public (a removed
+  post gets no proof), every item for sale (hidden when it breaks the rules) and every report. A violation (scam, illegal goods, sexual content, violence, hate, counterfeit, spam) is **removed at once**
   (owner's decision: no waiting for a human); the store owner sees why. Three removals suspend the store. Every
   decision is logged and can be undone in the admin panel.
 - **Violators list**: each store or buyer with a removal or a ban gets a record with its NEAR accounts, emails and the
