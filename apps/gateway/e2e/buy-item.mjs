@@ -1,11 +1,14 @@
 // Store item end to end: buyer pays in Chrome → owner marks shipped (session cookie) → buyer confirms → Released.
 //   node e2e/buy-item.mjs <storeBase e.g. https://nearchant.com/h/novatestaegk/> <sellerSessionToken> [shotsDir]
+//   BUYER_COOKIE=<nc_buyer token> → buys as a signed-in buyer (the order then shows in /feed/orders)
 import { chromium } from "playwright-core";
 const [base, token, shots = "/tmp/nc-item"] = process.argv.slice(2);
 const origin = new URL(base).origin;
 const t0 = Date.now(); const log = (m) => console.log(`[${Math.round((Date.now() - t0) / 1000)}s] ${m}`);
 const browser = await chromium.launch({ channel: "chrome", headless: true });
-const page = await browser.newPage({ viewport: { width: 393, height: 852 } });
+const ctx = await browser.newContext({ viewport: { width: 393, height: 852 } });
+if (process.env.BUYER_COOKIE) await ctx.addCookies([{ name: "nc_buyer", value: process.env.BUYER_COOKIE, domain: new URL(base).hostname, path: "/", secure: base.startsWith("https"), httpOnly: true }]);
+const page = await ctx.newPage();
 const errors = []; page.on("pageerror", (e) => errors.push(e.message));
 await page.goto(base); await page.screenshot({ path: `${shots}/store.png`, fullPage: true });
 await page.click("a.post"); await page.waitForSelector("form.order");

@@ -1142,3 +1142,15 @@ undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your mach
 - **Verified**: tests db 18, worker 24, gateway 59; live checks above.
 - **Open (noted, not changed)**: CSP now allows https/wss connections and https frames on all pages (needed by the
   wallet bridges); scripts stay self-only. Could be scoped to wallet pages later.
+
+## 2026-11-02 23:33 UTC — night: shopper demand for sellers and the AI; My orders for buyers
+- **Done**: shop-feed searches are logged **anonymously** (goods, place, result count, which stores showed — no IP,
+  no account) → seller Analytics "What shoppers look for in <country>" (with "unmet" = searches that found no store)
+  and "your posts showed up in N searches (…)"; the **opportunity analyst** now reads these searches and may base a
+  trend on them (source `nearchant:searches`, kept only when searches exist). **My orders** (`/feed/orders`):
+  orders a buyer pays while signed in are listed across stores with the escrow state. `buy-item.mjs` takes
+  `BUYER_COOKIE` to buy as a signed-in buyer.
+- **Verified**: tests db 19, swarm 40, worker 24, gateway 60. Live: 4 searches → Nova's Analytics card shows them
+  ("vintage sneakers · unmet", "your posts showed up in 2 searches"); find_opportunities ran with "4 shopper
+  searches" (it picked an ELLE web trend this time — each search seen only once); a signed-in test buyer bought the
+  Dark denim jacket → shipped → delivered 70 s → Released 88 s → "/feed/orders" lists it as "Done".
