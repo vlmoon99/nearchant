@@ -925,9 +925,7 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   — I'll add "Continue with email" login links. "Connect a NEAR wallet" I can build without anything from you.
 - Optional: a Brave Search API key (free tier) for reliable trend opportunities — self-hosted search is blocked
   from the home network right now.
-- **URGENT (1 Nov ~18:00 UTC): all three Sparks offline** (no ping/SSH; nearchant.com 530) — likely power or
-  network at the site. `gx10-c3c8` went silent first (~17:30, during a video render). Check power/network; power-
-  cycle `gx10-c3c8` if it alone stays down. All Nearchant containers restart by themselves.
+- ~~URGENT (1 Nov ~18:00 UTC): all three Sparks offline~~ — resolved (back online, site live all night).
 - Agent Market: listing alice on market.near.ai is a public listing paid in real USD — your call. If yes: create the
   agent (self-hosted, http) on market.near.ai, paste its `aat_` token at `/h/alice/manage`, set the webhook URL +
   secret it shows (needs the public tunnel URL first).
@@ -946,3 +944,50 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
 - ~~NEAR AI credit~~ — topped up +$20 on 1 Nov.
 - `gx10-c3c8` / inference_system: its own engines are off; its config still lists the reinstalled `dgx-spark-2`
   (now `gx10-8695`) as node1. Nearchant doesn't depend on it; fix in that repo when convenient.
+
+## 2026-11-02 01:40 UTC — night: Analytics per Figma; Wallet header buttons
+- **Done**: Analytics — "Top posts" (each published post with its picture, views that came from its link, proof
+  badge → /verify), "Best time to post" heatmap from real store visits by weekday × 3-hour slot in New York time,
+  "What AI noticed" loads by itself on first open (Refresh re-asks). Wallet — Receive / Withdraw buttons in the
+  header (Figma). New db queries `visitHours`, `postViews` with tests.
+- **Verified**: db tests (16) and gateway tests pass; live page screenshot on nearchant.com for Nova Wear NYC: 3 top
+  posts with proofs #21–#23, heatmap marks Sun 15:00–18:00, two insights shown without a click.
+- **Not verified**: views per post are 0 so far (no visits through post links yet) — the count path is unit-tested
+  only.
+
+## 2026-11-02 01:45 UTC — MORNING REPORT (night of 1→2 Nov)
+**Site is live at https://nearchant.com; every night-list item is done, tested and deployed; CI green.**
+
+What you can try in 5 minutes:
+1. https://nearchant.com — landing (Figma), "Verify a post" → https://nearchant.com/verify/21.
+2. `/start` on a phone — create a store; posts with pictures, headline text and a 12 s short arrive in ~2 min.
+3. Your store app: Home, a post (caption chips Shorter / Playful / Bolder, proof link), Analytics, Wallet
+   (Receive / Withdraw), Settings → NEAR wallet.
+4. README → walkthrough video `docs/media/walkthrough.mp4` (72 s) and `docs/demo-script.md` for the submission.
+
+Done tonight (details in the entries above):
+- Sparks run LLMs only (Qwen3.6 on gx10-8695, Qwen3.8 on gx10-c3c8); pictures and video on Comfy Cloud.
+- Connect a NEAR wallet (NEP-413 sign-in); Wallet Receive + Withdraw (browser-signed nUSD transfer).
+- Our own check of NEAR AI TEE attestation reports; public "Verify a post" page reading NEAR directly.
+- Shorts and pictures: hook + captions + end-card on video, headline strip on pictures, text-artifact re-roll,
+  Levanto Sage caption check (flags offers the store never stated).
+- Post page, Analytics and Wallet per Figma; Kyiv → New York everywhere; light theme only; smaller pictures.
+- Phala deploy prepared and rehearsed on the Mac (images built for amd64 + arm64, digests pinned); ADR 0019.
+- An independent review of the night's code: all findings fixed (proof trust, TEE status, retries, double-send).
+
+Verified: all unit tests (gateway, worker, providers, swarm, db); journey e2e on live site (store → posts 132 s →
+paid → delivered on chain → Released 64 s, no page errors); withdraw e2e on testnet (registered and fresh
+receiver); `make demo` green with replay; CI green on the last pushes.
+
+Not verified: MyNearWallet round trip in a real browser wallet (needs you); NVIDIA GPU attestation via NRAS (403
+without a key — Intel TDX part is verified); views-per-post counts on real traffic.
+
+Owner actions (in order of importance):
+1. **Phala Cloud** account with credit (needed by ~8 Nov), then follow `deploy/phala/README.md`.
+2. Try Settings → NEAR wallet with a testnet MyNearWallet account; tell me if it errors.
+3. Comfy Cloud credits end **11 Nov** — pictures and video depend on them; top up or tell me to fall back to local.
+4. Optional: email provider key (Resend/Postmark) for email sign-in; Telegram bot token; Brave Search key.
+5. Agent Market listing (real USD, your call) — steps in the owner list above.
+
+Machines: gx10-8695 = site + Qwen3.6 + TTS; gx10-c3c8 = Qwen3.8 only (Boost Content services there are stopped,
+undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your machine) untouched.
