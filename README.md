@@ -12,7 +12,7 @@ and a public proof log.
 
 > Built for the [NEAR Hackathon](https://nearhackathon.com) (Nov 2026). Tracks: **Agent Economy**, Private AI,
 > Autonomous Business. Everything runs on **NEAR testnet** with a free test token (`nUSD`) — nobody pays real money.
-> Live: **https://nearchant.com/start** · 72-second recorded walkthrough: [`docs/media/walkthrough.mp4`](docs/media/walkthrough.mp4)
+> Live: **https://nearchant.com/start** · 101-second recorded walkthrough: [`docs/media/walkthrough.mp4`](docs/media/walkthrough.mp4)
 
 ## The story (try it at nearchant.com/start)
 
@@ -151,7 +151,7 @@ NEAR AI TEE text + Comfy Cloud images). Then:
 - Browser tests (installed Chrome; `ENGINE=webkit` for Safari's engine, `VIEWPORT=1440x900` for desktop):
   `apps/gateway/e2e/journey.sh` (new store → posts → item → buyer pays → ship → released), `onboard.mjs`,
   `buy-item.mjs`, plus the earlier `buy-deck.mjs` / `create-shop.mjs`.
-- `apps/gateway/e2e/walkthrough.mjs` records the demo walkthrough (desktop app + phone onboarding + buyer) into one
+- `apps/gateway/e2e/walkthrough.mjs` records the demo walkthrough (desktop app + phone onboarding + buyer + shop feed) into one
   mp4 (`docs/demo-script.md` is the narrated 90-second version).
 
 ## How it is built
