@@ -29,6 +29,15 @@ resolves cases in an admin panel reachable from the tailnet only.
 - **Violators list**: each store or buyer with a removal or a ban gets a record with its NEAR accounts, emails and the
   IP addresses it used (we log IPs per account on sign-in and on posting, liking and reporting). The sign-in and feed
   pages say so. Data class: private — it never leaves our servers and is not sent to any model.
+- **Stores that sell it**: each searched good gets its own embedding; per store the best match among its items, posts
+  and profile (≥ 0.5) marks the good as sold; stores covering more of the list come first. **Budget**: the planner
+  reads a maximum price; posts are kept when their item (or the store) fits it.
+- **Ask the store**: the `store-assistant` role answers shoppers on store and post pages from public store data only
+  (description, items, prices, options, place/delivery, published posts) — never offers, escrow-only payment, "the
+  owner can answer" when the data doesn't say. Questions are kept for the owner (Analytics). 20/hour per address.
+- **Shopper demand**: searches are logged anonymously (query, goods, place, result count, stores shown — no IP, no
+  account) for sellers' Analytics ("what shoppers look for", unmet searches), the opportunity analyst and the insight
+  writer. **My orders**: orders a signed-in buyer pays are listed across stores.
 - **Admin panel** on the admin listener (`ADMIN_BIND`, the tailnet address only, never the tunnel) with a password
   (`ADMIN_PASSWORD`, Keychain / `.env`) and the moderator's name on every decision: reports queue, removed posts
   (undo), suspended stores, violators, decision log.
