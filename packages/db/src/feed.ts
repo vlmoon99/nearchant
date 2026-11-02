@@ -22,6 +22,8 @@ export interface FeedQuery {
   buyerId?: string | null;
   /** Only the posts this buyer liked (the "Liked" page). */
   onlyLiked?: boolean;
+  /** Only posts of stores this buyer follows (the "Following" feed). */
+  onlyFollowing?: boolean;
   /** Leave these posts out (e.g. the post a "More like this" list belongs to). */
   exclude?: string[];
   limit?: number;
@@ -94,6 +96,20 @@ export class FeedStore {
     return new Set((await this.db.select({ id: s.likes.postId }).from(s.likes).where(and(eq(s.likes.buyerId, buyerId), inArray(s.likes.postId, postIds)))).map((r) => r.id));
   }
 
+  // ── follows ──
+  async follow(buyerId: string, handle: string, on: boolean): Promise<number> {
+    if (on) await this.db.insert(s.follows).values({ buyerId, handle }).onConflictDoNothing();
+    else await this.db.delete(s.follows).where(and(eq(s.follows.buyerId, buyerId), eq(s.follows.handle, handle)));
+    return this.followers(handle);
+  }
+  async followers(handle: string): Promise<number> {
+    const [r] = await this.db.select({ n: sql<number>`count(*)::int` }).from(s.follows).where(eq(s.follows.handle, handle));
+    return r?.n ?? 0;
+  }
+  async follows(buyerId: string, handle: string): Promise<boolean> {
+    return !!(await this.db.select({ h: s.follows.handle }).from(s.follows).where(and(eq(s.follows.buyerId, buyerId), eq(s.follows.handle, handle))))[0];
+  }
+
   // ── search vectors ──
   async vectorHash(kind: string, refId: string): Promise<string | null> {
     return (await this.db.select({ h: s.contentVectors.textHash }).from(s.contentVectors).where(and(eq(s.contentVectors.kind, kind), eq(s.contentVectors.refId, refId))))[0]?.h ?? null;
@@ -127,7 +143,8 @@ export class FeedStore {
         (select count(*)::int from likes l where l.post_id = p.id) as likes,
         ${q.buyerId ? sql`exists(select 1 from likes l where l.post_id = p.id and l.buyer_id = ${q.buyerId})` : sql`false`} as liked,
         ${semantic} as sem, ${text} as txt,
-        coalesce(1 - (pv.embedding <=> (select v from me)), 0) as fy
+        coalesce(1 - (pv.embedding <=> (select v from me)), 0) as fy,
+        ${q.buyerId ? sql`exists(select 1 from follows f where f.handle = p.handle and f.buyer_id = ${q.buyerId})` : sql`false`} as followed
       from posts p
       join businesses b on b.handle = p.handle
       left join items i on i.id = p.item_id
@@ -138,6 +155,7 @@ export class FeedStore {
         and p.idea->>'publicImage' is not null and ${region}
         and p.handle not in (select jsonb_array_elements_text(coalesce((select value from settings where key = 'showcase_hidden'), '[]'::jsonb)))
         ${q.onlyLiked && q.buyerId ? sql`and exists(select 1 from likes l where l.post_id = p.id and l.buyer_id = ${q.buyerId})` : sql``}
+        ${q.onlyFollowing && q.buyerId ? sql`and exists(select 1 from follows f where f.handle = p.handle and f.buyer_id = ${q.buyerId})` : sql``}
         ${q.exclude?.length ? sql`and p.id not in (${sql.join(q.exclude.map((x) => sql`${x}`), sql`, `)})` : sql``}
     `)) as unknown as Record<string, unknown>[];
     const now = Date.now();
@@ -147,10 +165,11 @@ export class FeedStore {
       const fresh = Math.exp(-ageDays / 14), pop = Math.log1p(likes) / 4;
       // A named place: the store's own city ranks first; stores that never said where they are come last.
       const regionBoost = (city && String(r.city ?? "").toLowerCase() === city ? 0.08 : 0) - (country && !r.country ? 0.2 : 0);
-      const relevant = q.onlyLiked || (!qv && !tsq) ? true : sem >= 0.45 || txt > 0;
+      const followBoost = r.followed ? 0.25 : 0;
+      const relevant = q.onlyLiked || q.onlyFollowing || (!qv && !tsq) ? true : sem >= 0.45 || txt > 0;
       const why = !country ? null : city && String(r.city ?? "").toLowerCase() === city ? `In ${r.city}` : r.ships === "world" ? "Ships worldwide"
         : r.country === country && r.ships === "country" ? `Ships across ${country}` : r.country === country ? `In ${r.city ?? country}` : !r.country ? "Location not set" : null;
-      const score = qv || tsq ? sem * 1 + Math.min(txt, 0.5) * 0.8 + regionBoost + pop * 0.15 + fresh * 0.05 : (q.buyerId ? fy * 0.6 : 0) + pop * 0.3 + fresh * 0.4 + regionBoost;
+      const score = qv || tsq ? sem * 1 + Math.min(txt, 0.5) * 0.8 + regionBoost + pop * 0.15 + fresh * 0.05 : (q.buyerId ? fy * 0.6 : 0) + pop * 0.3 + fresh * 0.4 + regionBoost + followBoost;
       return { relevant, post: { id: String(r.id), handle: String(r.handle), caption: String(r.caption), publicImage: String(r.public_image), publicVideo: (r.public_video as string) ?? null,
         proofId: (r.proof_id as string) ?? null, itemId: (r.item_id as string) ?? null, storeName: String(r.store_name), city: (r.city as string) ?? null, country: (r.country as string) ?? null,
         ships: (r.ships as string) ?? null, likes, liked: !!r.liked, score: Math.round(score * 1000) / 1000, publishedAt: new Date(r.published_at as string), why } satisfies FeedPost };

@@ -347,3 +347,10 @@ export const adminLog = pgTable("admin_log", {
   data: jsonb("data").notNull().default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Buyers following stores (ADR 0022): a Following feed, and followed stores rank higher in "For you". */
+export const follows = pgTable("follows", {
+  buyerId: text("buyer_id").notNull(),
+  handle: text("handle").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.buyerId, t.handle] }), index("follows_handle").on(t.handle)]);

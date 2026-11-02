@@ -79,6 +79,18 @@ void (async () => {
   for (const b of btns) if (liked.includes(b.dataset.like!)) b.setAttribute("aria-pressed", "true");
 })();
 
+// ── follow a store ──
+for (const b of document.querySelectorAll<HTMLButtonElement>("[data-follow]")) {
+  const label = (on: boolean, n: number) => { b.setAttribute("aria-pressed", String(on)); b.querySelector("[data-l]")!.textContent = on ? "Following" : "Follow"; b.querySelector("[data-n]")!.textContent = n ? String(n) : ""; };
+  void api<{ following: boolean; followers: number }>(`/api/store/follow?handle=${encodeURIComponent(b.dataset.follow!)}`).then((r) => label(r.following, r.followers)).catch(() => {});
+  b.addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (!(await getMe()) && !(await signInSheet("Sign in to follow this store — its new posts come first in your feed."))) return;
+    try { const r = await api<{ following: boolean; followers: number }>("/api/store/follow", { handle: b.dataset.follow, on: b.getAttribute("aria-pressed") !== "true" }); label(r.following, r.followers); }
+    catch (err) { if ((err as { code?: string }).code === "signin") { me = null; void signInSheet("Sign in to follow stores."); } }
+  });
+}
+
 // ── reports ──
 const REASONS: [string, string][] = [["scam", "Scam or fraud"], ["illegal", "Illegal goods"], ["sexual", "Sexual content"], ["violence", "Violence"], ["hate", "Hate or harassment"], ["counterfeit", "Fake brand / replica"], ["spam", "Spam or misleading"], ["other", "Something else"]];
 document.addEventListener("click", async (e) => {

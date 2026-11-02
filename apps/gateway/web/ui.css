@@ -211,3 +211,4 @@ svg { flex-shrink: 0; }
 @media(min-width:640px){.sheet{border-radius:20px}}
 .sheet-x{position:absolute;right:12px;top:8px;border:0;background:none;font-size:24px;color:var(--label2,#6e6e73);cursor:pointer}
 .feed-tile video{background:#000}
+.follow[aria-pressed="true"]{background:var(--label);color:var(--bg);border-color:var(--label)}

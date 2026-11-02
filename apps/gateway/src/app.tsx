@@ -63,6 +63,8 @@ export interface Deps {
   /** Content stores (ADR 0018): the buyer storefront data, or null for a classic card. */
   /** nearchant.com home page (no store in the host): rendered landing; unset → redirect to the dashboard. */
   landing?: () => Promise<unknown>;
+  /** Moderation suspended this store (ADR 0022): its pages explain that instead of showing it. */
+  suspended?: (handle: string) => Promise<boolean>;
   /** "More like this" under a post: similar posts from any store (ADR 0022). */
   similar?: (postId: string) => Promise<import("./ui/store.js").SimilarPost[]>;
   storefront?: (handle: string, view?: { source: string | null; itemId?: string; postId?: string }) => Promise<import("./ui/store.js").StoreData | null>;
@@ -147,6 +149,7 @@ export function createApp(d: Deps) {
     const base = c.req.path.startsWith("/h/") ? `/h/${h.handle}/` : "/";
     // A visit is counted for analytics; ?ref=telegram (from share links) says where it came from.
     const ref = (c.req.query("ref") ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20) || null;
+    if (d.suspended && (await d.suspended(h.handle).catch(() => false))) return c.html(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Store paused · Nearchant</title><link rel="stylesheet" href="/assets/ui.css"></head><body><section class="onb" style="max-width:460px;margin:60px auto;padding:0 16px;text-align:center"><h1 class="t2">This store is paused</h1><p class="sub muted">Nearchant's moderation paused it after posts that broke the platform rules. Orders already paid stay protected by escrow on NEAR.</p><a class="btn" href="/feed">Browse other stores</a></section></body></html>`, 410);
     const sf = d.storefront ? await d.storefront(h.handle, { source: ref }).catch(() => null) : null;
     if (sf) return c.html(<StorePage s={sf} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, network: d.client.network }} test={d.config.token.test} />);
     const services = await d.store.listServices(h.handle);

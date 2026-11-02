@@ -26,11 +26,11 @@ export const FeedTiles: FC<{ posts: FeedTile[]; next: string | null }> = ({ post
   </>
 );
 
-export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: string; summary: string | null; posts: FeedTile[]; next: string | null; suggestions: string[]; forYou: boolean; liked?: boolean }> = ({ cfg, test, q, city, summary, posts, next, suggestions, forYou, liked }) => (
+export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: string; summary: string | null; posts: FeedTile[]; next: string | null; suggestions: string[]; forYou: boolean; liked?: boolean; following?: boolean }> = ({ cfg, test, q, city, summary, posts, next, suggestions, forYou, liked, following }) => (
   <UiPage title={q ? `${q} · Nearchant` : "Shop feed · Nearchant"} cfg={cfg} page="feed" test={test} buyer>
     <div class="land">
       <nav class="land-nav"><a class="land-logo" href="/"><Mark />Nearchant</a>
-        <span class="land-links sub"><a href="/feed">Feed</a><a href="/feed/liked">Liked</a><a href="/verify">Verify a post</a></span>
+        <span class="land-links sub"><a href="/feed">Feed</a><a href="/feed/following">Following</a><a href="/feed/liked">Liked</a><a href="/verify">Verify a post</a></span>
         <span class="row" style="gap:14px;align-items:center"><a class="sub" href="#" data-buyer-me>Sign in</a><a class="btn" href="/start">Sell here</a></span></nav>
       <section class="stack" style="max-width:1200px;margin:0 auto;padding:24px 16px 80px;gap:18px">
         <form class="feed-search" action="/feed" method="get">
@@ -39,8 +39,9 @@ export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: st
           <button class="btn" type="submit">Search</button>
         </form>
         {suggestions.length && !q ? <div class="row" style="gap:8px;flex-wrap:wrap"><span class="foot muted">Try</span>{suggestions.map((s) => <a class="chip" href={`/feed?q=${encodeURIComponent(s)}`}>{s}</a>)}</div> : null}
-        <div class="spread" style="align-items:baseline"><h1 class="t2" style="margin:0">{liked ? "Posts you liked" : q ? (summary || q) : forYou ? "For you" : "New on Nearchant"}</h1>
+        <div class="spread" style="align-items:baseline"><h1 class="t2" style="margin:0">{following ? "Stores you follow" : liked ? "Posts you liked" : q ? (summary || q) : forYou ? "For you" : "New on Nearchant"}</h1>
           {q ? <a class="sub" href="/feed">Clear</a> : null}</div>
+        {following && !posts.length ? <div class="card"><span class="headline">{forYou ? "You don't follow any store yet" : "Sign in to see the stores you follow"}</span><span class="foot muted">Open a store and tap Follow — its new posts show up here.</span>{forYou ? null : <a class="btn" href="#" data-buyer-me>Sign in</a>}</div> : null}
         {liked && !posts.length ? <div class="card"><span class="headline">{forYou ? "Nothing liked yet" : "Sign in to see what you liked"}</span><span class="foot muted">Tap ♥ on posts you like — your feed learns from them.</span>{forYou ? null : <a class="btn" href="#" data-buyer-me>Sign in</a>}</div> : null}
         {q && !posts.length ? <div class="card"><span class="headline">No stores sell that here yet</span><span class="foot muted">Try other words, another city — or <a href="/start">open the first store for it</a>.</span></div> : null}
         <div class="grid4" data-feed-grid><FeedTiles posts={posts} next={null} /></div>

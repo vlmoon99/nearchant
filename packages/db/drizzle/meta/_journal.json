@@ -43,6 +43,13 @@
       "when": 1793659445340,
       "tag": "0005_feed_moderation",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793661193037,
+      "tag": "0006_follows",
+      "breakpoints": true
     }
   ]
 }

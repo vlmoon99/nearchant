@@ -50,6 +50,7 @@ describe("store feed", () => {
       similar: async () => [{ id: "x1", handle: "bob", storeName: "Bob Denim", caption: "Selvedge jeans", img: "/files/bob/public/x1.png?w=640", video: false }, { id: "x2", handle: "alice", storeName: "Alice Wear", caption: "own post", img: "/f.png", video: false }],
       storefront: async (_h, view) => { views.push(view); return view?.postId && !sf.posts.some((p) => p.id === view.postId) ? { ...sf, posts: [] } : sf; } } as Deps);
     const store = await (await app.request("http://x/h/alice/", host("nearchant.com"))).text();
+    expect(store).toContain('data-follow="alice"');
     expect(store).toContain('href="/h/alice/p/p1"');
     expect(store).toContain("All 10 posts");
     const page = await app.request("http://x/h/alice/p/p1?ref=instagram", host("nearchant.com"));

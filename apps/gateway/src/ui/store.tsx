@@ -37,7 +37,8 @@ export const StorePage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean }> = 
       <span class="dot" style="width:72px;height:72px;background:linear-gradient(135deg,#ff9966,#b052de)"></span>
       <h1 class="tl">{s.name}</h1>
       {s.summary ? <p class="sub muted" style="margin:0">{s.summary}</p> : null}
-      <Badge label="Store verified on NEAR" />
+      <div class="row" style="gap:10px;align-items:center;justify-content:center;flex-wrap:wrap"><Badge label="Store verified on NEAR" />
+        <button class="btn secondary follow" type="button" data-follow={s.handle} aria-pressed="false" style="padding:7px 16px"><Icon n="plus" s={14} /><span data-l>Follow</span><span class="muted" data-n></span></button></div>
       <span class="cap muted">{s.account}{s.orders ? ` · ${s.orders} order${s.orders === 1 ? "" : "s"} paid through escrow` : ""}</span>
     </section>
     <h2 class="t4">Shop</h2>

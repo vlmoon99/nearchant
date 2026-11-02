@@ -50,6 +50,12 @@ describe("FeedStore", () => {
     expect(forYou[0]!.id).toBe(denim);
     expect(forYou[0]!.liked).toBe(true);
 
+    // Following: a feed of followed stores, and they rank higher in "For you".
+    expect(await f.follow(b.id, "gymla", true)).toBe(1);
+    expect(await f.follows(b.id, "gymla")).toBe(true);
+    expect((await f.feed({ buyerId: b.id, onlyFollowing: true })).map((p) => p.handle)).toEqual(["gymla"]);
+    expect(await f.follow(b.id, "gymla", false)).toBe(0);
+
     // The Liked page and "More like this".
     expect((await f.feed({ buyerId: b.id, onlyLiked: true })).map((p) => p.id)).toEqual([denim]);
     const sim = await f.similar(whey);

@@ -113,6 +113,12 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const posts = buyer ? await d.feedStore.feed({ buyerId: buyer, onlyLiked: true, limit: 60 }) : [];
     return c.html(<ExplorePage cfg={d.cfg} test={d.test} q="" city="" summary={null} posts={tilesOf(posts)} next={null} suggestions={[]} forYou={!!buyer} liked />);
   });
+  app.get("/feed/following", async (c) => {
+    if (!d.feedStore) return c.notFound();
+    const buyer = d.buyerKey ? readSession(d.buyerKey, getCookie(c, "nc_buyer")) : null;
+    const posts = buyer ? await d.feedStore.feed({ buyerId: buyer, onlyFollowing: true, limit: 60 }) : [];
+    return c.html(<ExplorePage cfg={d.cfg} test={d.test} q="" city="" summary={null} posts={tilesOf(posts)} next={null} suggestions={[]} forYou={!!buyer} following />);
+  });
   app.get("/explore", (c) => c.redirect(`/feed${new URL(c.req.url).search}`, 301));
   app.get("/verify", (c) => verify(c, c.req.query("id")?.trim() || undefined));
   app.get("/verify/:id", (c) => verify(c, c.req.param("id")));

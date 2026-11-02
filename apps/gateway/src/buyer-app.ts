@@ -127,6 +127,21 @@ export function mountBuyerApp(app: Hono<any>, d: BuyerAppDeps): void {
     return c.json({ liked: id ? [...(await d.feed.likedBy(id, ids))] : [] });
   });
 
+  // ── follows ──
+  app.post("/api/store/follow", async (c) => {
+    if (!jsonOnly(c)) return c.json({ error: "JSON only" }, 415);
+    const b = await buyer(c);
+    if (!b) return c.json({ error: "sign in to follow stores", code: "signin" }, 401);
+    const body = await json(c), handle = String(body.handle ?? "");
+    if (!(await d.content.getBusiness(handle))) return c.json({ error: "no such store" }, 404);
+    const followers = await d.feed.follow(b.id, handle, body.on !== false);
+    return c.json({ following: body.on !== false, followers });
+  });
+  app.get("/api/store/follow", async (c) => {
+    const handle = c.req.query("handle") ?? "", id = buyerId(c);
+    return c.json({ following: id ? await d.feed.follows(id, handle) : false, followers: await d.feed.followers(handle) });
+  });
+
   // ── reports ──
   app.post("/api/report", async (c) => {
     if (!jsonOnly(c)) return c.json({ error: "JSON only" }, 415);
