@@ -7,3 +7,12 @@ allowBuilds:
   esbuild: false
   # sharp ships prebuilt libvips per platform (@img/*); its install script only checks for it.
   sharp: false
+  # Native add-ons pulled in by NEAR Wallet Selector modules (ADR 0022). Only bundled for the browser, where they
+  # fall back to pure JS: their build scripts are not needed.
+  "@parcel/watcher": false
+  "@swc/core": false
+  bufferutil: false
+  lmdb: false
+  msgpackr-extract: false
+  secp256k1: false
+  utf-8-validate: false
