@@ -880,7 +880,25 @@ Newest entry last. Each entry: what was done, how it was verified, what is NOT v
   that covers many days. See how they fit together." (check 0.02). Tests: gateway 43, swarm 36.
 - Fixed tonight's PROGRESS times to the machine clock (earlier entries were estimates, ~2 h ahead).
 
+## 2026-11-02 01:45 UTC — night: ADR 0019; Phala deploy prepared and rehearsed
+
+- **ADR 0019** (two Sparks for the LLMs, Comfy Cloud for media, text on media is ours, Sage + attestation checks,
+  NEP-413 wallet) + index.
+- **Phala ready for the owner's account**: `deploy/phala/compose.yaml` adds the image service (Comfy Cloud mode),
+  the TTS service and a one-shot weights download (478 MB, verified); `providers.cloud.yaml` routes text/vision/
+  Sage to NEAR AI and pictures to Comfy Cloud. New `images` workflow (manual) built **amd64 + arm64** app, image
+  service and TTS images to ghcr — digests in `deploy/phala/README.md` with the owner's steps; `.env.example` lists
+  the secret names only. The ghcr packages are private until the owner makes them public (or gives Phala a token).
+- **Rehearsal on the Mac** (same compose, cloud config, fresh DB, no tunnel): onboarding OK — analysis +
+  opportunities on NEAR AI TEE, posts with headline pictures via Comfy Cloud, 3 NEAR AI reports checked
+  automatically, first short queued; a caption with "40% off and free shipping" → Sage 0.9999 (flagged). Posts
+  take ~7 min there (all calls over the internet) vs ~2 min on the Sparks.
+- Found in rehearsal: a worker restart mid-video left the short "rendering" forever → a video "in progress" for
+  over 15 min can now be started again (tests 44).
+
 ### Owner actions
+- **Phala** (when you have the account): follow `deploy/phala/README.md` — make the 3 ghcr packages public, set the
+  secrets in Phala, create the CVM, then move the database and the tunnel from the Spark.
 - Try "Connect a NEAR wallet": Settings → NEAR wallet in your store (testnet MyNearWallet account), then sign in
   with it from another browser. Tell me if MyNearWallet shows an error.
 - Email sign-up (Figma onboarding 1): say if you want it, and give an email provider key (e.g. Resend or Postmark)
