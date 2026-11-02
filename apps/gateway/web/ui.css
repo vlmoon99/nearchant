@@ -193,4 +193,4 @@ svg { flex-shrink: 0; }
 .chk.on { background: var(--accent); border-color: var(--accent); }
 
 /* Phone: the post picture should not fill the whole screen (Figma Post ready). */
-@media (max-width: 899px) { .post-cols .post > .img { max-height: 46vh; width: auto; aspect-ratio: 4/5; margin: 0 auto; } }
+@media (max-width: 899px) { .post-cols .post > .img { max-height: 46vh; } }
