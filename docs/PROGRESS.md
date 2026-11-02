@@ -1179,3 +1179,15 @@ undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your mach
   Highlight denim items", "One shopper asked if the sweater is 100% merino wool → Add wool details".
 - **Verified**: tests db 19, swarm 41, worker 24, gateway 60; live checks above. A second independent review of the
   newer features is running.
+
+## 2026-11-02 23:49 UTC — night: second independent review, all fixed
+- Findings (none critical; no auth bypass, no access to another buyer's orders, no SQLi/XSS) and fixes:
+  1. **search log could be flooded / leak raw text**: only planner-extracted goods are logged (never the query),
+     counted by distinct anonymous source (HMAC of the address with a key that changes daily — not traceable, not
+     linkable across days), max 30 rows per source per day, one per goods per day; older rows rewritten to goods only;
+  2. **My orders missed orders paid on a store subdomain**: checkout there continues on nearchant.com;
+  3. **a paused store's assistant still answered**: it doesn't;
+  4. **lost updates**: questions / buyer-order lists are prepended atomically in SQL; unpaid checkouts no longer push
+     paid orders off "My orders".
+- **Verified**: tests db 19 (dedupe, distinct sources, atomic list under 12 parallel writers), gateway 60; live
+  search logs goods + source.
