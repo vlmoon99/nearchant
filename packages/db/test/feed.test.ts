@@ -109,6 +109,10 @@ describe("FeedStore", () => {
     await f.blockIps(["203.0.113.7"], true);
     expect(await f.isBlocked("203.0.113.7")).toBe(true);
     expect(await f.isBlocked("203.0.113.8")).toBe(false);
+    await f.blockIps(["2a0d:3341:bad4:5110:3562:4b2f:cbf8:8142"], true);
+    expect(await f.isBlocked("2a0d:3341:bad4:5110::1")).toBe(true);        // same /64
+    expect(await f.isBlocked("2a0d:3341:bad4:5111::1")).toBe(false);       // next /64
+    await f.blockIps(["2a0d:3341:bad4:5110:3562:4b2f:cbf8:8142"], false);
     await f.blockIps(["203.0.113.7"], false);
     expect(await f.isBlocked("203.0.113.7")).toBe(false);
     await f.restorePost(denim, "owner");

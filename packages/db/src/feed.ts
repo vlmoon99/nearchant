@@ -46,6 +46,14 @@ export interface FeedPost {
   why: string | null;
 }
 
+/** The network an address belongs to for blocking: IPv4 as is, IPv6 by its first 64 bits. */
+export function netOf(ip: string): string {
+  if (!ip.includes(":")) return ip;
+  const [head, tail = ""] = ip.toLowerCase().split("::");
+  const h = head ? head.split(":") : [], t = tail ? tail.split(":") : [];
+  const full = [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill("0"), ...t].map((x) => x.padStart(4, "0"));
+  return `${full.slice(0, 4).join(":")}::/64`;
+}
 const vec = (v: number[]) => `[${v.map((x) => (Number.isFinite(x) ? x : 0)).join(",")}]`;
 /** Text of a post for search: caption, hashtags, item title, store name. */
 export const postSearchText = (p: { caption: string | null; hashtags: unknown }, store: string, item?: string | null) =>
@@ -358,10 +366,12 @@ export class FeedStore {
 
   // ── who is who: blocks and links to known violators ──
   /** IPs a moderator blocked (from a violator's record): no new stores, buyer sign-ins or reports from them. */
+  /** An IPv6 address counts by its /64 network (one home or phone rotates addresses inside it). */
   async isBlocked(ip: string | null | undefined): Promise<boolean> {
     if (!ip) return false;
-    const [r] = (await this.db.execute(sql`select 1 from settings where key = 'blockedIps' and value ? ${ip} limit 1`)) as unknown as unknown[];
-    return !!r;
+    const list = await this.blockedIps();
+    const me = netOf(ip);
+    return list.some((b) => b === ip || netOf(b) === me);
   }
   async blockIps(ips: string[], on: boolean): Promise<void> {
     const cur = new Set(((await this.db.select().from(s.settings).where(eq(s.settings.key, "blockedIps")))[0]?.value as string[] | undefined) ?? []);
