@@ -260,15 +260,15 @@ const app = createApp({
   ...(conn ? { storefront: async (handle: string, view?: { source: string | null; itemId?: string; postId?: string }) => {
     const cs = new ContentStore(conn!.db);
     const b = await cs.getBusiness(handle);
-    if (!b) return null;
+    if (!b || b.suspendedAt) return null; // suspended by moderation (ADR 0022): the store page is gone
     // A post page view counts for that post (Analytics → Top posts "views from its link").
     if (view) await cs.addEvent({ handle, kind: "view", source: view.source, itemId: view.itemId ?? null, postId: view.postId ?? null }).catch(() => {});
     const prof = (await cs.getProfile(handle))?.data as { summary?: string } | undefined;
     const items = await cs.listItems(handle);
-    const posts = await cs.listPosts(handle, { status: ["published"], limit: 60 });
+    const posts = (await cs.listPosts(handle, { status: ["published"], limit: 60 })).filter((p) => !p.removedAt);
     if (view?.postId && !posts.some((p) => p.id === view.postId)) {
       const one = await cs.getPost(view.postId);
-      if (one && one.handle === handle && one.status === "published" && !one.passedAt) posts.push(one);
+      if (one && one.handle === handle && one.status === "published" && !one.passedAt && !one.removedAt) posts.push(one);
     }
     const fmt = (u: string) => `${formatUnits(u, config.token.decimals)} ${config.token.symbol}`;
     return {

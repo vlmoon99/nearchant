@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, integer, jsonb, pgTable, primaryKey, serial, text, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, primaryKey, serial, text, timestamp, index, uniqueIndex, vector } from "drizzle-orm/pg-core";
 
 /** Catalog items a seller offers (off-chain; prices in token base units). */
 export const services = pgTable("services", {
@@ -95,6 +95,15 @@ export const businesses = pgTable("businesses", {
   language: text("language").notNull().default("en"),
   timezone: text("timezone").notNull().default("Europe/Kyiv"),
   plan: text("plan").notNull().default("free"),
+  /** Where the store is and where it ships (ADR 0022): city name, ISO 3166-1 alpha-2, local | country | world. */
+  city: text("city"),
+  country: text("country"),
+  ships: text("ships"),
+  /** owner | ai — who set the place (an owner's choice is never overwritten by the AI). */
+  placeBy: text("place_by"),
+  /** Set when moderation suspends the store (hidden from the feed and its page). */
+  suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+  suspendedReason: text("suspended_reason"),
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -175,6 +184,10 @@ export const posts = pgTable("posts", {
   passedAt: timestamp("passed_at", { withTimezone: true }),
   quotaMonth: text("quota_month").notNull(),
   error: text("error"),
+  /** Latest moderation verdict (ADR 0022) and, when removed, when and why (never shown publicly again). */
+  moderation: jsonb("moderation"),
+  removedAt: timestamp("removed_at", { withTimezone: true }),
+  removedReason: text("removed_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("posts_handle").on(t.handle, t.createdAt), index("posts_batch").on(t.batchId)]);
@@ -233,4 +246,104 @@ export const settings = pgTable("settings", {
   key: text("key").primaryKey(),
   value: jsonb("value").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Buyer accounts (ADR 0022): signed in by email link or a NEAR wallet (NEP-413). */
+export const buyers = pgTable("buyers", {
+  id: text("id").primaryKey(),
+  email: text("email"),
+  wallet: text("wallet"),
+  name: text("name"),
+  /** active | banned */
+  status: text("status").notNull().default("active"),
+  bannedReason: text("banned_reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("buyers_email").on(t.email), uniqueIndex("buyers_wallet").on(t.wallet)]);
+
+export const likes = pgTable("likes", {
+  buyerId: text("buyer_id").notNull(),
+  postId: text("post_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.buyerId, t.postId] }), index("likes_post").on(t.postId)]);
+
+/** Buyer reports of a post or a store; the moderator agent decides first, a human can change it. */
+export const reports = pgTable("reports", {
+  id: serial("id").primaryKey(),
+  /** post | store */
+  targetKind: text("target_kind").notNull(),
+  postId: text("post_id"),
+  handle: text("handle").notNull(),
+  reporterBuyerId: text("reporter_buyer_id"),
+  reporterIp: text("reporter_ip"),
+  /** scam | illegal | sexual | violence | hate | counterfeit | spam | other */
+  reason: text("reason").notNull(),
+  note: text("note").notNull().default(""),
+  /** open | auto_removed | auto_kept | removed | kept */
+  status: text("status").notNull().default("open"),
+  ai: jsonb("ai"),
+  decidedBy: text("decided_by"),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("reports_status").on(t.status, t.createdAt), index("reports_post").on(t.postId)]);
+
+/** Accounts that broke the rules: who is who (NEAR accounts, emails, IPs) for future cases (ADR 0022). */
+export const violators = pgTable("violators", {
+  id: serial("id").primaryKey(),
+  /** store | buyer */
+  subjectKind: text("subject_kind").notNull(),
+  subjectId: text("subject_id").notNull(),
+  count: integer("count").notNull().default(0),
+  accounts: jsonb("accounts").notNull().default(sql`'[]'::jsonb`),
+  emails: jsonb("emails").notNull().default(sql`'[]'::jsonb`),
+  ips: jsonb("ips").notNull().default(sql`'[]'::jsonb`),
+  notes: text("notes").notNull().default(""),
+  firstAt: timestamp("first_at", { withTimezone: true }).notNull().defaultNow(),
+  lastAt: timestamp("last_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("violators_subject").on(t.subjectKind, t.subjectId)]);
+
+/** One moderation decision (by the agent or a person); undone ones keep their row. */
+export const violations = pgTable("violations", {
+  id: serial("id").primaryKey(),
+  violatorId: integer("violator_id").notNull(),
+  postId: text("post_id"),
+  reportId: integer("report_id"),
+  category: text("category").notNull(),
+  confidence: integer("confidence").notNull().default(0),
+  summary: text("summary").notNull().default(""),
+  by: text("by").notNull(),
+  undoneAt: timestamp("undone_at", { withTimezone: true }),
+  undoneBy: text("undone_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("violations_violator").on(t.violatorId)]);
+
+/** IPs seen per account (sign-in, posting, liking, reporting), kept 180 days — for the violators list only. */
+export const ipLog = pgTable("ip_log", {
+  subjectKind: text("subject_kind").notNull(),
+  subjectId: text("subject_id").notNull(),
+  ip: text("ip").notNull(),
+  n: integer("n").notNull().default(1),
+  firstAt: timestamp("first_at", { withTimezone: true }).notNull().defaultNow(),
+  lastAt: timestamp("last_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.subjectKind, t.subjectId, t.ip] })]);
+
+/** Search vectors for public text (post caption, item, store) — Qwen3-Embedding-0.6B, 1024 dims (ADR 0022). */
+export const contentVectors = pgTable("content_vectors", {
+  /** post | item | store */
+  kind: text("kind").notNull(),
+  refId: text("ref_id").notNull(),
+  handle: text("handle").notNull(),
+  textHash: text("text_hash").notNull(),
+  embedding: vector("embedding", { dimensions: 1024 }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.kind, t.refId] }), index("content_vectors_hnsw").using("hnsw", t.embedding.op("vector_cosine_ops"))]);
+
+/** Every admin action (who, what, on what). */
+export const adminLog = pgTable("admin_log", {
+  id: serial("id").primaryKey(),
+  actor: text("actor").notNull(),
+  action: text("action").notNull(),
+  target: text("target").notNull(),
+  data: jsonb("data").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
