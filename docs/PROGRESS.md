@@ -1068,3 +1068,42 @@ undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your mach
 - **Not verified**: the new-order email (needs a paid order on a store with a linked email); delivery to Gmail/
   Outlook inboxes (only Resend's test inbox) — owner: link your own email in Settings and try it.
 - **Owner action**: rotate the Resend key after the hackathon (it was pasted in chat).
+
+## 2026-11-02 23:07 UTC — night 2→3 Nov: shop feed, buyer accounts, likes, reports, AI moderation, admin panel (ADR 0022)
+- **Owner asked**: a shop feed where a buyer types "stores that sell 1, 2, 3 in my city" and sees the matching posts
+  and shorts; buyers like posts and report bad ones; AI moderates on its own while the owner sleeps (removes bad posts,
+  keeps a violators list with IPs, emails, NEAR wallets); an admin panel on the tailnet with a password for the owner
+  and a moderator. Buyer sign-in: email + every NEAR wallet (not only MyNearWallet).
+- **Done**:
+  - **Feed** `/feed` (landing "Shop feed"; `/explore` redirects): one search box + optional city. The
+    `search-planner` role turns the query into goods, synonyms and a place; Qwen3-Embedding-0.6B on NEAR AI embeds
+    it; Postgres ranks by meaning (post, its item, its store) + words + region + likes + freshness, at most 3 posts
+    per store in a row. Without a query: "For you" (the buyer's likes pull similar posts up). Shorts play muted in view,
+    infinite scroll, "Try" chips from real item titles.
+  - **Region**: stores have city / country / delivery (local, country, world); the `place-finder` role filled them
+    from descriptions (19 stores); Settings → "Where you sell" for the owner (the AI never overwrites it). Stores
+    with no place still show for a place search, last.
+  - **Buyers**: own accounts (email link, or any NEAR wallet via Wallet Selector — Meteor, HOT, HERE, Intear,
+    MyNearWallet, Sender, OKX, NEAR Mobile, Bitte — NEP-413, our own chooser, loaded on demand); sellers' "Connect a
+    NEAR wallet" uses the same chooser. Separate cookie. Likes (♥ on feed, store and post pages); Report (post or store,
+    8 reasons) → the moderator agent.
+  - **Moderator agent** (`moderator` role, vision): checks every post before it goes public (a removed post gets no
+    proof) and every report; removes violations at confidence ≥ 0.6, emails the owner, suspends a store after 3
+    removals; store reports about non-post issues wait for a person. Violators list keeps NEAR accounts, emails, IPs
+    (IPs logged per account on sign-in, likes, reports; 180 days). Daily backfill: places, vectors, moderation.
+  - **Admin panel** `http://100.64.0.13:8790/mod` (tailnet only; name + password, Keychain `NC_ADMIN_PASSWORD`):
+    Reports, AI decisions, Removed posts (restore), Suspended stores, Violators, Log; buyer bans; the image lab is now
+    behind the same login.
+- **Verified**: tests — db 18 (feed ranking/region/likes/removal/violators on real pgvector), swarm 39, worker 21
+  (moderation, suspension, removed → no proof, outage doesn't block publishing), gateway 59 (buyer email/wallet
+  sign-in, likes, reports, search fallback, admin login lockout, actions logged by name). Live: "denim jacket in New
+  York" → 3 Nova Wear posts, "protein and creatine" → Super Nutrition, "laptop" → nothing; 5 existing posts judged
+  fine; an e2e scam post (seed phrase + pay outside escrow + replica) reported by a test buyer → **removed by the AI
+  in seconds** with the reason, store on the violators list; admin login over the tailnet → AI decisions → restore
+  (logged "Claude (test)") → removed again. Wallet chooser lists 9 wallets; MyNearWallet opens its sign-message page.
+  Admin is not reachable publicly (404).
+- **Fixed on the way**: Super Nutrition was in the hidden-test-stores list (my mistake from 1 Nov) — unhidden.
+- **Not verified**: signing in with Meteor / HOT / HERE / Intear for real (needs real wallets — owner); the
+  removal email to an owner (the test store has no email); the store page of a suspended store just 404s.
+- **Owner actions**: admin password: `security find-generic-password -a nearchant -s NC_ADMIN_PASSWORD -w`; open
+  `http://100.64.0.13:8790/mod` from a tailnet device. Give your moderator the password and the tailnet invite.
