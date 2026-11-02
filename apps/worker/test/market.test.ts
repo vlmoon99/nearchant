@@ -72,3 +72,24 @@ describe("moderation agent", () => {
     expect(proofs).toEqual(["proof:post:p1"]);
   });
 });
+
+describe("item moderation", () => {
+  it("hides an illegal item, records the violation, and keeps it hidden when the same text is saved again", async () => {
+    const settings = new Map<string, unknown>(), upserts: Record<string, unknown>[] = [], violations: string[] = [];
+    let calls = 0;
+    const item = { id: "i-1", title: "Glock 19", description: "No license needed", photoMediaId: null, kind: "product", priceUnits: "1", options: [] };
+    const d = { content: { getBusiness: async () => ({ name: "Guns", description: "" }), getProfile: async () => null, getMedia: async () => null, listItems: async () => [item],
+        getSetting: async (k: string) => settings.get(k) ?? null, setSetting: async (k: string, v: unknown) => { settings.set(k, v); }, upsertItem: async (i: Record<string, unknown>) => { upserts.push(i); return "i-1"; } },
+      feed: { vectorHash: async () => null, putVector: async () => {}, recordViolation: async (_k: string, _h: string, _id: unknown, v: { summary: string }) => { violations.push(v.summary); return 1; }, log: async () => {} },
+      envelopes: { add: async () => {} }, env, mediaDir: "/tmp", accountOf: (h: string) => h, log: () => {},
+      router: { call: async (r: { capability: string }) => { if (r.capability === "embed") return { output: { vectors: [[1]] } }; calls++; return { output: { message: { content: JSON.stringify({ violation: true, category: "illegal", confidence: 0.97, summary: "Sells a handgun without a licence" }) }, finish_reason: "stop" }, model: "fake" }; } },
+    } as unknown as MarketTaskDeps;
+    const m = makeMarketTasks(d);
+    await m.tasks.index_store!({ handle: "guns" }, {} as never);
+    expect(upserts.at(-1)).toMatchObject({ id: "i-1", active: false });
+    expect(violations[0]).toContain("Glock 19");
+    await m.tasks.index_store!({ handle: "guns" }, {} as never); // owner saved it again unchanged
+    expect(calls).toBe(1);                                        // no second model call
+    expect(upserts).toHaveLength(2);                              // hidden again
+  });
+});

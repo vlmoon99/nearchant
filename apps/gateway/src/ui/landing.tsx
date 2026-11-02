@@ -47,6 +47,10 @@ export const LandingPage: FC<{ cfg: UiConfig; test: boolean; d: LandingData }> =
             {d.verifyHref ? <a class="btn secondary" href={d.verifyHref}><Icon n="shield" s={16} />See a verified post</a> : null}
           </div>
           <span class="foot muted">No crypto needed: we create your NEAR account for you.</span>
+          <form class="feed-search" action="/feed" method="get" style="width:100%;max-width:640px;margin-top:8px">
+            <span class="feed-q"><Icon n="sparkles" s={18} c="#AF52DE" /><input class="input" name="q" maxlength={200} placeholder="Shopping? Try “protein in New York” or “denim jacket”" aria-label="Search the shop feed" /></span>
+            <button class="btn secondary" type="submit">Search stores</button>
+          </form>
 
           <div class="land-peek">
             {/* Real posts first; empty slots are labelled examples, never passed off as real stores. */}

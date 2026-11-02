@@ -71,7 +71,35 @@ export function makeMarketTasks(d: MarketTaskDeps) {
     if (!b) return;
     const summary = ((await d.content.getProfile(handle))?.data as { summary?: string } | undefined)?.summary ?? "";
     await embed("store", handle, handle, [b.name, b.description, summary, [b.city, b.country].filter(Boolean).join(", ")].filter(Boolean).join("\n").slice(0, 4000));
-    for (const i of await d.content.listItems(handle)) await embed("item", i.id, handle, `${i.title}\n${i.description}`.slice(0, 2000));
+    for (const i of await d.content.listItems(handle)) {
+      if (await moderateItem(handle, i)) continue;
+      await embed("item", i.id, handle, `${i.title}\n${i.description}`.slice(0, 2000));
+    }
+  }
+  /** Items for sale are checked like posts (title, description, photo). A removed item is hidden from the shop and
+   *  counts as a violation; saving the same text again does not bring it back. Returns true when it is removed. */
+  async function moderateItem(handle: string, i: { id: string; title: string; description: string; photoMediaId: string | null; kind: string; priceUnits: string; options: unknown }): Promise<boolean> {
+    const h = sha(`${i.title}\n${i.description}\n${i.photoMediaId ?? ""}`);
+    const seen = await d.content.getSetting<{ hash: string; removed: boolean; summary?: string }>(`itemMod:${i.id}`);
+    let removed = seen?.hash === h ? seen.removed : null;
+    let summary = seen?.summary ?? "";
+    if (removed === null) {
+      const b = await d.content.getBusiness(handle);
+      const key = i.photoMediaId ? (await d.content.getMedia(i.photoMediaId))?.key : null;
+      const image = key ? await photoDataUrl(join(d.mediaDir, key)).catch(() => null) : null;
+      const v = await moderatePost(ask(handle, "moderate"), { caption: `Item for sale: ${i.title}\n${i.description}`, hashtags: [], store: b?.name ?? handle, storeDescription: b?.description ?? "", image });
+      removed = shouldRemove(v); summary = v.summary;
+      await d.content.setSetting(`itemMod:${i.id}`, { hash: h, removed, summary, category: v.category, confidence: v.confidence, at: v.at });
+      if (removed) {
+        const identity = { accounts: [d.accountOf(handle)], emails: [(await d.content.getSetting<string>(`emailOf:${handle}`)) ?? ""].filter(Boolean) };
+        await d.feed.recordViolation("store", handle, identity, { category: v.category, confidence: v.confidence, summary: `item "${i.title}": ${v.summary}`, by: "ai" });
+        await d.feed.log("ai", "item.remove", `item:${i.id}`, { verdict: v });
+        d.log(`moderation: removed item ${i.id} (${v.category}) — ${v.summary}`);
+        await d.notify?.(handle, "An item was removed from your store", [`Our moderation removed "${i.title}": ${v.summary}`, "If you think this is a mistake, reply to this email — a person will look at it."]).catch(() => {});
+      }
+    }
+    if (removed) await d.content.upsertItem({ id: i.id, handle, kind: i.kind, title: i.title, description: i.description, priceUnits: i.priceUnits, options: (i.options as string[]) ?? [], photoMediaId: i.photoMediaId, active: false });
+    return !!removed;
   }
   async function indexPost(postId: string): Promise<void> {
     const p = await d.content.getPost(postId);

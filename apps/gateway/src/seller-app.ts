@@ -412,6 +412,8 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     const priceUnits = String(Math.round(price * 10 ** d.decimals)), description = String(b.description ?? "").slice(0, 1000);
     const photoMediaId = b.photoMediaId ? String(b.photoMediaId) : null;
     const id = await d.content.upsertItem({ id: b.id ? String(b.id) : undefined, handle, kind: b.kind === "service" ? "service" : "product", title, description, priceUnits, options: (Array.isArray(b.options) ? b.options : []).map(String).slice(0, 20), photoMediaId });
+    // Checked by the moderator agent and indexed for the shop feed (ADR 0022).
+    await d.enqueue("index_store", { handle }, `index-store:${handle}:${Math.floor(now() / 10_000)}`).catch(() => {});
     // The item's photo is shown on the public storefront: publish a copy (the original stays private).
     if (photoMediaId) {
       const m = await d.content.getMedia(photoMediaId);
