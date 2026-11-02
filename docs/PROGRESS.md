@@ -991,3 +991,17 @@ Owner actions (in order of importance):
 
 Machines: gx10-8695 = site + Qwen3.6 + TTS; gx10-c3c8 = Qwen3.8 only (Boost Content services there are stopped,
 undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your machine) untouched.
+
+## 2026-11-02 08:42 UTC — Settings per Figma; gx10-c3c8 shared with Boost Content again
+- **Done**: Settings — "Where posts go" (store page link; Telegram bot status with Connect/Settings → the bot page;
+  Instagram → copy a ready post from the post page), "Your data" → **Download all my data** (`GET /api/app/export`:
+  business, profile, items, posts, orders, file links as one JSON), NEAR account rows (agent keys, created date),
+  the real plan name (Pro/Free), long account names wrap inside the card. The Telegram bot name is saved when a bot
+  is connected, so bots connected before today show "Not connected" until reconnected.
+- Not built from the Figma screen: Delete account (cannot be undone; needs a decision on what happens to the NEAR
+  account and open orders), Tone/Language chips (the AI finds the tone itself; posts are English only).
+- Owner turned `inf-node.service` back on at gx10-c3c8 (~08:33 UTC): Boost Content's services came up next to
+  `nc-llm2`; memory steady at 75 GB used / 46 GB free; Qwen3.8 answers (0.2 s). Its watchdog made gx10-c3c8 the
+  Boost Content database master because the Gigabyte (node1) does not answer — that is their system, untouched.
+- **Verified**: gateway tests 47 (new: export only for the owner); live screenshots desktop 1440 and phone 393 (no
+  sideways scroll, no page errors); export on nearchant.com returns 200 with 11 posts as an attachment.
