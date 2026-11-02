@@ -32,6 +32,10 @@ export function makeMarketTasks(d: MarketTaskDeps) {
   async function moderate(postId: string, reportId?: number | null): Promise<ModVerdict | null> {
     const p = await d.content.getPost(postId);
     if (!p) return null;
+    if (p.removedAt) { // already removed: no new model call, no second violation
+      if (reportId) await d.feed.decideReport(reportId, "auto_removed", "ai", p.moderation ?? { note: "already removed" });
+      return (p.moderation as ModVerdict | null) ?? null;
+    }
     const b = await d.content.getBusiness(p.handle);
     const report = reportId ? await d.feed.getReport(reportId) : null;
     const key = (p.idea as { publicImage?: string }).publicImage ?? (p.imageMediaId ? (await d.content.getMedia(p.imageMediaId))?.key : null);

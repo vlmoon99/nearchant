@@ -8,7 +8,7 @@ export interface StorePost { id: string; itemId?: string | null; publishedAt: st
 /** A post of another store shown under "More like this". */
 export interface SimilarPost { id: string; handle: string; storeName: string; caption: string; img: string; video: boolean }
 export interface StoreData { handle: string; name: string; account: string; summary: string; items: StoreItem[]; posts: StorePost[]; orders: number }
-export interface CheckoutCfg { base: string; rpcUrl: string; orders: string; network: string }
+export interface CheckoutCfg { base: string; rpcUrl: string; orders: string; network: string; /** The main site (buyer accounts live there; store subdomains send buyers to it). */ site?: string }
 
 /** Link preview (Open Graph) for shared store, post and item links. */
 export interface OgMeta { title: string; description: string; url: string; image?: string | null }
@@ -20,7 +20,7 @@ const Shell: FC<PropsWithChildren<{ title: string; s: StoreData; cfg: CheckoutCf
       <meta property="og:description" content={og.description} /><meta property="og:url" content={og.url} /><meta name="description" content={og.description} />
       {og.image ? <><meta property="og:image" content={og.image} /><meta name="twitter:card" content="summary_large_image" /></> : null}</> : null}<link rel="stylesheet" href={asset("/assets/ui.css", "css")} />
     <script type="application/json" id="nc-config" dangerouslySetInnerHTML={{ __html: JSON.stringify(cfg).replaceAll("<", "\\u003c") }}></script>
-    <script type="module" src={asset("/assets/checkout.js", "checkout")}></script><BuyerScripts network={cfg.network} /></head>
+    <script type="module" src={asset("/assets/checkout.js", "checkout")}></script><BuyerScripts network={cfg.network} main={cfg.site} mainPath={`/h/${s.handle}`} /></head>
     <body>
       {test ? <div class="cap" style="text-align:center;padding:4px;background:#fff3c4;color:#5c4a00">TEST network — payments use free test tokens</div> : null}
       <header class="spread" style="padding:14px 20px;border-bottom:1px solid var(--sep)">

@@ -72,12 +72,15 @@ describe("FeedStore", () => {
     await f.logIp("store", "gymla", "203.0.113.7");
     const r = await f.removePost(wheyLA, { category: "scam", confidence: 0.92, summary: "fake brand", by: "ai", identity: { accounts: ["gymla.nearchant.testnet"], emails: ["la@example.com"] } });
     expect(r).toEqual({ handle: "gymla", count: 1 });
+    // Removing the same post again (more reports, a retried job) does not count twice.
+    expect(await f.removePost(wheyLA, { category: "scam", confidence: 0.92, summary: "again", by: "ai", identity: { accounts: [], emails: [] } })).toEqual({ handle: "gymla", count: 1 });
     expect((await f.feed({ terms: ["whey"] })).map((p) => p.id)).not.toContain(wheyLA);
     const [vi] = (await f.listViolators()).filter((x) => x.subjectId === "gymla");
     expect(vi).toMatchObject({ subjectKind: "store", count: 1, accounts: ["gymla.nearchant.testnet"], emails: ["la@example.com"], ips: ["203.0.113.7"] });
     await f.restorePost(wheyLA, "owner");
     expect((await f.feed({ terms: ["whey"] })).map((p) => p.id)).toContain(wheyLA);
     expect((await f.listViolators()).find((x) => x.subjectId === "gymla")!.violations[0]!.undone).toBe(true);
+    expect((await f.listViolators()).find((x) => x.subjectId === "gymla")!.count).toBe(0); // restored → count updated
 
     // A suspended store disappears entirely.
     await f.suspendStore("gymworld", "3 removals");

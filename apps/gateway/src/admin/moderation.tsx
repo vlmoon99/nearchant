@@ -156,7 +156,7 @@ export function mountModeration(app: Hono, d: ModDeps): void {
 
   // ── actions (forms) ──
   const identity = async (handle: string) => ({ accounts: [d.accountOf(handle), (await d.content.getSetting<string>(`walletOf:${handle}`)) ?? ""].filter(Boolean), emails: [(await d.content.getSetting<string>(`emailOf:${handle}`)) ?? ""].filter(Boolean) });
-  const back = (c: Context) => c.redirect(c.req.header("referer")?.replace(/^https?:\/\/[^/]+/, "") || "/mod/reports", 303);
+  const back = (c: Context) => { const p = c.req.header("referer")?.replace(/^https?:\/\/[^/]+/, "") ?? ""; return c.redirect(/^\/mod\/[\w/-]*$/.test(p) ? p : "/mod/reports", 303); };
   app.post("/mod/report/:id/remove", async (c) => {
     const r = await d.feed.getReport(Number(c.req.param("id")));
     if (!r?.postId) return c.notFound();

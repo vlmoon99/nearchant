@@ -153,8 +153,13 @@ export function mountBuyerApp(app: Hono<any>, d: BuyerAppDeps): void {
     if (!(REPORT_REASONS as readonly string[]).includes(reason)) return c.json({ error: "pick a reason" }, 400);
     const postId = body.postId ? String(body.postId) : null;
     let handle = String(body.handle ?? "");
-    if (postId) { const p = await d.content.getPost(postId); if (!p) return c.json({ error: "no such post" }, 404); handle = p.handle; }
-    else if (!(await d.content.getBusiness(handle))) return c.json({ error: "no such store" }, 404);
+    if (postId) {
+      const p = await d.content.getPost(postId);
+      if (!p || p.status !== "published") return c.json({ error: "no such post" }, 404);
+      if (p.removedAt) return c.json({ error: "this post was removed already — thank you" }, 409);
+      handle = p.handle;
+    } else if (!(await d.content.getBusiness(handle))) return c.json({ error: "no such store" }, 404);
+    if (await d.feed.reportedBefore(b.id, { postId, handle })) return c.json({ error: "you reported this already — we're on it" }, 409);
     const id = await d.feed.addReport({ targetKind: postId ? "post" : "store", postId, handle, reporterBuyerId: b.id, reporterIp: ip, reason, note: String(body.note ?? "") });
     void d.feed.logIp("buyer", b.id, ip);
     await d.enqueue(postId ? "moderate_post" : "moderate_store", postId ? { postId, reportId: id } : { handle, reportId: id }, `report:${id}`);
@@ -170,13 +175,19 @@ export function mountBuyerApp(app: Hono<any>, d: BuyerAppDeps): void {
 
 /** Runs a search (or "For you" without a query). Without AI it still works on words. */
 export async function feedFor(d: Pick<BuyerAppDeps, "feed" | "understand">, q: string, buyerId: string | null, offset = 0, place: { city?: string | undefined; country?: string | undefined; visitorCountry?: string | null } = {}): Promise<{ intent: SearchIntent | null; posts: FeedPost[] }> {
-  const query = q.trim().slice(0, 200);
+  const query = q.trim().slice(0, 200), cityIn = place.city?.trim().slice(0, 60) || "";
   let intent: SearchIntent | null = null;
   if (query) {
-    try { intent = d.understand ? await d.understand(query) : null; } catch { intent = null; }
+    // The City box goes to the planner with the query, so it knows the country ("Austin" → US) and filters by it.
+    const text = cityIn && !query.toLowerCase().includes(cityIn.toLowerCase()) ? `${query} in ${cityIn}` : query;
+    try { intent = d.understand ? await d.understand(text) : null; } catch { intent = null; }
     intent ??= { summary: query, terms: query.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1), city: null, country: null, vector: null };
+  } else if (cityIn && d.understand) {
+    // Only a city: everything from there (and stores that ship there), newest first.
+    const where = await d.understand(`stores in ${cityIn}`).catch(() => null);
+    intent = where ? { summary: `Stores for ${where.city ?? cityIn}`, terms: [], city: where.city ?? cityIn, country: where.country, vector: null } : null;
   }
-  const city = place.city?.trim() || intent?.city || null, country = place.country?.trim().toUpperCase() || intent?.country || null;
+  const city = cityIn || intent?.city || null, country = place.country?.trim().toUpperCase() || intent?.country || null;
   const visitor = /^[A-Z]{2}$/.test(place.visitorCountry ?? "") && place.visitorCountry !== "XX" && place.visitorCountry !== "T1" ? place.visitorCountry! : null;
   const posts = await d.feed.feed({ vector: intent?.vector ?? null, terms: intent?.terms ?? [], city, country, buyerId, offset, limit: 24, preferCountry: visitor });
   return { intent: intent ? { ...intent, city, country, vector: null } : null, posts };

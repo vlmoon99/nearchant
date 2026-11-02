@@ -39,7 +39,7 @@ export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: st
           <button class="btn" type="submit">Search</button>
         </form>
         {suggestions.length && !q ? <div class="row" style="gap:8px;flex-wrap:wrap"><span class="foot muted">Try</span>{suggestions.map((s) => <a class="chip" href={`/feed?q=${encodeURIComponent(s)}`}>{s}</a>)}</div> : null}
-        <div class="spread" style="align-items:baseline"><h1 class="t2" style="margin:0">{following ? "Stores you follow" : liked ? "Posts you liked" : q ? (summary || q) : forYou ? "For you" : "New on Nearchant"}</h1>
+        <div class="spread" style="align-items:baseline"><h1 class="t2" style="margin:0">{following ? "Stores you follow" : liked ? "Posts you liked" : q ? (summary || q) : summary ? summary : forYou ? "For you" : "New on Nearchant"}</h1>
           {q ? <a class="sub" href="/feed">Clear</a> : null}</div>
         {following && !posts.length ? <div class="card"><span class="headline">{forYou ? "You don't follow any store yet" : "Sign in to see the stores you follow"}</span><span class="foot muted">Open a store and tap Follow — its new posts show up here.</span>{forYou ? null : <a class="btn" href="#" data-buyer-me>Sign in</a>}</div> : null}
         {liked && !posts.length ? <div class="card"><span class="headline">{forYou ? "Nothing liked yet" : "Sign in to see what you liked"}</span><span class="foot muted">Tap ♥ on posts you like — your feed learns from them.</span>{forYou ? null : <a class="btn" href="#" data-buyer-me>Sign in</a>}</div> : null}

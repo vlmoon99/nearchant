@@ -3,7 +3,16 @@
 // infinite scroll on the feed.
 type Me = { id: string; email: string | null; wallet: string | null } | null;
 const cfgEl = document.getElementById("nc-buyer");
-const cfg = (cfgEl ? JSON.parse(cfgEl.textContent ?? "{}") : {}) as { network?: string; walletJs?: string };
+const cfg = (cfgEl ? JSON.parse(cfgEl.textContent ?? "{}") : {}) as { network?: string; walletJs?: string; main?: string; mainPath?: string };
+// On a store's own subdomain the buyer account (cookie) is not there: buyer actions continue on the main site.
+if (cfg.main && cfg.mainPath && location.origin !== cfg.main) {
+  document.addEventListener("click", (e) => {
+    const t = (e.target as HTMLElement).closest("[data-like],[data-report-post],[data-report-store],[data-follow],[data-buyer-me]");
+    if (!t) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    location.href = `${cfg.main}${cfg.mainPath}${location.pathname === "/" ? "/" : location.pathname}${location.search}`;
+  }, true);
+}
 let me: Me | undefined;
 
 async function api<T>(path: string, body?: unknown): Promise<T> {

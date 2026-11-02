@@ -109,9 +109,9 @@ export const CreateSteps: FC<{ step: 1 | 2 | 3 }> = ({ step }) => (
 );
 
 /** Buyer scripts (ADR 0022): likes, reports, sign-in; the wallet chooser loads on demand. */
-export const BuyerScripts: FC<{ network: string }> = ({ network }) => (
+export const BuyerScripts: FC<{ network: string; main?: string | undefined; mainPath?: string | undefined }> = ({ network, main, mainPath }) => (
   <>
-    <script type="application/json" id="nc-buyer" dangerouslySetInnerHTML={{ __html: JSON.stringify({ network, walletJs: asset("/assets/wallet.js", "wallet") }).replaceAll("<", "\\u003c") }}></script>
+    <script type="application/json" id="nc-buyer" dangerouslySetInnerHTML={{ __html: JSON.stringify({ network, walletJs: asset("/assets/wallet.js", "wallet"), main, mainPath }).replaceAll("<", "\\u003c") }}></script>
     <script type="module" src={asset("/assets/buyer.js", "buyer")}></script>
   </>
 );

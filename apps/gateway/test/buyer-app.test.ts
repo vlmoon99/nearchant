@@ -18,6 +18,7 @@ function setup() {
     like: async (b: string, p: string, on: boolean) => { if (on) likes.add(`${b}:${p}`); else likes.delete(`${b}:${p}`); return [...likes].filter((x) => x.endsWith(`:${p}`)).length; },
     likedBy: async (b: string, ids: string[]) => new Set(ids.filter((p) => likes.has(`${b}:${p}`))),
     addReport: async (r: Record<string, unknown>) => { reports.push(r); return reports.length; }, recentReports: async () => 0,
+    reportedBefore: async (b: string, t: { postId?: string | null; handle: string }) => reports.some((r) => r.reporterBuyerId === b && (t.postId ? r.postId === t.postId : r.handle === t.handle && r.targetKind === "store")),
     feed: async (q: Record<string, unknown>) => [{ id: "p1", q }],
   } as unknown as FeedStore;
   const app = new Hono();
@@ -83,6 +84,8 @@ describe("buyers", () => {
     expect(t.jobs[0]).toEqual(["moderate_post", { postId: "p1", reportId: 1 }]);
     await t.app.request("http://x/api/report", post({ handle: "nova", reason: "scam", note: "never shipped" }, cookie));
     expect(t.jobs[1]).toEqual(["moderate_store", { handle: "nova", reportId: 2 }]);
+    expect((await t.app.request("http://x/api/report", post({ postId: "p1", reason: "scam" }, cookie))).status).toBe(409);   // one report per post
+    expect((await t.app.request("http://x/api/report", post({ postId: "gone", reason: "scam" }, cookie))).status).toBe(409); // removed already
     expect(t.reports[0]).toMatchObject({ targetKind: "post", handle: "nova", reporterBuyerId: "b0", reason: "counterfeit" });
     t.buyers.get("b0")!.status = "banned";
     expect((await t.app.request("http://x/api/feed/like", post({ postId: "p1" }, cookie))).status).toBe(401);
@@ -94,6 +97,13 @@ describe("buyers", () => {
     const r = await feedFor({ feed, understand: async () => ({ summary: "Protein in New York", terms: ["protein", "whey"], city: "New York", country: "US", vector: [0.1, 0.2] }) }, "protein nyc", "b1");
     expect(seen).toMatchObject({ terms: ["protein", "whey"], city: "New York", country: "US", vector: [0.1, 0.2], buyerId: "b1" });
     expect(r.intent).toMatchObject({ summary: "Protein in New York", vector: null }); // the vector is not sent to the page
+    // The City box reaches the planner, so a city alone still finds its country.
+    const asked: string[] = [];
+    await feedFor({ feed, understand: async (q) => { asked.push(q); return { summary: q, terms: ["whey"], city: "Austin", country: "US", vector: null }; } }, "whey", null, 0, { city: "Austin" });
+    expect(asked).toEqual(["whey in Austin"]);
+    expect(seen).toMatchObject({ city: "Austin", country: "US" });
+    await feedFor({ feed, understand: async (q) => { asked.push(q); return { summary: "x", terms: [], city: "Austin", country: "US", vector: null }; } }, "", null, 0, { city: "Austin" });
+    expect(seen).toMatchObject({ terms: [], city: "Austin", country: "US", vector: null });
     await feedFor({ feed, understand: async () => { throw new Error("model down"); } }, "Denim jacket", null, 0, { city: "Austin", country: "us" });
     expect(seen).toMatchObject({ terms: ["denim", "jacket"], city: "Austin", country: "US", vector: null });
   });

@@ -219,13 +219,31 @@ export class FeedStore {
   async removePost(postId: string, v: { category: string; confidence: number; summary: string; by: string; reportId?: number | null; identity: { accounts: string[]; emails: string[] } }): Promise<{ handle: string; count: number } | null> {
     const p = (await this.db.select().from(s.posts).where(eq(s.posts.id, postId)))[0];
     if (!p) return null;
-    if (!p.removedAt) await this.db.update(s.posts).set({ removedAt: new Date(), removedReason: `${v.category}: ${v.summary}`.slice(0, 500), updatedAt: new Date() }).where(eq(s.posts.id, postId));
+    // One post counts once: removing it again (more reports, a retried job) adds no violation.
+    const [claimed] = await this.db.update(s.posts).set({ removedAt: new Date(), removedReason: `${v.category}: ${v.summary}`.slice(0, 500), updatedAt: new Date() })
+      .where(and(eq(s.posts.id, postId), isNull(s.posts.removedAt))).returning({ id: s.posts.id });
+    if (!claimed) return { handle: p.handle, count: await this.activeViolations("store", p.handle) };
     const count = await this.recordViolation("store", p.handle, v.identity, { postId, reportId: v.reportId ?? null, category: v.category, confidence: v.confidence, summary: v.summary, by: v.by });
     return { handle: p.handle, count };
   }
   async restorePost(postId: string, by: string): Promise<void> {
     await this.db.update(s.posts).set({ removedAt: null, removedReason: null, updatedAt: new Date() }).where(eq(s.posts.id, postId));
-    await this.db.update(s.violations).set({ undoneAt: new Date(), undoneBy: by }).where(and(eq(s.violations.postId, postId), isNull(s.violations.undoneAt)));
+    const undone = await this.db.update(s.violations).set({ undoneAt: new Date(), undoneBy: by }).where(and(eq(s.violations.postId, postId), isNull(s.violations.undoneAt))).returning({ v: s.violations.violatorId });
+    for (const id of new Set(undone.map((u) => u.v))) {
+      const [c] = await this.db.select({ n: sql<number>`count(*)::int` }).from(s.violations).where(and(eq(s.violations.violatorId, id), isNull(s.violations.undoneAt)));
+      await this.db.update(s.violators).set({ count: c?.n ?? 0 }).where(eq(s.violators.id, id));
+    }
+  }
+  async activeViolations(kind: "store" | "buyer", id: string): Promise<number> {
+    const v = (await this.db.select().from(s.violators).where(and(eq(s.violators.subjectKind, kind), eq(s.violators.subjectId, id))))[0];
+    if (!v) return 0;
+    const [c] = await this.db.select({ n: sql<number>`count(*)::int` }).from(s.violations).where(and(eq(s.violations.violatorId, v.id), isNull(s.violations.undoneAt)));
+    return c?.n ?? 0;
+  }
+  /** Has this buyer reported this post or store already (one report each)? */
+  async reportedBefore(buyerId: string, target: { postId?: string | null; handle: string }): Promise<boolean> {
+    const where = target.postId ? and(eq(s.reports.reporterBuyerId, buyerId), eq(s.reports.postId, target.postId)) : and(eq(s.reports.reporterBuyerId, buyerId), eq(s.reports.handle, target.handle), eq(s.reports.targetKind, "store"));
+    return !!(await this.db.select({ id: s.reports.id }).from(s.reports).where(where).limit(1))[0];
   }
   async recordViolation(kind: "store" | "buyer", id: string, identity: { accounts: string[]; emails: string[] }, v: { postId?: string | null; reportId?: number | null; category: string; confidence: number; summary: string; by: string }): Promise<number> {
     const ips = await this.ipsOf(kind, id);
