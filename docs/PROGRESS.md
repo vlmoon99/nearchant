@@ -1240,3 +1240,11 @@ Owner actions:
 
 Walkthrough video re-recorded with the feed: `docs/media/walkthrough.mp4` (101 s). Details: entries above;
 decisions in `docs/adr/0022-feed-buyers-moderation.md`.
+
+## 2026-11-03 00:02 UTC — admin Overview, weekly owner email, standby rebuilt
+- **Admin Overview** (first tab): open reports, removals and reports in 24 h, linked accounts, stores / suspended,
+  buyers / banned, blocked IPs, live posts, paid orders, likes, follows, searches in 24 h. Verified over the tailnet.
+- **Weekly email** for owners who linked an email (Mondays 08:00 UTC): views, sales, searches that showed the store,
+  questions its AI couldn't answer — real numbers only, nothing for a silent week, once per week. Test: 25 worker
+  tests. Not sent yet: no store has an email linked.
+- **Mac standby images rebuilt** with tonight's code (`make standby-build`); replica 1 s behind; site health 200s.
