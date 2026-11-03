@@ -11,7 +11,7 @@ export const REPORT_REASONS = ["scam", "illegal", "sexual", "violence", "hate", 
 export type ReportReason = (typeof REPORT_REASONS)[number];
 export const SHIPS = ["local", "country", "world"] as const;
 /** A store sells a searched good when its best item/post/profile is at least this close in meaning. */
-export const STORE_MATCH_AT = 0.5;
+export const STORE_MATCH_AT = 0.45; // with the query instruction (main.ts understand)
 export interface StoreMatch {
   handle: string; name: string; city: string | null; country: string | null; ships: string | null;
   goods: { name: string; match: boolean; sim: number }[]; matched: number; score: number; image: string | null; followers: number;
