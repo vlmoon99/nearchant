@@ -1255,3 +1255,10 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
   non-matches ≤ 0.41 → threshold 0.45. Live now: "protein and creatine" → Super Nutrition ✓protein ✗creatine;
   "vintage sneakers and a denim jacket" → Nova ✗sneakers ✓denim; "whey protein, knit sweater" → Nova ✓knit,
   Super Nutrition ✓whey. Ukrainian queries work too ("джинсова куртка в Нью-Йорку" → Denim jacket in New York, US).
+
+## 2026-11-03 06:21 UTC — morning report, last word
+- Added after the morning report above (see the entries in between): admin **Overview** tab; **weekly email** for
+  owners with a linked email (Mondays); **"Stores that sell it" made accurate** (measured on live data); Mac standby
+  rebuilt with all of tonight's code.
+- Health checks every hour 00:50–06:21 UTC: nearchant.com pages 200 in < 0.5 s, worker 0 errors, the nightly
+  backfill ran, Mac standby replica ~2 s behind, CI green. Nothing broke overnight.
