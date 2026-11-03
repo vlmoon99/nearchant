@@ -14,3 +14,6 @@ apps/*/dist/
 fixtures/replay/*
 !fixtures/replay/deck/
 !fixtures/replay/store/
+
+# Demo videos are recorded locally (apps/gateway/e2e/walkthrough.mjs) and shared outside git
+docs/media/*.mp4
