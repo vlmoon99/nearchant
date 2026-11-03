@@ -1202,3 +1202,41 @@ undo: `systemctl --user enable --now inf-node.service`); the Gigabyte (your mach
 - Post page Like chip keeps its outline.
 - **Verified**: tests db 19, gateway 60 (admin: linked accounts, block button); live: with my IPv6 blocked, creating a
   store → 403 "can't be created from this address", reporting → 403; block removed afterwards.
+
+## 2026-11-03 00:00 UTC — MORNING REPORT (night of 2→3 Nov): the shop feed, buyers and AI moderation
+**Everything you asked for last night is live on nearchant.com, tested, and CI is green.**
+
+Try it (10 minutes):
+1. **Shop feed** https://nearchant.com/feed (or the search box on the landing): type "denim jacket, knit sweater and
+   whey protein" → **Stores that sell it** (✓ per item) + posts and shorts. Add a city ("New York"), or a budget
+   ("under $50"). Tap ♥ → sign in with **email or any NEAR wallet** (Meteor, HOT, HERE, Intear, MyNearWallet,
+   Sender, OKX, NEAR Mobile, Bitte). Then **Following**, **Liked**, **Orders** tabs; "For you" learns from likes.
+2. **A store page**: Follow, **Ask <store>** ("do you ship to Austin?", "size L?") — its AI answers from your items.
+   Report button on posts and stores.
+3. **Your seller Analytics**: "What shoppers look for in <country>" (unmet searches), "Questions shoppers asked",
+   likes/followers; "What AI noticed" now uses them. Settings → "Where you sell" (city, country, delivery).
+4. **Admin panel** (tailnet device): http://100.64.0.13:8790/mod — your name + password
+   (`security find-generic-password -a nearchant -s NC_ADMIN_PASSWORD -w`). Overview, Reports, AI decisions (undo),
+   Removed posts, Suspended stores, **Violators** (NEAR accounts, emails, IPs; "Block IPs"; new accounts linked to a
+   violator), Log. The image lab is behind the same login now.
+
+How moderation works while you sleep: the moderator agent checks every post before it goes public, every item, every
+store profile and every report; clear violations are removed at once, the owner is emailed why, 3 removals pause the
+store; every decision can be undone in the panel and is logged. Verified live with a scam post (seed phrase + pay
+outside escrow + replica): removed in seconds with the reason.
+
+Fixed during the night: two independent code reviews (all findings fixed — e.g. repeated reports could pause a store
+over one post; buyer sign-in on store subdomains; search log abuse); a false positive (the store-profile check paused
+**Super Nutrition** as "spam" — unpaused in minutes, rule made strict, no email went out); CI `make demo` broke on a
+prompt edit — reverted.
+
+Not verified (needs you): signing in with a real Meteor / HOT / HERE / Intear wallet; emails to a real Gmail inbox
+(link your email in Settings); the removal email to an owner (no store has an email linked yet).
+
+Owner actions:
+1. Give your moderator: the admin password + a tailnet invite.
+2. Rotate the Resend API key after the hackathon (it was pasted in chat).
+3. Still open from before: Phala account (step 14, ~8 Nov), Comfy credits end 11 Nov.
+
+Walkthrough video re-recorded with the feed: `docs/media/walkthrough.mp4` (101 s). Details: entries above;
+decisions in `docs/adr/0022-feed-buyers-moderation.md`.
