@@ -1248,3 +1248,10 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
   questions its AI couldn't answer — real numbers only, nothing for a silent week, once per week. Test: 25 worker
   tests. Not sent yet: no store has an email linked.
 - **Mac standby images rebuilt** with tonight's code (`make standby-build`); replica 1 s behind; site health 200s.
+
+## 2026-11-03 00:04 UTC — "Stores that sell it" made accurate
+- Measured per-good similarities on the live data: without an instruction, "shoes" matched Nova Wear (0.55) and
+  "protein" missed Super Nutrition (0.48). With Qwen3-Embedding's query instruction: real matches 0.47–0.58,
+  non-matches ≤ 0.41 → threshold 0.45. Live now: "protein and creatine" → Super Nutrition ✓protein ✗creatine;
+  "vintage sneakers and a denim jacket" → Nova ✗sneakers ✓denim; "whey protein, knit sweater" → Nova ✓knit,
+  Super Nutrition ✓whey. Ukrainian queries work too ("джинсова куртка в Нью-Йорку" → Denim jacket in New York, US).
