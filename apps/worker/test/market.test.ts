@@ -127,3 +127,23 @@ describe("store profile moderation is cautious", () => {
     }
   });
 });
+
+describe("weekly report", () => {
+  it("emails owners with a linked email a week summary from real numbers, nothing for a silent week", async () => {
+    const sent: { h: string; lines: string[]; key: string }[] = [];
+    const biz = [{ handle: "busy", name: "Busy", suspendedAt: null }, { handle: "quiet", name: "Quiet", suspendedAt: null }, { handle: "nomail", name: "No mail", suspendedAt: null }];
+    const d = {
+      content: { listBusinesses: async () => biz, getSetting: async (k: string) => (k === "emailOf:busy" || k === "emailOf:quiet" ? "o@example.com" : k === "questions:busy" ? [{ q: "Is it merino?", owner: true, at: new Date().toISOString() }] : null),
+        eventCounts: async (h: string) => (h === "busy" ? [{ day: "d", kind: "view", n: 12 }] : []), salesSince: async (h: string) => (h === "busy" ? { count: 1, units: 40_000_000n } : { count: 0, units: 0n }) },
+      feed: { searchesFor: async (h: string) => (h === "busy" ? { count: 3, goods: ["denim jacket"] } : { count: 0, goods: [] }) },
+      envelopes: { add: async () => {} }, router: {}, env, mediaDir: "/tmp", accountOf: (h: string) => h, log: () => {}, decimals: 6, token: "nUSD",
+      weeklyMail: async (h: string, _s: string, lines: string[], key: string) => { sent.push({ h, lines, key }); return true; },
+    } as unknown as MarketTaskDeps;
+    await makeMarketTasks(d).tasks.weekly_report!({}, {} as never);
+    expect(sent.map((x) => x.h)).toEqual(["busy"]);
+    expect(sent[0]!.lines[0]).toBe("Store views: 12. Sales: 1 (40 nUSD).");
+    expect(sent[0]!.lines.join(" ")).toContain("denim jacket");
+    expect(sent[0]!.lines.join(" ")).toContain("Is it merino?");
+    expect(sent[0]!.key).toMatch(/^weekly:busy:\d{4}-\d{2}-\d{2}$/);
+  });
+});

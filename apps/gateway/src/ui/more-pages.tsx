@@ -168,7 +168,7 @@ export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
           <button class="btn near" data-wallet="link"><Icon n="wallet" />{wallet ? "Link another wallet" : "Connect a NEAR wallet"}</button>
           <output class="foot" id="wallet-out"></output></div>
         {emailOn ? <form class="card" id="email" data-email-link><span class="headline">Email</span>
-          {email ? <span class="foot">Linked: <b>{email}</b> — sign in from any browser with a link we email you. New orders are emailed here.</span>
+          {email ? <span class="foot">Linked: <b>{email}</b> — sign in from any browser with a link we email you. New orders and a short Monday summary of your week are emailed here.</span>
             : <span class="foot muted">Add your email to sign in from any browser with a one-time link, and to hear about new orders.</span>}
           <input class="input" type="email" name="email" required placeholder="you@example.com" autocomplete="email" />
           <button class="btn secondary" type="submit"><Icon n="send" />{email ? "Change email" : "Send confirmation link"}</button>

@@ -17,6 +17,10 @@ export interface MarketTaskDeps {
   log: (m: string) => void;
   /** Tell a store owner (email) that a post was removed. */
   notify?: (handle: string, subject: string, lines: string[]) => Promise<void>;
+  /** Weekly summary email to an owner who linked an email (Monday); key makes a retry never send twice. */
+  weeklyMail?: (handle: string, subject: string, lines: string[], key: string) => Promise<boolean>;
+  decimals?: number;
+  token?: string;
 }
 
 /** Store-profile violations that pause a store (the others are left to a person). */
@@ -143,7 +147,34 @@ export function makeMarketTasks(d: MarketTaskDeps) {
     d.log(`place: ${handle} → ${pl.city ?? "?"}, ${pl.country ?? "?"}, ships ${pl.ships ?? "?"}`);
   }
 
+  /** The week in a few lines, only with numbers we have (never invented). */
+  async function weekLines(handle: string): Promise<string[] | null> {
+    const [events, sales, found, qs] = await Promise.all([d.content.eventCounts(handle, 7), d.content.salesSince(handle, 7), d.feed.searchesFor(handle, 7),
+      d.content.getSetting<{ q: string; owner: boolean; at: string }[]>(`questions:${handle}`)]);
+    const views = events.filter((e) => e.kind === "view").reduce((a, e) => a + e.n, 0);
+    const weekQs = (qs ?? []).filter((x) => Date.now() - Date.parse(x.at) < 7 * 86_400_000);
+    const open = weekQs.filter((x) => x.owner).slice(0, 3);
+    if (!views && !sales.count && !found.count && !weekQs.length) return null; // a silent week sends nothing
+    const money = `${(Number(sales.units) / 10 ** (d.decimals ?? 6)).toLocaleString("en", { maximumFractionDigits: 2 })} ${d.token ?? "nUSD"}`;
+    return [
+      `Store views: ${views}. Sales: ${sales.count}${sales.count ? ` (${money})` : ""}.`,
+      found.count ? `Your posts showed up in ${found.count} shop-feed search${found.count === 1 ? "" : "es"}${found.goods.length ? ` — ${found.goods.join(", ")}` : ""}.` : "Your posts didn't show up in a shop-feed search this week — posts that name what you sell are found more often.",
+      weekQs.length ? `Shoppers asked your store's AI ${weekQs.length} question${weekQs.length === 1 ? "" : "s"}.${open.length ? ` It couldn't answer: ${open.map((x) => `“${x.q.slice(0, 80)}”`).join("; ")} — add that to your items.` : ""}` : "",
+    ].filter(Boolean);
+  }
+
   const tasks: Record<string, Task> = {
+    // Monday morning: a short week summary to owners who linked an email in Settings.
+    weekly_report: async () => {
+      if (!d.weeklyMail) return;
+      const week = new Date().toISOString().slice(0, 10);
+      for (const b of await d.content.listBusinesses()) {
+        if (b.suspendedAt || !(await d.content.getSetting<string>(`emailOf:${b.handle}`))) continue;
+        const lines = await weekLines(b.handle).catch(() => null);
+        if (!lines) continue;
+        await d.weeklyMail(b.handle, `Your week at ${b.name}`, lines, `weekly:${b.handle}:${week}`).catch((e) => d.log(`weekly ${b.handle}: ${(e as Error).message}`));
+      }
+    },
     moderate_post: async (payload) => { const { postId, reportId } = payload as { postId: string; reportId?: number }; await moderate(postId, reportId ?? null); },
     // A store report: check its latest posts with the report; anything not about a post stays for a person.
     moderate_store: async (payload) => {
@@ -177,5 +208,5 @@ export function makeMarketTasks(d: MarketTaskDeps) {
       await d.feed.pruneIps();
     },
   };
-  return { tasks, moderate };
+  return { tasks, moderate, weekLines };
 }

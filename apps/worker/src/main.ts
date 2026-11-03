@@ -222,7 +222,14 @@ const mailer = gwEmail && process.env.RESEND_API_KEY ? resendMailer({ apiKey: pr
 const contentEnv = loadAgentEnv(join(root, "envs/content-store"));
 const market = makeMarketTasks({
   content: contentStore, feed: feedStore, envelopes, router, env: contentEnv, mediaDir, accountOf: (h) => `${h}.${accounts.root}`,
-  log: (m) => console.info(`[market] ${m}`),
+  log: (m) => console.info(`[market] ${m}`), decimals: Number(gw.token?.decimals ?? 6), token: String(gw.token?.symbol ?? "nUSD"),
+  ...(mailer ? { weeklyMail: async (handle: string, subject: string, lines: string[], key: string) => {
+    const to = await contentStore.getSetting<string>(`emailOf:${handle}`);
+    if (!to) return false;
+    const url = `${String(gw.public_url ?? "https://nearchant.com")}/app/analytics?d=7`;
+    await mailer({ to, subject, text: `${lines.join("\n\n")}\n\n${url}`, html: emailHtml({ title: subject, lines, button: { label: "Open your store", url }, foot: "You get this because your email is linked in Settings. Unlink it there to stop." }), idempotencyKey: key });
+    return true;
+  } } : {}),
   ...(mailer ? { notify: async (handle: string, subject: string, lines: string[]) => {
     const to = await contentStore.getSetting<string>(`emailOf:${handle}`);
     if (to) await mailer({ to, subject, text: lines.join("\n\n"), html: emailHtml({ title: subject, lines }), idempotencyKey: `notify:${handle}:${createHash("sha256").update(subject + lines.join()).digest("hex").slice(0, 16)}` });
@@ -265,7 +272,7 @@ const runner = await run({
   noHandleSignals: false,
   pollInterval: 1000,
   taskList: { ...contentTasks, ...market.tasks, deck_step: deckStep, outbox_drain: outboxDrain, billing_settle: billingSettle, escrow_timers: escrowTimers },
-  crontab: ["* * * * * outbox_drain ?jobKey=outbox_drain", "*/5 * * * * billing_settle ?jobKey=billing_settle", "*/10 * * * * escrow_timers ?jobKey=escrow_timers", "17 4 * * * feed_backfill ?jobKey=feed_backfill"].join("\n"),
+  crontab: ["* * * * * outbox_drain ?jobKey=outbox_drain", "*/5 * * * * billing_settle ?jobKey=billing_settle", "*/10 * * * * escrow_timers ?jobKey=escrow_timers", "17 4 * * * feed_backfill ?jobKey=feed_backfill", "0 8 * * 1 weekly_report ?jobKey=weekly_report"].join("\n"),
 });
 await workerUtils.addJob("feed_backfill", {}, { jobKey: "feed_backfill", maxAttempts: 2 }); // places, vectors, moderation for older content
 console.info("[worker] up: write_insights, analyze_business, find_opportunities, generate_posts, learn_taste, deck_step, outbox_drain, billing_settle, escrow_timers");
