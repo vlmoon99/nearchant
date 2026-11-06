@@ -1,7 +1,8 @@
 import { createHash, createPublicKey, createVerify } from "node:crypto";
 // Checks a NEAR AI attestation report (GET /v1/attestation/report?model=&nonce=) as far as we can without trusting
-// NEAR AI: freshness (our nonce comes back), binding (the TDX quote's REPORTDATA = NEAR AI's signing key ‖ our nonce,
-// the model's quote = its signing address ‖ our nonce, the quote's MRCONFIGID carries the app's compose hash), the
+// NEAR AI, following docs.near.ai/cloud/verification: freshness (our nonce comes back), binding (the TDX quote's
+// REPORTDATA = NEAR AI's signing key ‖ our nonce; the model's quote = its signing address ‖ our nonce), measurements
+// (MRCONFIGID = 01 ‖ sha256(app_compose) ‖ zeros; the event log replays to RTMR3; no debug TD), the
 // Intel TDX quote itself (Phala's public DCAP verifier), that the NVIDIA GPU evidence is for our nonce, and — with an
 // NVIDIA API key — NVIDIA's own verdict on that evidence (NRAS: POST /v4 (or /v3)/attest/gpu, the same request as NVIDIA's
 // nv_attestation_sdk; the answer is ES384 JWTs checked here against NRAS's JWKS, overall result + our nonce).
@@ -9,8 +10,14 @@ import { createHash, createPublicKey, createVerify } from "node:crypto";
 // deploy/nras-relay). NVIDIA's signed overall token is published in the check, so anyone can verify it against NRAS's
 // JWKS themselves.
 export interface ReportCheck {
-  nonce_ok: boolean; gateway_bound: boolean; compose_bound: boolean;
+  nonce_ok: boolean; gateway_bound: boolean;
+  /** MRCONFIGID = 0x01 ‖ sha256(app_compose) ‖ 15 zero bytes (the configuration the TEE was booted with). */
+  compose_bound: boolean;
+  /** The event log (imr 3) replays to the quote's RTMR3; the TD is not in debug mode. */
+  gateway_rtmr3_ok?: boolean; gateway_debug?: boolean;
   models: { model: string; bound: boolean; gpu_nonce_ok: boolean; tdx_verified: boolean | null;
+    /** NEAR AI's own models only (third-party layouts carry no app_compose / event log): null = not applicable. */
+    compose_bound?: boolean | null; rtmr3_ok?: boolean | null; debug?: boolean;
     /** NVIDIA NRAS verdict on the GPU evidence: null = not checked (no key, or NRAS unreachable). */
     gpu_verified?: boolean | null; gpu_error?: string; gpu_token?: string }[];
   gateway_tdx_verified: boolean | null; verifier: string; checked_at: string;
@@ -28,6 +35,43 @@ export function quoteReportData(quoteHex: string): string {
 export function quoteMrConfigId(quoteHex: string): string { return Buffer.from(quoteHex, "hex").subarray(48 + 184, 48 + 232).toString("hex"); }
 
 type FetchFn = typeof fetch;
+
+/** TD report body (quote v4: 48-byte header first): td_attributes @120, MRCONFIGID @184, RTMR3 @472. */
+const tdBody = (quoteHex: string) => {
+  const q = Buffer.from(quoteHex, "hex");
+  if (q.length < 632 || q.readUInt16LE(0) !== 4) throw new Error("not a TDX v4 quote");
+  return q.subarray(48, 48 + 584);
+};
+/** The TD runs in debug mode (td_attributes bit 0): its memory is readable by the host, so nothing it says is private. */
+export const quoteIsDebug = (quoteHex: string) => (tdBody(quoteHex)[120]! & 1) === 1;
+type EventLogEntry = { imr?: number; event_type?: number; event?: string; event_payload?: string; digest?: string };
+const parsed = <T>(x: unknown): T | undefined => (typeof x === "string" ? (JSON.parse(x) as T) : (x as T | undefined));
+/** MRCONFIGID must be 01 ‖ sha256(exact app_compose bytes) ‖ 15 zero bytes. */
+export function configMatches(quoteHex: string, appCompose: string): boolean {
+  const want = Buffer.concat([Buffer.from([1]), createHash("sha256").update(appCompose, "utf8").digest(), Buffer.alloc(15)]);
+  return tdBody(quoteHex).subarray(184, 232).equals(want);
+}
+/** Replays the imr-3 events: digest = sha384(type as u32 LE ‖ ":" ‖ event ‖ ":" ‖ payload), RTMR3 = sha384(RTMR3 ‖ digest). */
+export function rtmr3Matches(quoteHex: string, eventLog: EventLogEntry[]): boolean {
+  let r = Buffer.alloc(48);
+  for (const e of eventLog) {
+    if (e.imr !== 3) continue;
+    const t = Buffer.alloc(4); t.writeUInt32LE(e.event_type ?? 0);
+    const d = createHash("sha384").update(Buffer.concat([t, Buffer.from(":"), Buffer.from(e.event ?? "", "utf8"), Buffer.from(":"), Buffer.from(e.event_payload ?? "", "hex")])).digest();
+    if (e.digest && e.digest.toLowerCase() !== d.toString("hex")) return false;
+    r = createHash("sha384").update(Buffer.concat([r, d])).digest();
+  }
+  return tdBody(quoteHex).subarray(472, 520).equals(r);
+}
+type Measured = { intel_quote?: string; event_log?: unknown; info?: { tcb_info?: unknown; compose_hash?: string } };
+function measurements(a: Measured): { compose: boolean; rtmr3: boolean; debug: boolean } {
+  const q = a.intel_quote ?? "";
+  const tcb = parsed<{ app_compose?: string }>(a.info?.tcb_info);
+  const log = parsed<EventLogEntry[]>(a.event_log) ?? [];
+  const ok = <T>(f: () => T, d: T) => { try { return f(); } catch { return d; } };
+  return { compose: typeof tcb?.app_compose === "string" && ok(() => configMatches(q, tcb.app_compose!), false),
+    rtmr3: log.length > 0 && ok(() => rtmr3Matches(q, log), false), debug: ok(() => quoteIsDebug(q), true) };
+}
 export const NRAS_URL = "https://nras.attestation.nvidia.com";
 
 const b64url = (s: string) => Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/"), "base64");
@@ -89,7 +133,8 @@ interface RawModelAttestation {
   model_name?: string; signing_address?: string; request_nonce?: string; intel_quote?: string; nvidia_payload?: string;
   model?: string; provider?: string; nonce?: string; quote_b64?: string; e2e_pubkey?: string; gpu_evidence?: { evidence?: string; certificate?: string; arch?: string }[];
 }
-interface ModelEvidence { model: string; nonce: string; quote: string; bound: boolean; gpuNonce: string; gpuNonceOk: boolean; nvidiaPayload?: string }
+interface ModelEvidence { model: string; nonce: string; quote: string; bound: boolean; gpuNonce: string; gpuNonceOk: boolean; nvidiaPayload?: string;
+  compose: boolean | null; rtmr3: boolean | null; debug: boolean }
 
 function normalizeModel(m: RawModelAttestation, n: string): ModelEvidence {
   if (m.quote_b64) {
@@ -102,6 +147,7 @@ function normalizeModel(m: RawModelAttestation, n: string): ModelEvidence {
       model: m.model ?? m.model_name ?? "?", nonce: (m.nonce ?? "").toLowerCase(), quote,
       bound: !!m.nonce && !!m.e2e_pubkey && quoteReportData(quote).startsWith(h),
       gpuNonce: h, gpuNonceOk: ev.length > 0 && ev.every((e) => Buffer.from(e.evidence ?? "", "base64").subarray(4, 36).toString("hex") === h),
+      compose: null, rtmr3: null, debug: quoteIsDebug(quote),
       ...(ev.length ? { nvidiaPayload: JSON.stringify({ nonce: h, arch: ev[0]!.arch, evidence_list: ev }) } : {}),
     };
   }
@@ -109,14 +155,15 @@ function normalizeModel(m: RawModelAttestation, n: string): ModelEvidence {
   const rd = m.intel_quote ? quoteReportData(m.intel_quote) : "";
   const addr = (m.signing_address ?? "").replace(/^0x/, "").toLowerCase();
   const gpuNonce = (JSON.parse(m.nvidia_payload ?? "{}") as { nonce?: string }).nonce?.toLowerCase() ?? "";
+  const meas = measurements(m as Measured);
   return { model: m.model_name ?? "?", nonce: (m.request_nonce ?? "").toLowerCase(), quote: m.intel_quote ?? "", bound: !!addr && rd.startsWith(addr) && rd.endsWith(n),
-    gpuNonce: n, gpuNonceOk: gpuNonce === n, ...(m.nvidia_payload ? { nvidiaPayload: m.nvidia_payload } : {}) };
+    gpuNonce: n, gpuNonceOk: gpuNonce === n, ...(m.nvidia_payload ? { nvidiaPayload: m.nvidia_payload } : {}), compose: meas.compose, rtmr3: meas.rtmr3, debug: meas.debug };
 }
 
 export async function checkNearAiReport(raw: string, nonce: string, opts: { fetch?: FetchFn; tdx?: boolean; now?: () => Date; nvidia?: { apiKey: string; baseUrl?: string } } = {}): Promise<ReportCheck> {
   const fetchFn = opts.fetch ?? fetch;
   const j = JSON.parse(raw) as {
-    gateway_attestation?: { signing_address?: string; request_nonce?: string; intel_quote?: string; info?: { compose_hash?: string } };
+    gateway_attestation?: { signing_address?: string; request_nonce?: string; intel_quote?: string; event_log?: unknown; info?: { compose_hash?: string; tcb_info?: unknown } };
     model_attestations?: RawModelAttestation[];
   };
   const g = j.gateway_attestation ?? {}, n = nonce.toLowerCase();
@@ -125,19 +172,23 @@ export async function checkNearAiReport(raw: string, nonce: string, opts: { fetc
   // REPORTDATA = signing key (32 bytes; an ECDSA address is 20 bytes, zero-padded) ‖ our nonce (32 bytes).
   const gwKey = (g.signing_address ?? "").replace(/^0x/, "").toLowerCase();
   const gateway_bound = /^[0-9a-f]{40}$|^[0-9a-f]{64}$/.test(gwKey) && gwRd === `${gwKey.padEnd(64, "0")}${n}`;
-  const compose_bound = !!g.info?.compose_hash && safe(() => quoteMrConfigId(g.intel_quote ?? ""), "").includes(g.info.compose_hash.toLowerCase());
-  const ms = (j.model_attestations ?? []).map((m) => safe(() => normalizeModel(m, n), { model: m.model_name ?? m.model ?? "?", nonce: "", quote: "", bound: false, gpuNonce: "", gpuNonceOk: false }));
+  const gm = measurements(g);
+  const compose_bound = gm.compose;
+  const ms = (j.model_attestations ?? []).map((m) => safe(() => normalizeModel(m, n), { model: m.model_name ?? m.model ?? "?", nonce: "", quote: "", bound: false, gpuNonce: "", gpuNonceOk: false, compose: false, rtmr3: false, debug: true } as ModelEvidence));
   const nonce_ok = g.request_nonce?.toLowerCase() === n && ms.every((m) => m.nonce === n);
   const tdx = opts.tdx !== false;
   const models = await Promise.all(ms.map(async (m) => {
     const gpu = opts.nvidia && m.nvidiaPayload ? await nrasVerify(m.nvidiaPayload, m.gpuNonce, { ...opts.nvidia, fetch: fetchFn }) : { verified: null as boolean | null, error: opts.nvidia ? "no GPU evidence" : "no NVIDIA key" };
     return { model: m.model, bound: m.bound, gpu_nonce_ok: m.gpuNonceOk, tdx_verified: tdx && m.quote ? await phalaVerify(m.quote, fetchFn) : null,
+      compose_bound: m.compose, rtmr3_ok: m.rtmr3, debug: m.debug,
       gpu_verified: gpu.verified, ...(gpu.error ? { gpu_error: gpu.error } : {}), ...("token" in gpu && gpu.token ? { gpu_token: gpu.token } : {}) };
   }));
   const gateway_tdx_verified = tdx && g.intel_quote ? await phalaVerify(g.intel_quote, fetchFn) : null;
   // ok only when every check ran and passed: an unreachable TDX verifier (null) is not a pass.
   // NVIDIA's verdict counts when we got one: a "no" fails the check, "could not ask" (null) leaves it to the others.
-  const ok = nonce_ok && gateway_bound && compose_bound && models.every((m) => m.bound && m.gpu_nonce_ok && m.tdx_verified === true && m.gpu_verified !== false) && gateway_tdx_verified === true;
+  // Measurements: required where the layout has them (null = a third-party layout without them); never a debug TD.
+  const ok = nonce_ok && gateway_bound && compose_bound && gm.rtmr3 && !gm.debug && gateway_tdx_verified === true
+    && models.every((m) => m.bound && m.gpu_nonce_ok && m.tdx_verified === true && m.gpu_verified !== false && m.compose_bound !== false && m.rtmr3_ok !== false && !m.debug);
   const gpuChecked = models.some((m) => m.gpu_verified === true);
-  return { nonce_ok, gateway_bound, compose_bound, models, gateway_tdx_verified, verifier: `nearchant attest-verify 2 + Phala DCAP${gpuChecked ? " + NVIDIA NRAS" : ""}`, checked_at: (opts.now?.() ?? new Date()).toISOString(), ok };
+  return { nonce_ok, gateway_bound, compose_bound, gateway_rtmr3_ok: gm.rtmr3, gateway_debug: gm.debug, models, gateway_tdx_verified, verifier: `nearchant attest-verify 3 + Phala DCAP${gpuChecked ? " + NVIDIA NRAS" : ""}`, checked_at: (opts.now?.() ?? new Date()).toISOString(), ok };
 }

@@ -148,6 +148,7 @@ export interface ResultEnvelope {
    * True when served by the replay provider.
    */
   replayed?: boolean;
+  responseSignature?: ResponseSignature;
 }
 
 export interface Usage {
@@ -171,6 +172,23 @@ export interface AttestationRef {
    * False in M0: the report is fetched and pinned, not cryptographically verified.
    */
   verified?: boolean;
+  /**
+   * ed25519 keys of the model TEEs named in the report (their REPORTDATA binds them).
+   */
+  modelSigners?: string[];
+}
+
+export interface ResponseSignature {
+  kind: "provider_tee" | "gateway" | "none";
+  signingAlgo?: string;
+  signingAddress?: string;
+  text?: string;
+  signature?: string;
+  /**
+   * Signature valid, text = our own hashes of the exact bytes, signer = a key from the pinned attestation report.
+   */
+  verified: boolean;
+  error?: string;
 }
 
 export interface UsageRecord {

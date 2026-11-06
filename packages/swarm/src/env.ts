@@ -12,7 +12,8 @@ export interface Role {
   max_tokens: number;
   /** Per-call timeout in seconds (optional). */
   timeout_s?: number;
-  /** false: ask the model to answer without thinking first (short structured outputs). */
+  /** false: answer without thinking first (short structured outputs); true: think first even where the endpoint
+   *  turns thinking off by default (providers extra_body). Unset: the endpoint's default. */
   reasoning?: boolean;
 }
 
@@ -42,7 +43,7 @@ export function loadAgentEnv(dir: string): AgentEnv {
       temperature: Number(r.temperature ?? 0.4),
       max_tokens: Number(r.max_tokens ?? 2000),
       ...(r.timeout_s ? { timeout_s: Number(r.timeout_s) } : {}),
-      ...(r.reasoning === false ? { reasoning: false } : {}),
+      ...(typeof r.reasoning === "boolean" ? { reasoning: r.reasoning } : {}),
     };
   }
   return { name: m.name, version: m.version, seats: { main: m.seats?.main ?? {}, second: m.seats?.second ?? {}, smart: m.seats?.smart ?? {} }, roles, research: m.research, dir };

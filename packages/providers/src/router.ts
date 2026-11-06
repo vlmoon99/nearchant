@@ -1,3 +1,4 @@
+import { checkResponseSignature } from "./response-signature.js";
 import { validate, type AttestationRef, type Capability, type Endpoint, type ProvidersConfig, type ResultEnvelope, type Usage } from "@nearchant/contracts";
 import { OpenAICompatibleAdapter } from "./adapters/openai-compatible.js";
 import { ReplayAdapter, ReplayStore } from "./adapters/replay.js";
@@ -190,6 +191,12 @@ export class Router {
           createdAt: new Date().toISOString(),
           ...(replayed ? { replayed: true } : {}),
         };
+        // NEAR AI signs each answer: check it against the keys of the report pinned before the data went out.
+        if (r.wire && attestation && s.adapter.responseSignature) {
+          const sig = await s.adapter.responseSignature(r.wire.id, model).catch(() => null);
+          env.responseSignature = checkResponseSignature({ model, request: r.wire.request, response: r.wire.response, sig,
+            modelSigners: attestation.modelSigners ?? [], ...(attestation.signingAddress ? { gatewaySigner: attestation.signingAddress } : {}) });
+        }
         if (!replayed) this.opts.record?.put(requestKey, env);
         return env;
       } catch (e) {

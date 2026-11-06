@@ -86,6 +86,8 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
         if (!post) v.reviewPassed = null;
         if (a) {
           const check = d.mediaDir ? await readFile(join(d.mediaDir, "attestations", `${a[2]}.check.json`), "utf8").then((x) => JSON.parse(x) as { ok?: boolean; gateway_tdx_verified?: boolean | null; models?: { gpu_verified?: boolean | null }[] }, () => null) : null;
+          const sig = (post?.idea as { writer?: { signature?: { kind: string; verified: boolean; signer?: string; text?: string; signature?: string } } } | undefined)?.writer?.signature;
+          if (sig) v.signed = sig;
           v.attestation = { model: a[1]!, hash: a[2]!, ok: check ? check.ok === true : null, gpu: check?.models?.length ? (check.models.every((m) => m.gpu_verified === true) ? true : check.models.some((m) => m.gpu_verified === false) ? false : null) : null };
         }
       }

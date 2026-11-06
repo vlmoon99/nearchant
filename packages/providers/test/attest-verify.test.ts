@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createSign, generateKeyPairSync } from "node:crypto";
-import { checkNearAiReport, nrasVerify, quoteReportData } from "../src/attest-verify.js";
+import { checkNearAiReport, nrasVerify, quoteIsDebug, quoteReportData } from "../src/attest-verify.js";
 
 // A real NEAR AI report (1 Nov 2026, Qwen3.6-35B-A3B on NEAR AI TEE) — public data.
 const raw = readFileSync(join(import.meta.dirname, "fixtures-nearai-report.json"), "utf8");
@@ -55,6 +55,22 @@ describe("NEAR AI attestation report check", () => {
     // Another model key → the quote no longer binds.
     j3.model_attestations[0].e2e_pubkey = "AAAA";
     expect((await checkNearAiReport(JSON.stringify(j3), n3, { tdx: false })).models[0]!.bound).toBe(false);
+  });
+  it("measurements (NEAR AI's checklist): app_compose hashes to MRCONFIGID, the event log replays to RTMR3, no debug TD", async () => {
+    const c = await checkNearAiReport(raw, nonce, { fetch: phala(true) });
+    expect(c).toMatchObject({ compose_bound: true, gateway_rtmr3_ok: true, gateway_debug: false, ok: true });
+    expect(c.models[0]).toMatchObject({ compose_bound: true, rtmr3_ok: true, debug: false });
+  });
+  it("a changed app_compose, a changed event or a debug TD fails the check", async () => {
+    const tcb = (j: any) => (typeof j.info.tcb_info === "string" ? JSON.parse(j.info.tcb_info) : j.info.tcb_info);
+    const j1 = JSON.parse(raw) as any; const t1 = tcb(j1.gateway_attestation); t1.app_compose += " "; j1.gateway_attestation.info.tcb_info = JSON.stringify(t1);
+    expect(await checkNearAiReport(JSON.stringify(j1), nonce, { fetch: phala(true) })).toMatchObject({ compose_bound: false, ok: false });
+    const j2 = JSON.parse(raw) as any; const log = typeof j2.model_attestations[0].event_log === "string" ? JSON.parse(j2.model_attestations[0].event_log) : j2.model_attestations[0].event_log;
+    const e = log.find((x: any) => x.imr === 3); e.event = `${e.event}x`; e.digest = ""; j2.model_attestations[0].event_log = JSON.stringify(log);
+    const c2 = await checkNearAiReport(JSON.stringify(j2), nonce, { fetch: phala(true) });
+    expect(c2.models[0]!.rtmr3_ok).toBe(false); expect(c2.ok).toBe(false);
+    const q = Buffer.from((JSON.parse(raw) as any).gateway_attestation.intel_quote, "hex"); q[48 + 120]! |= 1;
+    expect(quoteIsDebug(q.toString("hex"))).toBe(true);
   });
   it("reads REPORTDATA from a TDX v4 quote and refuses other data", () => {
     expect(quoteReportData((JSON.parse(raw) as any).gateway_attestation.intel_quote)).toHaveLength(128);

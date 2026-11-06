@@ -64,7 +64,7 @@ export function makeAsker(env: AgentEnv, router: ModelRouter, track: (e: ResultE
     let parseFailures = 0;
     let last = "";
     for (let calls = 0; calls < 5; calls++) {
-      const req = { capability, dataClass: "private" as const, input: { messages, temperature: role.temperature, max_tokens: maxTokens }, ...(role.timeout_s && seatModel ? { timeoutMs: role.timeout_s * 1000 } : {}), ...(role.reasoning === false ? { reasoning: false } : {}) };
+      const req = { capability, dataClass: "private" as const, input: { messages, temperature: role.temperature, max_tokens: maxTokens }, ...(role.timeout_s && seatModel ? { timeoutMs: role.timeout_s * 1000 } : {}), ...(typeof role.reasoning === "boolean" ? { reasoning: role.reasoning } : {}) };
       let e: ResultEnvelope;
       try {
         e = await router.call(seatModel ? { ...req, model: seatModel } : req);

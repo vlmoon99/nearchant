@@ -10,6 +10,7 @@ export interface VerifyView {
   foreign?: boolean;
   author?: string; createdAt?: string; producer?: string; outputHash?: string; recomputed?: string | null; match?: boolean | null;
   reviewPassed?: boolean | null; attestation?: { model: string; hash: string; ok: boolean | null; gpu?: boolean | null } | null;
+  signed?: { kind: string; verified: boolean; signer?: string; text?: string; signature?: string } | null;
   post?: { caption: string; img: string | null; store: string; href: string } | null;
   contractUrl: string;
 }
@@ -49,6 +50,11 @@ export const VerifyPage: FC<{ cfg: UiConfig; test: boolean; v: VerifyView | null
             <Row ok={v.reviewPassed ?? null} title={v.reviewPassed ? "Caption check passed" : v.reviewPassed === false ? "Caption check flagged an offer" : "No caption check"} detail="Levanto Sage (NEAR AI) looked for discounts, gifts, deadlines or prices the store never stated" />
             <Row ok={v.attestation ? v.attestation.ok : null} title={v.attestation ? `Written by ${v.attestation.model} in a NEAR AI TEE` : `Made by ${v.producer ?? "the store's AI"}`}
               detail={v.attestation ? `${v.attestation.ok ? `Intel TDX quote verified, NEAR AI's key and our nonce bound into it${v.attestation.gpu ? "; NVIDIA confirmed the GPU" : ""}` : v.attestation.ok === false ? "Our check of this report did not pass" : "Report published; our check has not completed"} · report ${v.attestation.hash.slice(0, 12)}…` : "Ran on the store's own GPUs (no TEE report)"} />
+            {v.signed ? <Row ok={v.signed.verified} title={v.signed.kind === "provider_tee" ? (v.signed.verified ? "The text was signed inside the model's TEE" : "The TEE signature did not check out") : v.signed.kind === "gateway" ? "Signed by NEAR AI's attested gateway" : "No answer signature"}
+              detail={!v.signed.verified ? "NEAR AI's signature of this answer could not be verified"
+                : v.signed.kind === "provider_tee" ? `The model's attested key ${String(v.signed.signer).slice(0, 12)}… signed sha256 of the exact request and answer (ed25519); that key is bound into the attestation report`
+                : `The gateway's attested key ${String(v.signed.signer).slice(0, 12)}… signed the exact request and answer; this proves the gateway passed them on, not that the model's own TEE wrote them`} /> : null}
+            {v.signed?.text && v.signed.signature ? <details class="foot"><summary>Check the signature yourself</summary><code style="word-break:break-all">signed text: {v.signed.text}<br />signature (ed25519): {v.signed.signature}<br />key: {v.signed.signer}</code></details> : null}
             {v.attestation ? <span class="foot"><a href={`/attestations/${v.attestation.hash}.json`} target="_blank" rel="noopener">Attestation report</a> · <a href={`/attestations/${v.attestation.hash}.check.json`} target="_blank" rel="noopener">our check</a></span> : null}
             <a class="btn near" href={v.contractUrl} target="_blank" rel="noopener"><Icon n="globe" />View on NEAR explorer</a>
             <span class="cap muted">Check it yourself: <code>near view proofs.nearchant.testnet get '{`{"proof_id":"${v.proofId}"}`}'</code></span>

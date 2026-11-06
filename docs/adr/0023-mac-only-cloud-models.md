@@ -50,3 +50,17 @@ judgment matters more than speed.
   address zero-padded ‖ nonce), and attested third parties (Kimi K2.6 via Chutes: REPORTDATA[0..32] =
   sha256(nonce ‖ e2e_pubkey), the same value as every GPU's SPDM requester nonce). Two published Kimi checks that read
   "not ok" were re-run and now pass. Neither was linked to a post proof.
+
+## Addendum 2 (6 Nov, night): NEAR AI's full verification checklist; speed
+- Audited against docs.near.ai/cloud/verification. Added: **MRCONFIGID = 01 ‖ sha256(app_compose) ‖ zeros** (computed,
+  not the API's `compose_hash`), **event log replayed to RTMR3**, **debug TDs rejected**, for the gateway and NEAR AI's
+  models; and **response signatures**: after every NEAR AI chat call the router fetches `/v1/signature/{id}`
+  (ed25519) and verifies it against the exact request/response bytes and the keys of the report pinned before the
+  data went out (`responseSignature` in the envelope; schema first). Posts record it and "Verify a post" shows it.
+  Kimi K2.6 (Chutes) gets only a `gateway` signature, which is labelled as the weaker kind.
+- Attestation reports are now requested with `signing_algo=ed25519` and `x-no-aliasing: true` (same algorithm as
+  the signatures).
+- Speed: NEAR AI streams ~40–80 tokens/s, and thinking was 2–6K tokens per step. The nearai endpoint now turns
+  thinking off like the Sparks did, and only the opportunity analyst thinks (`reasoning: true`). Photos → live posts
+  went from 836 s to 146 s. GLM 5.3 Flash was tried and dropped: it was slower per token and ignored the
+  no-thinking flag.

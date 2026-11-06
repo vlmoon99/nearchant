@@ -21,6 +21,8 @@ export interface AdapterResult {
   output: unknown;
   usage: Usage;
   model: string;
+  /** NEAR AI chat: the answer's id and the exact request/response bytes, for the response signature check. */
+  wire?: { id: string; request: string; response: string };
 }
 
 export interface CallContext {
@@ -42,6 +44,8 @@ export interface CapabilityAdapter {
   catalog?(): Promise<ModelInfo[]>;
   /** TEE attestation for a model; only for endpoints with `attestation` set. `raw` is the report as served. */
   attest?(model: string): Promise<AttestationRef & { raw?: string }>;
+  /** NEAR AI's signature of one answer (GET /v1/signature/{id}); null when there is none. */
+  responseSignature?(id: string, model: string): Promise<import("./response-signature.js").RawSignature | null>;
 }
 
 /** Thrown by adapters; `retryable` errors are retried, then the router moves to the next endpoint. */

@@ -40,7 +40,9 @@ export interface ContentTaskDeps {
   outbox: { enqueue(key: string, kind: string, payload: unknown): Promise<unknown> };
 }
 
-export interface PostWriter { model: string; tier: string; reportHash?: string; signingAddress?: string | null }
+export interface PostWriter { model: string; tier: string; reportHash?: string; signingAddress?: string | null;
+  /** NEAR AI's signature of the answer that became these posts, as we verified it (router: response signatures). */
+  signature?: { kind: string; verified: boolean; signer?: string; text?: string; signature?: string } | null }
 
 /** The proof-log entry for a published post: what was published, made by which AI, owned by whom (ADR 0018).
  *  When the text model ran in a NEAR AI TEE, attestation_ref = "nearai:<model>:<report sha256>"; the report itself is
@@ -142,7 +144,8 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     // Which model wrote these posts, and its TEE attestation report when it ran in one (goes into the proof).
     let writer: PostWriter | null = null;
     try {
-      drafts = await writePostOptions(askFor(handle, "ideas", (e) => { writer = { model: e.model, tier: e.privacyTier, ...(e.attestation ? { reportHash: e.attestation.reportHash, signingAddress: e.attestation.signingAddress ?? null } : {}) }; }), {
+      drafts = await writePostOptions(askFor(handle, "ideas", (e) => { writer = { model: e.model, tier: e.privacyTier, ...(e.attestation ? { reportHash: e.attestation.reportHash, signingAddress: e.attestation.signingAddress ?? null } : {}),
+        ...(e.responseSignature ? { signature: { kind: e.responseSignature.kind, verified: e.responseSignature.verified, ...(e.responseSignature.signingAddress ? { signer: e.responseSignature.signingAddress } : {}), ...(e.responseSignature.text ? { text: e.responseSignature.text } : {}), ...(e.responseSignature.signature ? { signature: e.responseSignature.signature } : {}) } } : {}) }; }), {
         profile, n: batch.length, photoCount: photos.length, memory: prof?.learned as OwnerMemory,
         recentPicks: recent.filter((x) => x.kind === "chose").map((x) => JSON.stringify((x.data as { idea?: unknown }).idea ?? {})).slice(-6),
         passedAngles: recent.filter((x) => x.kind === "passed").map((x) => String(((x.data as { idea?: { angle?: string } }).idea ?? {}).angle ?? "")).filter(Boolean).slice(-6),

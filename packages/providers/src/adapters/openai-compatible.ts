@@ -1,3 +1,4 @@
+import type { RawSignature } from "../response-signature.js";
 import type { AttestationRef, Capability, Endpoint } from "@nearchant/contracts";
 import { sha256 } from "../hash.js";
 import { type AdapterResult, type CallContext, type CapabilityAdapter, type FetchFn, type ModelInfo, ProviderError } from "../types.js";
@@ -33,6 +34,11 @@ export class OpenAICompatibleAdapter implements CapabilityAdapter {
   }
 
   private async request(path: string, init: RequestInit, timeoutMs: number, signal?: AbortSignal): Promise<unknown> {
+    return (await this.requestRaw(path, init, timeoutMs, signal)).json;
+  }
+
+  /** The parsed answer plus its exact bytes (NEAR AI signs the exact request and response bodies). */
+  private async requestRaw(path: string, init: RequestInit, timeoutMs: number, signal?: AbortSignal): Promise<{ json: unknown; text: string }> {
     const timeout = AbortSignal.timeout(timeoutMs);
     const s = signal ? AbortSignal.any([signal, timeout]) : timeout;
     let res: Response;
@@ -50,7 +56,7 @@ export class OpenAICompatibleAdapter implements CapabilityAdapter {
       throw new ProviderError(`${this.endpoint.id} ${path} → ${res.status}: ${text.slice(0, 300)}`, retryable, res.status);
     }
     try {
-      return JSON.parse(text);
+      return { json: JSON.parse(text), text };
     } catch {
       throw new ProviderError(`${this.endpoint.id} ${path}: response is not JSON`, true, res.status);
     }
@@ -61,15 +67,26 @@ export class OpenAICompatibleAdapter implements CapabilityAdapter {
     if (!path) throw new ProviderError(`${this.endpoint.id}: ${capability} not supported by this adapter`, false);
     if (capability === "asr") return this.transcribe(input, ctx);
     if (capability === "decide") return this.decide(input, ctx);
-    const body: Record<string, unknown> = { ...(this.endpoint.extra_body ?? {}), ...input, model: ctx.model };
+    // extra_body (e.g. "no thinking" template flags) is for chat models; embeddings and images keep a plain body.
+    const extra = capability === "chat" || capability === "vision" ? (this.endpoint.extra_body ?? {}) : {};
+    const body: Record<string, unknown> = { ...extra, ...input, model: ctx.model };
     // vLLM / SGLang chat templates switch the thinking phase with these flags.
+    if (ctx.reasoning === true && (capability === "chat" || capability === "vision")) {
+      body.chat_template_kwargs = { ...((body.chat_template_kwargs as object) ?? {}), enable_thinking: true, thinking: true };
+    }
     if (ctx.reasoning === false && (capability === "chat" || capability === "vision")) {
       body.chat_template_kwargs = { ...((body.chat_template_kwargs as object) ?? {}), enable_thinking: false, thinking: false }; // Qwen3/GLM: enable_thinking; Kimi K2: thinking
     }
     if (capability === "image.generate" || capability === "image.edit") {
       body.response_format ??= "b64_json";
     }
-    const raw = (await this.request(path, { method: "POST", headers: this.headers(), body: JSON.stringify(body) }, ctx.timeoutMs, ctx.signal)) as Record<string, any>;
+    // NEAR AI: the body is serialised once and kept, with the response bytes, for the response signature check;
+    // x-no-aliasing keeps the model id we asked for (it is part of the signed text).
+    const nearai = this.endpoint.attestation === "nearai" && (capability === "chat" || capability === "vision");
+    const sent = JSON.stringify(body);
+    const got = await this.requestRaw(path, { method: "POST", headers: { ...this.headers(), ...(nearai ? { "x-no-aliasing": "true" } : {}) }, body: sent }, ctx.timeoutMs, ctx.signal);
+    const raw = got.json as Record<string, any>;
+    const wire = nearai && typeof raw.id === "string" ? { wire: { id: raw.id, request: sent, response: got.text } } : {};
     const u = raw.usage ?? {};
     switch (capability) {
       case "chat":
@@ -80,6 +97,7 @@ export class OpenAICompatibleAdapter implements CapabilityAdapter {
           model: raw.model ?? ctx.model,
           output: { message: choice.message, finish_reason: choice.finish_reason ?? null },
           usage: { inputTokens: u.prompt_tokens ?? 0, outputTokens: u.completion_tokens ?? 0 },
+          ...wire,
         };
       }
       case "embed":
@@ -136,23 +154,44 @@ export class OpenAICompatibleAdapter implements CapabilityAdapter {
   async attest(model: string): Promise<AttestationRef & { raw: string }> {
     if (this.endpoint.attestation !== "nearai") throw new ProviderError(`${this.endpoint.id}: no attestation`, false);
     const nonce = sha256(crypto.getRandomValues(new Uint8Array(32)));
-    const path = `/attestation/report?model=${encodeURIComponent(model)}&nonce=${nonce}`;
+    // ed25519 for the gateway and the models, the same algorithm the response signatures are fetched with.
+    const path = `/attestation/report?model=${encodeURIComponent(model)}&nonce=${nonce}&signing_algo=ed25519`;
     const timeout = AbortSignal.timeout(20_000);
     let res: Response;
     try {
-      res = await this.fetchFn(this.url(path), { headers: this.headers(), signal: timeout });
+      res = await this.fetchFn(this.url(path), { headers: { ...this.headers(), "x-no-aliasing": "true" }, signal: timeout });
     } catch (e) {
       throw new ProviderError(`${this.endpoint.id} attestation: ${(e as Error).message}`, true);
     }
     const text = await res.text();
     if (!res.ok) throw new ProviderError(`${this.endpoint.id} attestation → ${res.status}`, res.status >= 500, res.status);
     let signingAddress: string | undefined;
+    let modelSigners: string[] = [];
     try {
       const j = JSON.parse(text);
       signingAddress = j?.gateway_attestation?.signing_address ?? j?.signing_address;
+      modelSigners = ((j?.model_attestations ?? []) as { signing_address?: string; signing_algo?: string }[])
+        .filter((m) => m.signing_algo === "ed25519" && typeof m.signing_address === "string").map((m) => m.signing_address!);
     } catch {
       /* keep the hash of whatever came back */
     }
-    return { kind: "nearai", reportHash: sha256(text), ...(signingAddress ? { signingAddress } : {}), nonce, fetchedAt: new Date().toISOString(), verified: false, raw: text };
+    return { kind: "nearai", reportHash: sha256(text), ...(signingAddress ? { signingAddress } : {}), ...(modelSigners.length ? { modelSigners } : {}), nonce, fetchedAt: new Date().toISOString(), verified: false, raw: text };
+  }
+
+  /** NEAR AI: GET /signature/{id}. A 404 right after the answer is retried briefly; an error body is "no signature". */
+  async responseSignature(id: string, model: string): Promise<RawSignature | null> {
+    if (this.endpoint.attestation !== "nearai") return null;
+    for (let i = 0; i < 4; i++) {
+      try {
+        const res = await this.fetchFn(this.url(`/signature/${encodeURIComponent(id)}?model=${encodeURIComponent(model)}&signing_algo=ed25519`), { headers: this.headers(false), signal: AbortSignal.timeout(10_000) });
+        if (res.ok) {
+          const j = (await res.json()) as RawSignature & { error_code?: string };
+          return j.error_code ? null : j;
+        }
+        if (res.status !== 404 && res.status < 500) return null;
+      } catch { /* retry */ }
+      await new Promise((r) => setTimeout(r, 750 * (i + 1)));
+    }
+    return null;
   }
 }

@@ -103,6 +103,8 @@ describe("router", () => {
     const env = await r.call(chat());
     expect(env.endpointId).toBe("nearai");
     expect(env.attestation?.kind).toBe("nearai");
+    // NEAR AI signed this exact answer with the model TEE's key named in the pinned report: verified by us.
+    expect(env.responseSignature).toMatchObject({ kind: "provider_tee", verified: true });
     expect(env.attestation?.signingAddress).toBe("0xabc");
     expect(env.costUsd).toBeCloseTo((10 * 1 + 2 * 2) / 1e6);
     expect(tee.hits.find((h) => h.path === "/v1/chat/completions")!.auth).toBe("Bearer k");

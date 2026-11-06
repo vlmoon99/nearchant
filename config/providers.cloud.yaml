@@ -8,6 +8,10 @@ endpoints:
     privacy_tier: tee
     attestation: nearai
     capabilities: [chat, vision, embed, rerank, image.generate, image.edit, asr, decide]
+    # No thinking phase, as on the Sparks (providers.local.yaml): NEAR AI generates ~40-80 tokens/s and thinking
+    # was 2-6K tokens per step (6 Nov: 9-14 min from photos to posts). Qwen3/GLM read enable_thinking, Kimi thinking.
+    extra_body:
+      chat_template_kwargs: { enable_thinking: false, thinking: false }
     timeout_ms: 180000
 
   - id: cloud-image                      # Comfy Cloud via our image service; only pictures for posts that will be published
@@ -29,8 +33,8 @@ routing:
   private_data_allowed_tiers: [tee]
 
 models:
-  chat: [z-ai/glm-5.3-flash, Qwen/Qwen3.6-35B-A3B-FP8]     # GLM 5.3 Flash (TEE) first: far faster than Qwen3.6 on NEAR AI (6 Nov)
-  vision: [z-ai/glm-5.3-flash, Qwen/Qwen3.6-35B-A3B-FP8]
+  chat: [Qwen/Qwen3.6-35B-A3B-FP8]   # GLM 5.3 Flash tried 6 Nov: slower per token, ignores the no-thinking flag
+  vision: [Qwen/Qwen3.6-35B-A3B-FP8]
   embed: [Qwen/Qwen3-Embedding-0.6B]
   rerank: [Qwen/Qwen3-Reranker-0.6B]
   image.generate: [qwen-image-edit, black-forest-labs/FLUX.2-klein-4B]

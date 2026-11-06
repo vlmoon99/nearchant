@@ -1313,3 +1313,17 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
   ok (Phala verified the Kimi quote; 8 GPUs' evidence bound). 3 real reports are test fixtures now.
 - **Verified**: providers 24 tests, worker 25, gateway 60; live check of a fresh report on the Mac stack.
 - **Not verified**: NVIDIA's actual verdict (needs the relay or another network).
+
+## 2026-11-06 19:15 UTC — verification per NEAR AI's checklist; response signatures; 836 s → 146 s
+- **NVIDIA**: the owner's Cloudflare Worker reaches NRAS (JWKS 200), but `/v4|v3/attest/gpu` answer
+  `EP-10700-7 Forbidden` for the real key, an NGC-style key, a fake key and an empty body alike → NVIDIA refuses the
+  caller, not the key. Smart Placement did not move the Worker (still `local-VIE`). Parked: everything is in place.
+  NVIDIA's SDK (github.com/NVIDIA/attestation-sdk) confirms our request shape (v4, Bearer, nonce/arch/evidence_list).
+- **Audit vs docs.near.ai/cloud/verification** → added: config hash from app_compose = MRCONFIGID, RTMR3 event-log
+  replay, debug-TD rejection, and **response signatures** (ed25519, exact bytes, signer ∈ pinned report). Live: 11/11
+  calls verified (Qwen3.6 ×4 and Qwen3.8 ×2 provider_tee, Kimi ×5 gateway); proof #53 → nearchant.com/verify/53 shows
+  "The text was signed inside the model's TEE" with text/signature/key to re-check; new report checks ok (RTMR3 and
+  config bound).
+- **Speed**: thinking off on the nearai endpoint (opportunity analyst keeps it). Journey: posts live 146 s (morning:
+  836 s), paid → Released 48 s, no page errors. GLM 5.3 Flash tried and dropped (slower per token; ignores the flag).
+- **Verified**: providers 29, swarm 41, worker 25, gateway 60, watchdog 8; `make demo` green; journey e2e green.

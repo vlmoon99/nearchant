@@ -19,7 +19,8 @@
     "outputHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "latencyMs": { "type": "integer", "minimum": 0 },
     "createdAt": { "type": "string", "format": "date-time" },
-    "replayed": { "type": "boolean", "description": "True when served by the replay provider." }
+    "replayed": { "type": "boolean", "description": "True when served by the replay provider." },
+    "responseSignature": { "$ref": "#/$defs/ResponseSignature" }
   },
   "$defs": {
     "Usage": {
@@ -43,7 +44,23 @@
         "signingAddress": { "type": "string" },
         "nonce": { "type": "string" },
         "fetchedAt": { "type": "string", "format": "date-time" },
-        "verified": { "type": "boolean", "description": "False in M0: the report is fetched and pinned, not cryptographically verified." }
+        "verified": { "type": "boolean", "description": "False in M0: the report is fetched and pinned, not cryptographically verified." },
+        "modelSigners": { "type": "array", "items": { "type": "string" }, "description": "ed25519 keys of the model TEEs named in the report (their REPORTDATA binds them)." }
+      }
+    },
+    "ResponseSignature": {
+      "type": "object",
+      "description": "NEAR AI's signature of this exact answer (GET /v1/signature/{id}): provider_tee = signed by the model TEE's attested key over model:sha256(request):sha256(response); gateway = signed by the attested gateway only.",
+      "additionalProperties": false,
+      "required": ["kind", "verified"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["provider_tee", "gateway", "none"] },
+        "signingAlgo": { "type": "string" },
+        "signingAddress": { "type": "string" },
+        "text": { "type": "string" },
+        "signature": { "type": "string" },
+        "verified": { "type": "boolean", "description": "Signature valid, text = our own hashes of the exact bytes, signer = a key from the pinned attestation report." },
+        "error": { "type": "string" }
       }
     }
   }
