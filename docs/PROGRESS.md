@@ -1292,3 +1292,11 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 - **Verified**: tests providers 17, swarm 41, worker 25, watchdog 8; `make demo` green.
 - **Not verified**: first daily backup (due ~10 min after watchdog start); a Mac reboot with no one logged in;
   journey e2e on the Mac-only stack (running).
+- **Journey e2e on the Mac-only stack** (18:00–18:25 UTC): store 7 s → opportunities 352 s → posts ready 832 s →
+  live 836 s, no page errors → paid → shipped → delivered on chain → **release did not land** in 3 min (order
+  o-6966… stays Delivered on chain; it auto-releases after 2 days; the gateway logged NEAR RPC "other side closed" at
+  the same time). Re-ran the buyer part twice on the same store: both **Released** (147 s). One-off RPC failure; the
+  buyer sees "Could not complete" and can press again.
+- **Slow today**: NEAR AI Qwen3.6 50–70 s per analyze/opportunities call, Qwen3.8-27B 112 s for ideas, Kimi 9 s per
+  moderation → onboarding to first posts ~14 min (2.5 min on the Sparks). Option: try GLM 5.3 Flash (TEE, ~5 s on a
+  short prompt) as the main seat — the main seat sends no model, so `make demo` replays are not affected.
