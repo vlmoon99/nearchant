@@ -24,6 +24,8 @@ x-app: &app
     TRUST_PROXY: ${TRUST_PROXY:-}
     TTS_URL: ${TTS_URL:-}
     TTS_API_KEY: ${TTS_API_KEY:-}
+    NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}     # NVIDIA NRAS: GPU part of the TEE attestation check (optional)
+    NRAS_URL: ${NRAS_URL:-}                 # optional relay for NRAS
     FENCE_URL: ${FENCE_URL:-}             # standby fence (ADR 0020): wait while the Mac standby is primary
   volumes: ["media:/app/.media"]
   depends_on: { db: { condition: service_healthy } }

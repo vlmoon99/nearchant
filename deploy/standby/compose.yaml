@@ -21,6 +21,8 @@ x-app: &app
     ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}     # admin panel (ADR 0022), never through the tunnel
     TTS_URL: http://tts:8105                # English voice for post videos
     TTS_API_KEY: ${TTS_API_KEY:-}
+    NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}     # NVIDIA NRAS: GPU part of the TEE attestation check
+    NRAS_URL: ${NRAS_URL:-}                 # optional relay for NRAS (it refuses some networks)
     PUBLIC_URL: https://nearchant.com
     TRUST_PROXY: cloudflare
   volumes: ["${STANDBY_MEDIA:?run setup.sh}:/app/.media"]

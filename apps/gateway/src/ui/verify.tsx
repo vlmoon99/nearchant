@@ -9,7 +9,7 @@ export interface VerifyView {
   /** The proof names a Nearchant post but was not recorded by that store: shown as not from the store. */
   foreign?: boolean;
   author?: string; createdAt?: string; producer?: string; outputHash?: string; recomputed?: string | null; match?: boolean | null;
-  reviewPassed?: boolean | null; attestation?: { model: string; hash: string; ok: boolean | null } | null;
+  reviewPassed?: boolean | null; attestation?: { model: string; hash: string; ok: boolean | null; gpu?: boolean | null } | null;
   post?: { caption: string; img: string | null; store: string; href: string } | null;
   contractUrl: string;
 }
@@ -48,7 +48,7 @@ export const VerifyPage: FC<{ cfg: UiConfig; test: boolean; v: VerifyView | null
             <Row ok={true} title={`Published by ${v.author}`} detail={`Signed by that account's own key${v.createdAt ? ` · ${v.createdAt}` : ""}`} />
             <Row ok={v.reviewPassed ?? null} title={v.reviewPassed ? "Caption check passed" : v.reviewPassed === false ? "Caption check flagged an offer" : "No caption check"} detail="Levanto Sage (NEAR AI) looked for discounts, gifts, deadlines or prices the store never stated" />
             <Row ok={v.attestation ? v.attestation.ok : null} title={v.attestation ? `Written by ${v.attestation.model} in a NEAR AI TEE` : `Made by ${v.producer ?? "the store's AI"}`}
-              detail={v.attestation ? `${v.attestation.ok ? "Intel TDX quote verified, NEAR AI's key and our nonce bound into it" : v.attestation.ok === false ? "Our check of this report did not pass" : "Report published; our check has not completed"} · report ${v.attestation.hash.slice(0, 12)}…` : "Ran on the store's own GPUs (no TEE report)"} />
+              detail={v.attestation ? `${v.attestation.ok ? `Intel TDX quote verified, NEAR AI's key and our nonce bound into it${v.attestation.gpu ? "; NVIDIA confirmed the GPU" : ""}` : v.attestation.ok === false ? "Our check of this report did not pass" : "Report published; our check has not completed"} · report ${v.attestation.hash.slice(0, 12)}…` : "Ran on the store's own GPUs (no TEE report)"} />
             {v.attestation ? <span class="foot"><a href={`/attestations/${v.attestation.hash}.json`} target="_blank" rel="noopener">Attestation report</a> · <a href={`/attestations/${v.attestation.hash}.check.json`} target="_blank" rel="noopener">our check</a></span> : null}
             <a class="btn near" href={v.contractUrl} target="_blank" rel="noopener"><Icon n="globe" />View on NEAR explorer</a>
             <span class="cap muted">Check it yourself: <code>near view proofs.nearchant.testnet get '{`{"proof_id":"${v.proofId}"}`}'</code></span>

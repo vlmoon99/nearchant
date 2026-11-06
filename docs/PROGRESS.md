@@ -1300,3 +1300,16 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 - **Slow today**: NEAR AI Qwen3.6 50–70 s per analyze/opportunities call, Qwen3.8-27B 112 s for ideas, Kimi 9 s per
   moderation → onboarding to first posts ~14 min (2.5 min on the Sparks). Option: try GLM 5.3 Flash (TEE, ~5 s on a
   short prompt) as the main seat — the main seat sends no model, so `make demo` replays are not affected.
+
+## 2026-11-06 18:35 UTC — NVIDIA GPU verification; checker learns NEAR AI's new report layouts
+- NVIDIA key in Keychain `NVIDIA_API_KEY` → worker env (Mac stack). `nrasVerify` (same request as NVIDIA's SDK,
+  JWT signatures vs NRAS JWKS, overall result + nonce), "Verify a post" says "NVIDIA confirmed the GPU" when it did.
+- **NRAS refuses this network**: HTML 403 from its Google load balancer for every path, also the public JWKS, with or
+  without the key and with a browser UA (the key itself is valid: NVIDIA's model API answers 200). Relay ready to
+  paste: `deploy/nras-relay` (Cloudflare Worker) → Keychain `NC_NRAS_URL` → `mac-only.sh`.
+- **Found while testing**: (1) NEAR AI ECDSA reports bind a 20-byte address zero-padded ‖ nonce — our gateway check
+  wanted a 32-byte key (only hit with `signing_algo=ecdsa`; the router's reports were fine); (2) Kimi K2.6 reports
+  (Chutes) have another layout → the 2 Kimi checks from today read "not ok". Both layouts now checked; the 2 re-run →
+  ok (Phala verified the Kimi quote; 8 GPUs' evidence bound). 3 real reports are test fixtures now.
+- **Verified**: providers 24 tests, worker 25, gateway 60; live check of a fresh report on the Mac stack.
+- **Not verified**: NVIDIA's actual verdict (needs the relay or another network).

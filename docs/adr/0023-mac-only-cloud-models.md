@@ -38,3 +38,15 @@ judgment matters more than speed.
   while the Mac is primary.
 - The Mac must stay on power with the lid open (or an external display) until judging ends: hosted demos should
   stay up until at least 18 Nov, ideally 25 Nov.
+
+## Addendum (6 Nov, evening): NVIDIA's verdict on the GPU, and two more report layouts
+- With `NVIDIA_API_KEY` (Keychain), our check also asks **NVIDIA NRAS** about each model's GPU evidence. The request
+  is the same as NVIDIA's `nv_attestation_sdk` (`POST /v3/attest/gpu`). Its ES384 JWTs are verified against NRAS's
+  JWKS, and the overall result and our nonce must match. NVIDIA's "no" fails the check. "Could not ask" (`null`)
+  leaves the result to the other checks. The signed token is published in the `.check.json` (`gpu_token`).
+- NRAS refuses the owner's network (HTML 403 at its load balancer, even for its public JWKS), so `NRAS_URL` can point
+  at a relay in the owner's Cloudflare account (`deploy/nras-relay`). Until then the GPU part reads "NRAS 403".
+- Reports now come in three layouts, all checked: NEAR AI's own (ed25519 key ‖ nonce), NEAR AI with ECDSA (20-byte
+  address zero-padded ‖ nonce), and attested third parties (Kimi K2.6 via Chutes: REPORTDATA[0..32] =
+  sha256(nonce ‖ e2e_pubkey), the same value as every GPU's SPDM requester nonce). Two published Kimi checks that read
+  "not ok" were re-run and now pass. Neither was linked to a post proof.

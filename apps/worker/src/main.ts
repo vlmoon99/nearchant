@@ -45,8 +45,10 @@ const router = await makeRouter(join(root, "config", process.env.PROVIDERS_FILE 
     const dir = join(process.env.MEDIA_DIR ?? join(root, ".media"), "attestations");
     await mkdir(dir, { recursive: true });
     const fresh = await writeFile(join(dir, `${ref.reportHash}.json`), raw, { flag: "wx" }).then(() => true, (e) => { if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e; return false; });
-    // Our own check of the report (nonce, key binding, TDX quote via Phala): published next to it, once.
-    if (fresh && ref.nonce) void checkNearAiReport(raw, ref.nonce).then((c) => writeFile(join(dir, `${ref.reportHash}.check.json`), JSON.stringify(c, null, 1)))
+    // Our own check of the report (nonce, key binding, TDX quote via Phala, GPU evidence via NVIDIA NRAS when a key
+    // is set; NRAS_URL can point at a relay): published next to it, once.
+    const nvidia = process.env.NVIDIA_API_KEY ? { apiKey: process.env.NVIDIA_API_KEY, ...(process.env.NRAS_URL ? { baseUrl: process.env.NRAS_URL } : {}) } : undefined;
+    if (fresh && ref.nonce) void checkNearAiReport(raw, ref.nonce, nvidia ? { nvidia } : {}).then((c) => writeFile(join(dir, `${ref.reportHash}.check.json`), JSON.stringify(c, null, 1)))
       .then(() => console.info(`[attest] report ${ref.reportHash.slice(0, 10)} checked`), (e) => console.warn(`[attest] check failed: ${(e as Error).message}`));
   },
 });
