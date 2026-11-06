@@ -1,11 +1,11 @@
 // NRAS relay (Cloudflare Worker). NVIDIA's attestation service (nras.attestation.nvidia.com) answers HTML 403 to
-// some networks, the owner's included. This Worker forwards exactly two NRAS calls from Cloudflare's network:
-//   POST /v3/attest/gpu          (needs the caller's own "Authorization: Bearer nvapi-…" — the Worker holds no key)
+// some networks, the owner's included. This Worker forwards only these NRAS calls from Cloudflare's network:
+//   POST /v4/attest/gpu, /v3/attest/gpu   (needs the caller's own "Authorization: Bearer nvapi-…" — the Worker holds no key)
 //   GET  /.well-known/jwks.json  (NRAS's public signing keys)
-// The answers are NVIDIA-signed JWTs; Nearchant checks their signatures against NVIDIA's keys, so a relay cannot
-// fake a "true". Deploy: deploy/nras-relay/README.md.
+// It runs in the owner's own Cloudflare account; NVIDIA's signed answer is published with each check, so others can
+// verify it against NVIDIA directly. Deploy: deploy/nras-relay/README.md.
 const NRAS = "https://nras.attestation.nvidia.com";
-const ALLOWED = new Set(["POST /v3/attest/gpu", "GET /.well-known/jwks.json"]);
+const ALLOWED = new Set(["POST /v4/attest/gpu", "POST /v3/attest/gpu", "GET /.well-known/jwks.json"]);
 
 export default {
   async fetch(request) {

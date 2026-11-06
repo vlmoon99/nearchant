@@ -88,7 +88,7 @@ describe("NVIDIA NRAS check of the GPU evidence", () => {
   it("sends the SDK's request with the key and accepts NVIDIA's signed 'true' for our nonce", async () => {
     const { f, seen } = fakeNras();
     expect(await nrasVerify(gpuPayload(), nonce, { apiKey: "nvapi-x", fetch: f })).toMatchObject({ verified: true, token: expect.stringMatching(/^ey/) });
-    expect(seen[0]).toMatchObject({ url: "https://nras.attestation.nvidia.com/v3/attest/gpu", auth: "Bearer nvapi-x" });
+    expect(seen[0]).toMatchObject({ url: "https://nras.attestation.nvidia.com/v4/attest/gpu", auth: "Bearer nvapi-x" });
     expect(Object.keys(seen[0]!.body).sort()).toEqual(["arch", "claims_version", "evidence_list", "nonce"]);
   });
   it("NVIDIA's 'false', another nonce or a forged signature fail", async () => {
@@ -106,7 +106,7 @@ describe("NVIDIA NRAS check of the GPU evidence", () => {
   it("a relay can stand in for NRAS's address; NVIDIA's 'false' makes the whole check fail", async () => {
     const { f, seen } = fakeNras({ result: false });
     const c = await checkNearAiReport(raw, nonce, { fetch: f, nvidia: { apiKey: "k", baseUrl: "https://relay.example/" } });
-    expect(seen.find((s) => s.url.includes("attest"))!.url).toBe("https://relay.example/v3/attest/gpu");
+    expect(seen.find((s) => s.url.includes("attest"))!.url).toBe("https://relay.example/v4/attest/gpu");
     expect(c.models[0]!.gpu_verified).toBe(false);
     expect(c.ok).toBe(false);
   });

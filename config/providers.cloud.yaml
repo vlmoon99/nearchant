@@ -29,8 +29,8 @@ routing:
   private_data_allowed_tiers: [tee]
 
 models:
-  chat: [Qwen/Qwen3.6-35B-A3B-FP8]
-  vision: [Qwen/Qwen3.6-35B-A3B-FP8]
+  chat: [z-ai/glm-5.3-flash, Qwen/Qwen3.6-35B-A3B-FP8]     # GLM 5.3 Flash (TEE) first: far faster than Qwen3.6 on NEAR AI (6 Nov)
+  vision: [z-ai/glm-5.3-flash, Qwen/Qwen3.6-35B-A3B-FP8]
   embed: [Qwen/Qwen3-Embedding-0.6B]
   rerank: [Qwen/Qwen3-Reranker-0.6B]
   image.generate: [qwen-image-edit, black-forest-labs/FLUX.2-klein-4B]

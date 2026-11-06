@@ -3,7 +3,7 @@ import { createHash, createPublicKey, createVerify } from "node:crypto";
 // NEAR AI: freshness (our nonce comes back), binding (the TDX quote's REPORTDATA = NEAR AI's signing key ‖ our nonce,
 // the model's quote = its signing address ‖ our nonce, the quote's MRCONFIGID carries the app's compose hash), the
 // Intel TDX quote itself (Phala's public DCAP verifier), that the NVIDIA GPU evidence is for our nonce, and — with an
-// NVIDIA API key — NVIDIA's own verdict on that evidence (NRAS: POST /v3/attest/gpu, the same request as NVIDIA's
+// NVIDIA API key — NVIDIA's own verdict on that evidence (NRAS: POST /v4 (or /v3)/attest/gpu, the same request as NVIDIA's
 // nv_attestation_sdk; the answer is ES384 JWTs checked here against NRAS's JWKS, overall result + our nonce).
 // NRAS refuses some networks (HTML 403 at its load balancer): `nvidia.baseUrl` can point at a relay (our own Worker,
 // deploy/nras-relay). NVIDIA's signed overall token is published in the check, so anyone can verify it against NRAS's
@@ -53,8 +53,11 @@ export async function nrasVerify(nvidiaPayload: string, nonce: string, o: { apiK
   try {
     const p = JSON.parse(nvidiaPayload) as { nonce?: string; arch?: string; evidence_list?: { evidence?: string; certificate?: string }[] };
     const body = JSON.stringify({ nonce: p.nonce, arch: p.arch, evidence_list: (p.evidence_list ?? []).map((e) => ({ evidence: e.evidence, certificate: e.certificate })), claims_version: "3.0" });
-    const r = await f(`${base}/v3/attest/gpu`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${o.apiKey}` }, body, signal: AbortSignal.timeout(90_000) });
-    if (!r.ok) return { verified: null, error: `NRAS ${r.status}` };
+    // NVIDIA's current docs use v4; the SDK still defaults to v3. Try v4, fall back to v3 when v4 is not there.
+    const post = (v: string) => f(`${base}/${v}/attest/gpu`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${o.apiKey}` }, body, signal: AbortSignal.timeout(90_000) });
+    let r = await post("v4");
+    if (r.status === 404 || r.status === 405) r = await post("v3");
+    if (!r.ok) return { verified: null, error: `NRAS ${r.status}${await r.text().then((t) => (/EP-\d+-\d+/.exec(t)?.[0] ? ` ${/EP-\d+-\d+/.exec(t)![0]}` : ""), () => "")}` };
     const jr = await f(`${base}/.well-known/jwks.json`, { signal: AbortSignal.timeout(30_000) });
     if (!jr.ok) return { verified: null, error: `NRAS JWKS ${jr.status}` };
     const jwks = (await jr.json()) as { keys: JsonWebKey[] };
