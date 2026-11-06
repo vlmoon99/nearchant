@@ -1272,3 +1272,23 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
   publishing queued posts.
 - **Open**: turn on Docker Desktop "Start when you sign in"; watchdog should alert when `compose up` fails while
   primary; Sparks need a power/network check, then `make failback` (owner).
+
+## 2026-11-06 18:10 UTC — Mac-only on NEAR AI (ADR 0023); smart seat; Sage 2; test plan; hackathon tracks
+- **Owner decision**: the Sparks are off until the power reserve is built; the Mac + NEAR AI Cloud run everything.
+- **Found**: NEAR AI retired `levanto/sage-1.4` → every caption check failed ("serves none of the preferred decide
+  models"). Now `levanto/sage-2` (same `/v1/systemone` API; live: invented "50% off" → 0.996). Still no attestation
+  → public data only.
+- **Smart seat** (new, `envs/content-store`): Kimi K2.6 (NEAR AI TEE, attested) for the moderator and the insight
+  writer; falls back to main when not served. Live through the router on the Mac: clean post → ok (12.7 s), seed-phrase
+  + Zelle + replicas → scam, confidence 1 (8.8 s), ~$0.0007 per call, attested=true. Writing roles already ask
+  Qwen3.8-27B, now served by NEAR AI too. Adapter sends `thinking: false` next to `enable_thinking: false` (Kimi).
+- **Mac stack** (`deploy/standby/mac-only.sh`): admin panel on 127.0.0.1:8790 (302 → login ✓), English voice
+  service (Kokoro, CPU; `/health` ok ✓), launchd `caffeinate -s`; watchdog while primary: restarts the site when the
+  local gateway stops answering (opens Docker first) and dumps the DB daily (7 kept). **Verified**: gateway stopped
+  19:55:23 → back by itself 19:57:09, nearchant.com 200. Docker's own "start at login" setting could not be written
+  (macOS privacy) — the watchdog opens Docker at login instead; owner may tick it in Docker settings too.
+- **Docs**: `docs/test-plan.md` (every part, step by step, ★ = judges' path), `docs/hackathon-tracks.md` (13 tracks,
+  fit + pitch per track, X post text), `docs/submission.local.md` (form answers, git-ignored).
+- **Verified**: tests providers 17, swarm 41, worker 25, watchdog 8; `make demo` green.
+- **Not verified**: first daily backup (due ~10 min after watchdog start); a Mac reboot with no one logged in;
+  journey e2e on the Mac-only stack (running).
