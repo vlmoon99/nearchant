@@ -11,7 +11,8 @@ requires:
   data_class: private
 seats:
   main: {}                                   # router default (Qwen3.6-35B-A3B on gx10-8695; NEAR AI on the Mac)
-  second: { model: Qwen/Qwen3.8-27B }        # the writing roles (gx10-c3c8); unreachable → the main seat answers
+  second: { model: Qwen/Qwen3.8-27B }        # the writing roles (gx10-c3c8 or NEAR AI TEE); unreachable → the main seat answers
+  smart: { model: moonshotai/kimi-k2.6 }     # judgment roles (moderation, insights): NEAR AI TEE, slower but stronger; unreachable → main
 roles: [profiler, opportunity-analyst, idea-writer, localizer, learner, insight-writer, video-director, caption-editor, moderator, search-planner, place-finder, store-assistant]
 pipeline: [analyze, opportunities, ideas, render, publish]
 research:

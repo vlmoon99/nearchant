@@ -10,8 +10,8 @@ Nearchant (NEAR + merchant) is open source (MIT). It combines the author's Boost
 NEAR rails: a NEAR account per store (made in the browser, no seed phrase), escrow for orders, prepaid AI billing,
 and a public proof log.
 
-> Built for the [NEAR Hackathon](https://nearhackathon.com) (Nov 2026). Tracks: **Agent Economy**, Private AI,
-> Autonomous Business. Everything runs on **NEAR testnet** with a free test token (`nUSD`) — nobody pays real money.
+> Built for the [NEAR Hackathon](https://nearhackathon.com) (Nov 2026). Tracks: **Agent Economy**, Autonomous Business,
+> Privacy & Private AI, AI Security & Defense ([how it fits each](docs/hackathon-tracks.md)). Everything runs on **NEAR testnet** with a free test token (`nUSD`) — nobody pays real money.
 > Live: **https://nearchant.com/start** · 101-second recorded walkthrough: recorded with `apps/gateway/e2e/walkthrough.mjs` (not in git)
 
 ## The story (try it at nearchant.com/start)
@@ -144,7 +144,8 @@ pnpm -r test                                             # unit + integration te
 
 `docker compose -f deploy/local/compose.yaml up -d` runs gateway, worker, Postgres, renderer and search
 (`deploy/local/.env.example` lists the keys; `config/providers.local.yaml` = own GPU, `providers.mac.yaml` =
-NEAR AI TEE text + Comfy Cloud images). Then:
+NEAR AI TEE text + Comfy Cloud images). The live site itself runs this way on one Mac:
+`deploy/standby/mac-only.sh` (ADR 0023). Then:
 
 - `http://localhost:8787/start` — onboarding: create a store, add photos, get opportunities and first posts.
 - `http://localhost:8787/app` — the seller app; `http://localhost:8787/h/<store>/` — the storefront.
@@ -200,7 +201,7 @@ window. See `git log` and `docs/PROGRESS.md`.
 near-sdk, near-contract-standards, cargo-near, near-workspaces, near-api-js, Hono, Drizzle ORM, postgres.js,
 graphile-worker, Ajv, json-schema-to-typescript, yaml, Vitest, esbuild, Playwright (e2e in Chrome + WebKit),
 sharp, ffmpeg + libass, vLLM, ComfyUI / Comfy Cloud (Qwen-Image-Edit 2511, Qwen-Image 2512, Wan 2.2), Kokoro-82M,
-faster-whisper, Montserrat (OFL), NEAR AI Cloud (Qwen3.6 TEE, Levanto Sage), Phala DCAP verifier, MyNearWallet
+faster-whisper, Montserrat (OFL), NEAR AI Cloud (Qwen3.6, Qwen3.8-27B and Kimi K2.6 in TEEs, Levanto Sage 2), Phala DCAP verifier, MyNearWallet
 (NEP-413), NEAR Intents 1Click API (quotes), Marp CLI, SearXNG.
 
 ## License

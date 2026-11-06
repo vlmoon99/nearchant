@@ -34,7 +34,7 @@ models:
   embed: [Qwen/Qwen3-Embedding-0.6B]
   rerank: [Qwen/Qwen3-Reranker-0.6B]
   image.generate: [qwen-image-edit, black-forest-labs/FLUX.2-klein-4B]
-  decide: [levanto/sage-1.4]
+  decide: [levanto/sage-2]
   image.edit: [black-forest-labs/FLUX.2-klein-4B]
   asr: [openai/whisper-large-v3]
 

@@ -33,6 +33,9 @@ CF_TUNNEL_TOKEN=$(kc CF_TUNNEL_TOKEN)
 COMFY_API_KEY=$(kc COMFY_API_KEY)
 RESEND_API_KEY=$(kc RESEND_API_KEY)
 IMAGE_API_KEY=$(grep -s '^IMAGE_API_KEY=' "$HERE/.env.prev" | cut -d= -f2- || true)
+ADMIN_PASSWORD=$(kc NC_ADMIN_PASSWORD)
+TTS_API_KEY=$(kc NC_TTS_API_KEY)
+TTS_WEIGHTS=$HOME/nearchant-node/tts-weights
 EOF
 grep -q '^IMAGE_API_KEY=.' "$HERE/.env" || sed -i '' "s/^IMAGE_API_KEY=.*/IMAGE_API_KEY=$(openssl rand -hex 16)/" "$HERE/.env"
 cp "$HERE/.env" "$HERE/.env.prev"
@@ -67,7 +70,8 @@ RUN=$(dirname "$STANDBY_MEDIA")/run
 REPO=$(cd "$HERE/../.." && pwd)
 mkdir -p "$RUN"
 cp "$HERE/watchdog.py" "$HERE/db-entry.sh" "$HERE/.env" "$RUN/"
-sed -e "s|context: \.\./\.\.|context: $REPO|" -e "s|context: \.\./image-engine/service|context: $REPO/deploy/image-engine/service|" "$HERE/compose.yaml" > "$RUN/compose.yaml"
+sed -e "s|context: \.\./\.\.|context: $REPO|" -e "s|context: \.\./image-engine/service|context: $REPO/deploy/image-engine/service|" \
+    -e "s|context: \.\./video-engine/tts|context: $REPO/deploy/video-engine/tts|" "$HERE/compose.yaml" > "$RUN/compose.yaml"
 python3 "$RUN/watchdog.py" sync-once
 PLIST=$HOME/Library/LaunchAgents/com.nearchant.standby.plist
 mkdir -p "$HOME/Library/Logs"

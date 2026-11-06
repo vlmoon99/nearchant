@@ -27,3 +27,4 @@ Changing a default from `CLAUDE.md` or `architecture.md` needs a new ADR here.
 | [0020](0020-mac-standby.md) | Mac standby: database replica + media copy, automatic takeover, manual failback |
 | [0021](0021-email.md) | Email via Resend: sign-in links, confirm links, new-order emails |
 | [0022](0022-feed-buyers-moderation.md) | Shop feed with AI search + region, buyer accounts, likes, reports, AI moderation, admin panel |
+| [0023](0023-mac-only-cloud-models.md) | Mac-only hosting with self-healing + backups; all models on NEAR AI; a smart seat (Kimi K2.6); Levanto Sage 2 |

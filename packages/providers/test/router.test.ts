@@ -42,7 +42,7 @@ describe("router", () => {
     const a = await r.call({ ...chat(), reasoning: false });
     const b = await r.call(chat());
     const bodies = local.hits.filter((h) => h.path === "/v1/chat/completions").map((h) => h.body);
-    expect(bodies[0].chat_template_kwargs).toEqual({ enable_thinking: false });
+    expect(bodies[0].chat_template_kwargs).toEqual({ enable_thinking: false, thinking: false });
     expect(bodies[1].chat_template_kwargs).toBeUndefined();
     expect(a.requestHash).toBe(b.requestHash);
   });
@@ -77,12 +77,12 @@ describe("router", () => {
   });
 
   it("routes decide questions to NEAR AI's /systemone; public data goes even when the model has no attestation", async () => {
-    const tee = await fakeOpenAI(["levanto/sage-1.4"]);
+    const tee = await fakeOpenAI(["levanto/sage-2"]);
     fakes.push(tee);
     const r = Router.fromConfig({
       endpoints: [{ id: "nearai", base_url: tee.url, api_key_env: "NEARAI_API_KEY", privacy_tier: "tee", attestation: "nearai", capabilities: ["decide"] }],
       routing: { decide: ["nearai"], private_data_allowed_tiers: ["tee"] },
-      models: { decide: ["levanto/sage-1.4"] },
+      models: { decide: ["levanto/sage-2"] },
     }, { ...quiet, env: { NEARAI_API_KEY: "k" } });
     await r.discover();
     (r as any).state.get("nearai").adapter.attest = async () => { throw new Error("503"); };
@@ -90,7 +90,7 @@ describe("router", () => {
     const env = await r.call({ capability: "decide", dataClass: "public", input: q });
     expect((env.output as any).answers.invented_offer.noul).toBe(0.9);
     expect(env.model).toBe("levanto-sage-2");
-    expect(tee.hits.find((h) => h.path === "/v1/systemone")!.body).toEqual({ model: "levanto/sage-1.4", ...q });
+    expect(tee.hits.find((h) => h.path === "/v1/systemone")!.body).toEqual({ model: "levanto/sage-2", ...q });
     validate("result-envelope.schema.json", env);
     await expect(r.call({ capability: "decide", dataClass: "private", input: q })).rejects.toThrow();
   });

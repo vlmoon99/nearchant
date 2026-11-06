@@ -17,3 +17,6 @@ fixtures/replay/*
 
 # Demo videos are recorded locally (apps/gateway/e2e/walkthrough.mjs) and shared outside git
 docs/media/*.mp4
+
+# Private notes (e.g. the hackathon form answers) never go to GitHub
+*.local.md

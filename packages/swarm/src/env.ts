@@ -6,7 +6,7 @@ export interface Role {
   name: string;
   /** Shared rules + the role prompt. */
   system: string;
-  seat: "main" | "second";
+  seat: "main" | "second" | "smart";
   output: "json" | "markdown";
   temperature: number;
   max_tokens: number;
@@ -19,7 +19,7 @@ export interface Role {
 export interface AgentEnv {
   name: string;
   version: string;
-  seats: { main: { model?: string }; second: { model?: string } };
+  seats: { main: { model?: string }; second: { model?: string }; smart: { model?: string } };
   roles: Record<string, Role>;
   research: { scouts: { focus: string; ask: string }[] };
   dir: string;
@@ -33,7 +33,7 @@ export function loadAgentEnv(dir: string): AgentEnv {
   const roles: Record<string, Role> = {};
   for (const name of m.roles as string[]) {
     const r = parse(readFileSync(join(dir, "roles", `${name}.yaml`), "utf8"));
-    if (!["main", "second"].includes(r.seat)) throw new Error(`role ${name}: bad seat ${r.seat}`);
+    if (!["main", "second", "smart"].includes(r.seat)) throw new Error(`role ${name}: bad seat ${r.seat}`);
     roles[name] = {
       name,
       system: `${readFileSync(join(dir, r.prompt), "utf8").trim()}\n\n${rules}`,
@@ -45,5 +45,5 @@ export function loadAgentEnv(dir: string): AgentEnv {
       ...(r.reasoning === false ? { reasoning: false } : {}),
     };
   }
-  return { name: m.name, version: m.version, seats: { main: m.seats?.main ?? {}, second: m.seats?.second ?? {} }, roles, research: m.research, dir };
+  return { name: m.name, version: m.version, seats: { main: m.seats?.main ?? {}, second: m.seats?.second ?? {}, smart: m.seats?.smart ?? {} }, roles, research: m.research, dir };
 }

@@ -18,6 +18,9 @@ x-app: &app
     IMAGE_API_KEY: ${IMAGE_API_KEY:-}
     COMFY_API_KEY: ${COMFY_API_KEY:-}
     RESEND_API_KEY: ${RESEND_API_KEY:-}     # email sign-in + order notices (ADR 0021)
+    ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}     # admin panel (ADR 0022), never through the tunnel
+    TTS_URL: http://tts:8105                # English voice for post videos
+    TTS_API_KEY: ${TTS_API_KEY:-}
     PUBLIC_URL: https://nearchant.com
     TRUST_PROXY: cloudflare
   volumes: ["${STANDBY_MEDIA:?run setup.sh}:/app/.media"]
@@ -42,8 +45,9 @@ services:
   gateway:
     <<: *app
     command: ["node", "apps/gateway/dist/main.js"]
-    ports: ["127.0.0.1:8797:8787"]
-    environment: { <<: *appenv, PORT: "8787" }
+    # 8790 = admin panel: this Mac (and its tailnet address with ADMIN_BIND), never through the tunnel
+    ports: ["127.0.0.1:8797:8787", "${ADMIN_BIND:-127.0.0.1}:8790:8790"]
+    environment: { <<: *appenv, PORT: "8787", ADMIN_PORT: "8790" }
 
   worker:
     <<: *app
@@ -55,6 +59,14 @@ services:
     image: nearchant/image:standby
     environment: { IMAGE_BACKEND: comfy_cloud, COMFY_API_KEY: "${COMFY_API_KEY:-}", IMAGE_QUALITY: medium, MODEL_NAME: qwen-image-edit, API_KEY: "${IMAGE_API_KEY:-}" }
     networks: { default: { aliases: [image] } }
+    profiles: [active]
+    restart: unless-stopped
+
+  tts:        # English voice for post videos: Kokoro-82M + faster-whisper word timings, CPU (deploy/video-engine/tts)
+    build: { context: ../video-engine/tts }
+    image: nearchant/tts:standby
+    environment: { ASSETS_DIR: /data/assets, KOKORO_ONNX: /weights/kokoro/kokoro-v1.0.onnx, KOKORO_VOICES: /weights/kokoro/voices-v1.0.bin, WHISPER_MODEL_DIR: /weights/whisper/base.en, API_KEY: "${TTS_API_KEY:-}", OMP_NUM_THREADS: "4" }
+    volumes: ["${TTS_WEIGHTS:-~/nearchant-node/tts-weights}:/weights:ro", "tts:/data/assets"]
     profiles: [active]
     restart: unless-stopped
 
@@ -86,3 +98,4 @@ services:
 
 volumes:
   db: {}
+  tts: {}

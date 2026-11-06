@@ -8,6 +8,8 @@ standby  — the Spark serves nearchant.com. Every 15 s: is the Spark up? Every 
            Takeover = promote the replica, start the site (profile `active`, incl. the Cloudflare tunnel).
 primary  — the Mac serves. Whenever the Spark is reachable over SSH again, its gateway, worker and tunnel are stopped
            (they also wait by themselves: their FENCE_URL asks /role here). Switching back is manual: failback.sh.
+           Self-healing: if the site does not answer locally (Docker not started after a reboot, a crash), wait for
+           Docker and start it again (every 2 min at most). Once a day: a database dump into backups/ (7 kept).
 failback — failback.sh is moving the data back; the watchdog does nothing.
 
 GET http://<STANDBY_IP>:8799/role → "standby" | "primary" | "failback";  /status → JSON.
@@ -19,6 +21,7 @@ HERE = Path(__file__).resolve().parent
 STATE = Path.home() / "Library/Application Support/nearchant-standby"
 ROLE_FILE = STATE / "role"
 TICK_S, SYNC_EVERY_S, TAKEOVER_AFTER_S = 15, 60, 180
+RESTART_EVERY_S, BACKUP_EVERY_S, BACKUPS_KEPT = 120, 24 * 3600, 7
 
 
 def env() -> dict:
@@ -99,6 +102,53 @@ def should_take_over(spark_tailnet_ok: bool, site_public_ok: bool, internet_ok: 
     return not spark_tailnet_ok and not site_public_ok and internet_ok and down_for_s >= TAKEOVER_AFTER_S
 
 
+def should_restart(site_ok: bool, since_last_try_s: float) -> bool:
+    """Pure rule, unit-tested in test_watchdog.py: the Mac is primary and its site does not answer locally."""
+    return not site_ok and since_last_try_s >= RESTART_EVERY_S
+
+
+def docker_ready(wait_s: float = 300) -> bool:
+    """Docker Desktop may still be starting after a login: open it and wait."""
+    if run("docker", "info", timeout=30).returncode == 0:
+        return True
+    run("open", "-a", "Docker", timeout=30)
+    end = time.time() + wait_s
+    while time.time() < end:
+        time.sleep(5)
+        if run("docker", "info", timeout=30).returncode == 0:
+            return True
+    return False
+
+
+def restart_site(why: str = "site was down") -> None:
+    if not docker_ready():
+        log("site down and Docker does not start — will retry")
+        notify("nearchant.com is down: Docker does not start on this Mac")
+        return
+    r = compose("--profile", "active", "up", "-d")
+    log(f"{why} — started it: rc={r.returncode} {r.stderr.strip()[-200:]}")
+    if r.returncode != 0:
+        notify("nearchant.com is down: docker compose up failed (see ~/Library/Logs/nearchant-standby.log)")
+
+
+def backup_db() -> None:
+    d = HERE.parent / "backups"
+    d.mkdir(parents=True, exist_ok=True)
+    out = d / f"nearchant-{time.strftime('%Y%m%d-%H%M')}.sql.gz"
+    with open(out, "wb") as f:
+        dump = subprocess.Popen(["docker", "compose", "-f", str(HERE / "compose.yaml"), "--env-file", str(HERE / ".env"), "exec", "-T", "db",
+                                 "pg_dump", "-U", "nearchant", "-d", "nearchant"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        gz = subprocess.run(["gzip", "-c"], stdin=dump.stdout, stdout=f)
+        dump.wait()
+    if dump.returncode != 0 or gz.returncode != 0 or out.stat().st_size < 1000:
+        out.unlink(missing_ok=True)
+        log("backup failed")
+        return
+    for old in sorted(d.glob("nearchant-*.sql.gz"))[:-BACKUPS_KEPT]:
+        old.unlink()
+    log(f"backup {out.name} ({out.stat().st_size // 1024} KB)")
+
+
 def take_over() -> None:
     log("TAKEOVER: the Spark has been down for 3 minutes — promoting the standby database and starting the site")
     set_role("primary")  # first: the Spark must already see "primary" if it comes back mid-way
@@ -148,8 +198,10 @@ def main() -> None:
     status["role"] = role()
     log(f"watchdog started, role {role()}")
     last_ok, last_sync = time.time(), 0.0
+    last_restart_try, last_backup = 0.0, time.time() - BACKUP_EVERY_S + 600  # first backup 10 min after start
     if role() == "primary":
-        compose("--profile", "active", "up", "-d")  # after a Mac restart while primary
+        restart_site("watchdog start while primary")  # after a Mac restart (waits for Docker Desktop)
+        last_restart_try = time.time()
     prev = role()
     while True:
         try:
@@ -171,7 +223,14 @@ def main() -> None:
                                                                      http_ok("https://www.cloudflare.com/cdn-cgi/trace", 8), down):
                         take_over()
             elif r == "primary":
-                fence_spark()
+                if should_restart(http_ok("http://127.0.0.1:8797/health"), time.time() - last_restart_try):
+                    last_restart_try = time.time()
+                    restart_site()
+                if time.time() - last_backup >= BACKUP_EVERY_S:
+                    last_backup = time.time()
+                    backup_db()
+                if SSH:
+                    fence_spark()
         except Exception as e:  # keep watching whatever happens
             log(f"error: {e}")
         time.sleep(TICK_S)

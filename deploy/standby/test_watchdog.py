@@ -2,7 +2,7 @@
 import sys, unittest
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from watchdog import TAKEOVER_AFTER_S, should_take_over
+from watchdog import RESTART_EVERY_S, TAKEOVER_AFTER_S, should_restart, should_take_over
 
 
 class TakeoverRule(unittest.TestCase):
@@ -20,6 +20,17 @@ class TakeoverRule(unittest.TestCase):
 
     def test_waits_three_minutes(self):
         self.assertFalse(should_take_over(False, False, True, TAKEOVER_AFTER_S - 1))
+
+
+class RestartRule(unittest.TestCase):
+    def test_restarts_a_site_that_does_not_answer(self):
+        self.assertTrue(should_restart(False, RESTART_EVERY_S))
+
+    def test_leaves_a_working_site_alone(self):
+        self.assertFalse(should_restart(True, 999))
+
+    def test_does_not_retry_in_a_tight_loop(self):
+        self.assertFalse(should_restart(False, RESTART_EVERY_S - 1))
 
 
 if __name__ == "__main__":

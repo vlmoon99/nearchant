@@ -62,9 +62,9 @@ export class OpenAICompatibleAdapter implements CapabilityAdapter {
     if (capability === "asr") return this.transcribe(input, ctx);
     if (capability === "decide") return this.decide(input, ctx);
     const body: Record<string, unknown> = { ...(this.endpoint.extra_body ?? {}), ...input, model: ctx.model };
-    // vLLM / SGLang chat templates (Qwen3, GLM) switch the thinking phase with this flag.
+    // vLLM / SGLang chat templates switch the thinking phase with these flags.
     if (ctx.reasoning === false && (capability === "chat" || capability === "vision")) {
-      body.chat_template_kwargs = { ...((body.chat_template_kwargs as object) ?? {}), enable_thinking: false };
+      body.chat_template_kwargs = { ...((body.chat_template_kwargs as object) ?? {}), enable_thinking: false, thinking: false }; // Qwen3/GLM: enable_thinking; Kimi K2: thinking
     }
     if (capability === "image.generate" || capability === "image.edit") {
       body.response_format ??= "b64_json";
