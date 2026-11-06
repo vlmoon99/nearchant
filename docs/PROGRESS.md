@@ -1262,3 +1262,13 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
   rebuilt with all of tonight's code.
 - Health checks every hour 00:50–06:21 UTC: nearchant.com pages 200 in < 0.5 s, worker 0 errors, the nightly
   backfill ran, Mac standby replica ~2 s behind, CI green. Nothing broke overnight.
+
+## 2026-11-06 17:38 UTC — nearchant.com was down (~5 Nov → 6 Nov); back on the Mac
+- **Cause**: both Sparks (gx10-8695, gx10-c3c8) offline on the tailnet since ~3 Nov; the Mac standby took over on
+  3 Nov 09:54 EET as designed. On 5 Nov the Mac restarted, the watchdog came back as `primary`, but Docker Desktop
+  does not start at login, so `compose up` failed silently → Cloudflare 530 on every page.
+- **Fix**: started Docker Desktop; the standby stack (db primary, gateway, worker, tunnel, NEAR AI text + Comfy Cloud
+  pictures) came up by itself. Verified: `/`, `/feed`, `/h/supernutrition/`, `/health` → 200 in < 0.7 s; worker
+  publishing queued posts.
+- **Open**: turn on Docker Desktop "Start when you sign in"; watchdog should alert when `compose up` fails while
+  primary; Sparks need a power/network check, then `make failback` (owner).
