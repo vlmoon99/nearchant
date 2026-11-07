@@ -162,10 +162,15 @@ impl Contract {
             .then(Self::ext(env::current_account_id()).with_static_gas(GAS_CALLBACK).on_proof_checked(order_id, proof_id))
     }
 
+    /// The seller gives the buyer's money back: after a refund request (or a dispute), or before delivering to
+    /// decline the order. Always in the buyer's favour, so the seller's existing agent key may sign it.
     pub fn approve_refund(&mut self, order_id: String) -> Promise {
         let o = self.order(&order_id);
         require!(Some(env::predecessor_account_id()) == o.seller_account_id, "seller only");
-        require!(matches!(o.status, Status::RefundRequested | Status::Disputed), "no refund requested");
+        require!(
+            matches!(o.status, Status::RefundRequested | Status::Disputed | Status::Held | Status::RevisionRequested),
+            "nothing to refund"
+        );
         self.refund(order_id)
     }
 

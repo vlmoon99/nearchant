@@ -160,7 +160,9 @@ export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; 
       <a class="sub" href={cfg.base}>‹ {s.name}</a>
       <section class="card" style="align-items:center;text-align:center;gap:10px" {...(st === "Held" || st === "Opening" || !st ? { "data-poll-order": o.orderId } : {})}>
         <span class={`dot ${step >= 1 ? "ok" : "now"}`} style="width:64px;height:64px"><Icon n={step >= 1 ? "check" : "lock"} s={32} /></span>
-        <h1 class="t2">{st === "Released" ? "Done — thank you!" : st === "Delivered" ? "Shipped — confirm when you get it" : st === "Held" ? "Paid — safe in escrow" : st === "Refunded" ? "Refunded" : "Waiting for payment…"}</h1>
+        <h1 class="t2">{st === "Released" ? "Done — thank you!" : st === "Delivered" ? "Shipped — confirm when you get it" : st === "Held" ? "Paid — safe in escrow" : st === "Refunded" ? "Refunded — the money is back in your wallet"
+          : st === "RevisionRequested" ? "The store will make it right" : st === "RefundRequested" ? "Refund requested — the store will answer" : st === "Disputed" ? "The store declined the refund — talk it through below"
+          : st === "Refunding" ? "Refunding…" : st === "Releasing" ? "Paying the store…" : "Waiting for payment…"}</h1>
         <span class="sub muted">{o.amount} · {o.title} · {s.name}</span>
       </section>
       <section class="card" style="gap:0">
@@ -172,6 +174,12 @@ export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; 
       </section>
       {st === "Delivered" ? <div class="stack s12"><button class="btn block" data-order-action="accept" data-order={o.orderId}><Icon n="check" />I got it — release payment</button><button class="btn secondary block" data-order-action="request_refund" data-order={o.orderId}>Problem — request a refund</button></div> : null}
       <output id="order-msg" class="foot"></output>
+      {st && st !== "Opening" ? <section class="card chat" data-chat={`${cfg.base}public/orders/${o.orderId}/messages`} data-me="buyer" style="gap:10px">
+        <span class="headline">Messages with {s.name}</span>
+        <div class="stack chat-log" style="gap:8px;max-height:360px;overflow:auto"></div>
+        <form class="row chat-form" style="gap:8px"><input class="input" name="text" maxlength={1000} placeholder={`Write to ${s.name}…`} autocomplete="off" style="flex:1" /><button class="btn" type="submit"><Icon n="send" /></button></form>
+        <span class="cap muted">Keep this page’s link — it’s how you get back to your order. Never pay outside the order: escrow protects your money.</span>
+      </section> : null}
       <div class="card proof" style="flex-direction:row;gap:10px;align-items:center"><Icon n="shield" c="#007A4F" /><span class="stack" style="gap:2px"><span class="foot b proof-t">Escrow on NEAR · {cfg.orders}</span><span class="cap muted">Order {o.orderId} — anyone can check it on the NEAR explorer</span></span></div>
     </Shell>
   );

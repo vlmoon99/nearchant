@@ -1,6 +1,7 @@
 // Buyer side of the card and order pages. Testnet: the buyer's key lives in this browser (localStorage) and the
 // gateway sponsors its implicit account with test money (ADR 0001). Mainnet uses a wallet instead.
 import { Account, JsonRpcProvider, KeyPair, KeyPairSigner, type KeyPairString } from "near-api-js";
+import { mountChats } from "./chat.js";
 
 interface PageConfig { base: string; rpcUrl: string; orders: string; network: string }
 const cfg: PageConfig = JSON.parse(document.getElementById("nc-config")!.textContent!);
@@ -244,3 +245,6 @@ if (dash) {
   document.querySelector("#dashboard-load")!.addEventListener("click", load);
   try { if (localStorage.getItem(`nc:${cfg.network}:shop:${handle}`)) void load(); } catch { /* manual */ }
 }
+
+// Order page: messages with the store.
+mountChats();

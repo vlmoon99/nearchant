@@ -29,3 +29,4 @@ Changing a default from `CLAUDE.md` or `architecture.md` needs a new ADR here.
 | [0022](0022-feed-buyers-moderation.md) | Shop feed with AI search + region, buyer accounts, likes, reports, AI moderation, admin panel |
 | [0023](0023-mac-only-cloud-models.md) | Mac-only hosting with self-healing + backups; all models on NEAR AI; a smart seat (Kimi K2.6); Levanto Sage 2 |
 | [0024](0024-safety-check-before-publish.md) | Safety check on drafts; a flagged draft is held, not removed; AI post editor (fix, ask, new picture, skip) |
+| [0025](0025-orders-page-refunds-messages.md) | Orders page; seller can decline & refund a paid order (contract upgrade); buyer ↔ store messages |

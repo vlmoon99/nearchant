@@ -58,8 +58,8 @@ export const HomePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; post
           {opps.length ? opps.slice(0, 3).map((o) => <div class="card white" style="gap:4px;padding:12px;border:0"><span class="foot b">{o.title}</span><span class="foot muted">{o.why}</span><span class="foot b okt">≈ +{money(cfg, o.estimateUnits)}/mo</span></div>) : <span class="foot muted">AI looks for opportunities after it learns your store.</span>}
           <a class="foot b" href="/app/create">Make a post for one →</a>
         </div>
-        {orders.length ? <div class="card soft"><span class="headline">Orders to ship</span>
-          {orders.map((o) => <div class="card white" style="gap:6px;padding:12px;border:0"><div class="spread"><span class="foot b">{o.title}</span><span class="foot b">{o.amount}</span></div><span class="foot muted">{o.brief}</span>
+        {orders.length ? <div class="card soft"><div class="spread"><span class="headline">Orders to ship</span><a class="foot" href="/app/orders">All orders</a></div>
+          {orders.map((o) => <div class="card white" style="gap:6px;padding:12px;border:0"><div class="spread"><a class="foot b" href={`/app/orders/${o.orderId}`}>{o.title}</a><span class="foot b">{o.amount}</span></div><span class="foot muted">{o.brief}</span>
             {o.state === "paid" ? <div class="row" style="gap:8px"><input class="input" data-ship-note={o.orderId} placeholder="Tracking number (optional)" style="padding:8px 10px" /><button class="btn" data-ship={o.orderId}>Mark shipped</button></div> : <span class="foot proof-t">{o.state === "delivered" ? "Shipped · waiting for the buyer to confirm" : o.state}</span>}</div>)}
         </div> : null}
         <div class="card"><div class="spread"><span class="headline">Payments</span><a class="foot" href="/app/wallet">View all</a></div>

@@ -17,7 +17,7 @@ const alice: HandleRecord = {
   gateway_url: null, embed_origins: ["https://alice.example"], status: "Active", created_at: "0", card_published_at: null,
 };
 
-async function setup(chain: Record<string, OrderStatus | null> = {}) {
+async function setup(chain: Record<string, OrderStatus | null> = {}, extra: Partial<Deps> = {}) {
   const store = new MemoryStore();
   await store.upsertService({ id: "deck", handle: "alice", title: "Pitch deck in 1 hour", description: "10 slides", priceUnits: "5000000", deliveryHours: 1, active: true });
   const rail: PaymentRail = {
@@ -31,6 +31,7 @@ async function setup(chain: Record<string, OrderStatus | null> = {}) {
     handles: { get: async (h) => (h === "alice" ? alice : null) },
     newOrderId: () => "o-test-1",
     anyChainQuote: async () => ({ originAsset: "sol-usdc", amountIn: "5056676", amountInFormatted: "5.056676", amountOut: "5000000", label: "USDC on Solana" }),
+    ...extra,
   };
   return { app: createApp(deps), store, chain, onPaid };
 }
@@ -279,5 +280,27 @@ describe("orders", () => {
 describe("A2A memo binds the text", () => {
   it("a front-runner with a different prompt is refused", async () => {
     expect(taskMemo("t-1", "check these claims")).not.toBe(taskMemo("t-1", "write my essay"));
+  });
+});
+
+describe("order messages (buyer side)", () => {
+  it("the buyer writes to the store from the order page; unpaid or foreign orders get nothing", async () => {
+    const msgs: { author: string; text: string }[] = [], told: string[] = [];
+    const messages = {
+      add: async (orderId: string, _h: string, author: "buyer" | "seller", text: string) => { msgs.push({ author, text }); return { id: msgs.length, orderId, author, text, at: "t", read: false }; },
+      list: async () => msgs.map((m, i) => ({ id: i + 1, orderId: "o-test-1", ...m, at: "t", read: false })) as never, markRead: async () => {}, recentCount: async () => 0,
+    };
+    const { app, store } = await setup({}, { messages, notifySeller: async (id) => { told.push(id); } });
+    await store.createOrder({ orderId: "o-test-1", handle: "alice", serviceId: "deck", amount: "5000000", brief: "b", buyerAccountId: null, state: "awaiting_payment", createdAt: "t", updatedAt: "t" });
+    const post = (text: string, h = "alice.nearchant.com") => app.request("http://x/public/orders/o-test-1/messages", { method: "POST", headers: { host: h, "content-type": "application/json" }, body: JSON.stringify({ text }) });
+    expect((await post("hello")).status).toBe(404);                                   // not paid yet
+    await store.transitionOrder("o-test-1", "awaiting_payment", "paid");
+    expect((await post("hello", "bob.nearchant.com")).status).toBe(404);              // another store
+    expect((await app.request("http://x/public/orders/o-test-1/messages", { method: "POST", headers: { host: "alice.nearchant.com", "content-type": "text/plain" }, body: "x" })).status).toBe(415);
+    expect((await post("   ")).status).toBe(400);
+    expect((await post("Can you ship to Austin?")).status).toBe(200);
+    expect(told).toEqual(["o-test-1"]);
+    const r = await (await app.request("http://x/public/orders/o-test-1/messages", host("alice.nearchant.com"))).json();
+    expect(r.messages).toMatchObject([{ author: "buyer", text: "Can you ship to Austin?" }]);
   });
 });

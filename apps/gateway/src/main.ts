@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { makeWorkerUtils, type WorkerUtils } from "graphile-worker";
 import { parse } from "yaml";
-import { Artifacts, ContentStore, FeedStore, PLAN_LIMITS, Envelopes, Outbox, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, waitWhileFenced, type Connection, type Service, type Store } from "@nearchant/db";
+import { Artifacts, ContentStore, FeedStore, Messages, PLAN_LIMITS, Envelopes, Outbox, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, waitWhileFenced, type Connection, type Service, type Store } from "@nearchant/db";
 import { sql } from "drizzle-orm";
 import { TelegramApi, handleUpdate, type TgUpdate } from "./telegram.js";
 import { marketOrderId, type HireCreated } from "./market.js";
@@ -178,6 +178,14 @@ if (!mailer) console.info("[gateway] email off (no RESEND_API_KEY)");
 
 // Shop feed store (ADR 0022), used by the store pages ("More like this") and the feed.
 const feedStore = conn ? new FeedStore(conn.db) : null;
+const messages = conn ? new Messages(conn.db) : undefined;
+const orderOnChain = (id: string) => chain.view<{ status: string } | null>(accounts.orders, "get_order", { order_id: id });
+// A message about an order: an email to the other side when we know their address (a failed email never blocks).
+const mailAbout = async (to: string | null | undefined, subject: string, lines: string[], url: string, key: string) => {
+  if (!to || !mailer) return;
+  await mailer({ to, subject, idempotencyKey: key, text: `${lines.join("\n\n")}\n\n${url}`, html: emailHtml({ title: subject, lines, button: { label: "Open the order", url } }) })
+    .catch((e) => console.warn(`[gateway] message email: ${(e as Error).message}`));
+};
 const buyerKey = createHash("sha256").update(`nearchant-buyer:${process.env.NEARCHANT_SECRET_KEY ?? "dev"}`).digest();
 
 const app = createApp({
@@ -262,6 +270,10 @@ const app = createApp({
       execute: executeA2a,
     },
   } : {}),
+  ...(messages && conn ? { messages, notifySeller: async (orderId: string, handle: string, text: string) => {
+    const to = await new ContentStore(conn!.db).getSetting<string>(`emailOf:${handle}`);
+    await mailAbout(to, "A buyer wrote to your store", [`About order ${orderId.slice(0, 10)}…:`, `“${text.slice(0, 500)}”`, "Reply from the order page — the buyer sees it right away."], `${config.public_url}/app/orders/${orderId}`, `msg-seller:${orderId}:${createHash("sha256").update(text).digest("hex").slice(0, 12)}`);
+  } } : {}),
   saveRevisionNote: artifacts ? async (orderId: string, note: string) => {
     await artifacts!.clear(orderId, "revision_note");
     await artifacts!.put(orderId, "revision_note", { note, at: new Date().toISOString() });
@@ -292,6 +304,7 @@ const app = createApp({
     const buyer = readSession(buyerKey, getCookie(c, "nc_buyer"));
     if (!buyer) return;
     await new ContentStore(conn!.db).prependSetting(`buyerOrders:${buyer}`, { orderId, handle, at: new Date().toISOString() }, 200);
+    await new ContentStore(conn!.db).setSetting(`orderBuyer:${orderId}`, buyer); // so the store's replies can reach them
   } } : {}),
   ...(feedStore ? {
     blockedIp: (ip: string) => feedStore.isBlocked(ip),
@@ -339,8 +352,8 @@ const app = createApp({
         const item = await cs.getItem(order.handle, order.serviceId);
         const amount = `${formatUnits(order.amount, config.token.decimals)} ${config.token.symbol}`, what = item?.title ?? "an item";
         const lines = [`Someone bought ${what} for ${amount}. The money is held in escrow on NEAR until the buyer confirms they got it.`, `What they wrote: ${order.brief.slice(0, 300)}`, "Ship it, then mark it shipped in your store."];
-        await mailer({ to, subject: `New order: ${what} — ${amount}`, idempotencyKey: `order-paid:${id}`, text: `${lines.join("\n\n")}\n\n${config.public_url}/app`,
-          html: emailHtml({ title: `New order: ${what}`, lines, button: { label: "Open your store", url: `${config.public_url}/app` } }) });
+        await mailer({ to, subject: `New order: ${what} — ${amount}`, idempotencyKey: `order-paid:${id}`, text: `${lines.join("\n\n")}\n\n${config.public_url}/app/orders/${id}`,
+          html: emailHtml({ title: `New order: ${what}`, lines, button: { label: "Open the order", url: `${config.public_url}/app/orders/${id}` } }) });
       })().catch((e) => console.warn(`[gateway] order email ${id}: ${(e as Error).message}`));
       console.info(`[gateway] order ${id} paid on chain → item sale for ${order.handle}`);
       return;
@@ -394,7 +407,16 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     orders: {
       list: (h) => store.listOrders(h, 50),
       ship: async (h, orderId, note) => { await new Outbox(conn.db).enqueue(`ship:${orderId}`, "item.ship", { orderId, handle: h, note }); },
+      status: orderOnChain,
+      refund: async (h, orderId) => { await new Outbox(conn.db).enqueue(`refund:${orderId}`, "item.refund", { orderId, handle: h }); },
+      declineRefund: async (h, orderId) => { await new Outbox(conn.db).enqueue(`refund-decline:${orderId}`, "item.refund_decline", { orderId, handle: h }); },
     },
+    ...(messages ? { messages, notifyBuyer: async (orderId: string, handle: string, text: string) => {
+      const buyer = await new ContentStore(conn.db).getSetting<string>(`orderBuyer:${orderId}`);
+      const email = buyer && feedStore ? (await feedStore.getBuyer(buyer))?.email : null;
+      const name = (await new ContentStore(conn.db).getBusiness(handle))?.name ?? handle;
+      await mailAbout(email, `${name} wrote about your order`, [`“${text.slice(0, 500)}”`, "Reply on the order page."], `${config.public_url}/h/${handle}/o/${orderId}`, `msg-buyer:${orderId}:${createHash("sha256").update(text).digest("hex").slice(0, 12)}`);
+    } } : {}),
     enqueue: async (task, payload, jobKey) => {
       if (!queue) throw new Error("no job queue (DATABASE_URL unset)");
       await queue.addJob(task, payload, { ...(jobKey ? { jobKey } : {}), maxAttempts: 3 });
@@ -428,6 +450,8 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     ...(conn ? { content: new ContentStore(conn.db) } : {}),
     accountOf: (h) => `${h}.${accounts.root}`,
     orders: (h) => store.listOrders(h, 50),
+    orderStatus: orderOnChain, ordersContract: accounts.orders,
+    ...(messages ? { messages } : {}),
     balances: async (a) => {
       const [wallet, billing] = await Promise.all([
         chain.view<string>(accounts.nusd, "ft_balance_of", { account_id: a }),

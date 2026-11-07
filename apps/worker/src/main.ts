@@ -133,6 +133,20 @@ const outboxDrain: Task = async (_p, helpers) => {
         output_hash: h(p.note || "shipped"), attestation_ref: null, review: { passed: true, reviewer_hash: h(p.note || "shipped") },
       } as never });
     }
+    if (kind === "item.refund" || kind === "item.refund_decline") {
+      // The seller declines a paid order / approves a refund request (approve_refund), or declines a refund request
+      // (decline_refund → Disputed). Signed by the store's orders agent key (function-call only).
+      const p = payload as { orderId: string; handle: string };
+      const method = kind === "item.refund" ? "approve_refund" : "decline_refund";
+      const o = await chain.view<{ status: string } | null>(accounts.orders, "get_order", { order_id: p.orderId });
+      const done = kind === "item.refund" ? o?.status === "Refunded" : o?.status === "Disputed";
+      if (!done) {
+        const key = await agentKey({ db: conn.db, sealer }, p.handle, "orders-key");
+        await chain.callAs(`${p.handle}.${accounts.root}`, key, accounts.orders, method, { order_id: p.orderId }, 100);
+      }
+      if (kind === "item.refund") { const row = await store.getOrder(p.orderId); if (row && row.state !== "refunded") await store.transitionOrder(p.orderId, row.state, "refunded"); }
+      return { [method]: p.orderId };
+    }
     if (kind === "post.proof") {
       // A published post's proof, signed by the store's own proofs agent key (function-call only).
       const p = payload as { postId: string; handle: string; entry: Record<string, unknown> };
@@ -167,6 +181,12 @@ const escrowTimers: Task = async (_p, helpers) => {
         await chain.call(accounts.orders, "refund_undelivered", { order_id: row.orderId }, { gasTgas: 100 });
         await store.transitionOrder(row.orderId, row.state, "refunded");
         helpers.logger.info(`escrow: refunded undelivered ${row.orderId}`);
+      } else if (o.status === "RevisionRequested" && row.state === "delivered" && row.serviceId.startsWith("i-")) {
+        // A store item: the buyer says it isn't right — back to "to ship" for the seller (a fresh delivery window).
+        await store.transitionOrder(row.orderId, "delivered", "paid");
+        helpers.logger.info(`escrow: revision requested for item order ${row.orderId}`);
+      } else if (o.status === "Refunded" && row.state !== "refunded") {
+        await store.transitionOrder(row.orderId, row.state, "refunded");
       } else if (o.status === "RevisionRequested" && row.state === "delivered") {
         // The buyer asked for a revision: redo the deck from `write` on, with a fresh proof (security review H2).
         if (await store.transitionOrder(row.orderId, "delivered", "in_progress")) {

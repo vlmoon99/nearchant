@@ -370,3 +370,16 @@ export const searchLog = pgTable("search_log", {
   src: text("src"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("search_log_created").on(t.createdAt)]);
+
+/** Messages between a store and the buyer of one order (off-chain, instant; the money stays on chain). */
+export const orderMessages = pgTable("order_messages", {
+  id: serial("id").primaryKey(),
+  orderId: text("order_id").notNull(),
+  handle: text("handle").notNull(),
+  /** "seller" or "buyer". */
+  author: text("author").notNull(),
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  /** When the other side opened the thread after this message. */
+  readAt: timestamp("read_at", { withTimezone: true }),
+}, (t) => [index("order_messages_order").on(t.orderId, t.id), index("order_messages_handle").on(t.handle, t.createdAt)]);

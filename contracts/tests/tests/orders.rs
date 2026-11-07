@@ -136,6 +136,22 @@ async fn revision_then_refund_with_seller_approval() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn seller_declines_a_paid_order_and_the_buyer_gets_it_all_back() -> anyhow::Result<()> {
+    let s = shop().await?;
+    pay(&s, "o-1", "alice", 5 * ONE_NUSD).await?;
+    assert!(!act(&s.buyer, &s, "approve_refund", "o-1").await?, "only the seller declines");
+    assert!(act(&s.alice, &s, "approve_refund", "o-1").await?);
+    assert_eq!(order(&s, "o-1").await?["status"], "Refunded");
+    assert_eq!(balance(&s.env.nusd, s.buyer.id()).await?, 100 * ONE_NUSD);
+    // A delivered order is not the seller's to refund unasked: the buyer accepts or asks first.
+    pay(&s, "o-2", "alice", 5 * ONE_NUSD).await?;
+    let p = prove(&s, &s.alice, "o-2", true).await?;
+    assert!(deliver(&s, &s.alice, "o-2", &p).await?);
+    assert!(!act(&s.alice, &s, "approve_refund", "o-2").await?, "delivered: nothing to refund unasked");
+    Ok(())
+}
+
+#[tokio::test]
 async fn release_after_timeout_by_anyone() -> anyhow::Result<()> {
     let s = shop().await?;
     let params: Value = s.orders.view("get_params").await?.json()?;

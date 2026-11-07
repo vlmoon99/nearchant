@@ -58,7 +58,7 @@ export const UiPage: FC<PropsWithChildren<{ title: string; cfg: UiConfig; page: 
   </html>
 );
 
-const NAV = [["home", "Home", "/app"], ["sparkles", "Create", "/app/create"], ["grid", "Posts", "/app/posts"], ["chart", "Analytics", "/app/analytics"], ["wallet", "Wallet", "/app/wallet"], ["sliders", "Settings", "/app/settings"]] as const;
+const NAV = [["home", "Home", "/app"], ["sparkles", "Create", "/app/create"], ["grid", "Posts", "/app/posts"], ["box", "Orders", "/app/orders"], ["chart", "Analytics", "/app/analytics"], ["wallet", "Wallet", "/app/wallet"], ["sliders", "Settings", "/app/settings"]] as const;
 
 export const Mark: FC<{ s?: number }> = ({ s = 28 }) => <span class="mark" style={`width:${s}px;height:${s}px`}>N</span>;
 
@@ -79,7 +79,7 @@ export const Shell: FC<PropsWithChildren<{ active: string; store: { name: string
     <header class="topbar"><a class="logo" style="padding:0" href="/app"><Mark />Nearchant</a><span class="foot muted">{store.account}</span></header>
     <main class="main">{children}</main>
     <nav class="bottomnav">
-      {(["Home", "Posts", "Create", "Analytics", "Wallet"] as const).map((l) => NAV.find(([, x]) => x === l)!).map(([ic, label, href]) => label === "Create"
+      {(["Home", "Posts", "Create", "Orders", "Wallet"] as const).map((l) => NAV.find(([, x]) => x === l)!).map(([ic, label, href]) => label === "Create"
         ? <a href={href} aria-label="Create"><span class="fab"><Icon n="plus" s={24} /></span></a>
         : <a href={href} class={label === active ? "on" : ""}><Icon n={ic} s={22} />{label}</a>)}
     </nav>

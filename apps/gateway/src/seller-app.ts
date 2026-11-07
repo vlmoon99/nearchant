@@ -7,6 +7,7 @@ import sharp from "sharp";
 import type { Context, Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { safetyCurrent, safetyFlag } from "./post-safety.js";
+import type { Messages } from "@nearchant/db";
 import type { ContentStore } from "@nearchant/db";
 import { QuotaExceeded } from "@nearchant/db";
 import type { HandleRecord } from "@nearchant/near";
@@ -34,7 +35,18 @@ export interface SellerAppDeps {
   /** Mirror an item as an orderable service, so the existing escrow checkout sells it. */
   mirrorService?: (s: { id: string; handle: string; title: string; description: string; priceUnits: string }) => Promise<void>;
   /** Paid item orders of a store + queue "shipped" (proof + mark_delivered via the outbox). */
-  orders?: { list: (handle: string) => Promise<{ orderId: string; serviceId: string; amount: string; brief: string; state: string; createdAt: string }[]>; ship: (handle: string, orderId: string, note: string) => Promise<void> };
+  orders?: {
+    list: (handle: string) => Promise<{ orderId: string; serviceId: string; amount: string; brief: string; state: string; createdAt: string }[]>;
+    ship: (handle: string, orderId: string, note: string) => Promise<void>;
+    /** The order on chain (the truth for money): Held, Delivered, RevisionRequested, RefundRequested, Disputed, … */
+    status?: (orderId: string) => Promise<{ status: string } | null>;
+    /** approve_refund (decline a paid order, or accept a refund request) / decline_refund, signed by the store's key. */
+    refund?: (handle: string, orderId: string) => Promise<void>;
+    declineRefund?: (handle: string, orderId: string) => Promise<void>;
+  };
+  /** Messages with the buyer of an order (off-chain) and an email to the buyer when the store writes. */
+  messages?: Pick<Messages, "add" | "list" | "markRead" | "recentCount">;
+  notifyBuyer?: (orderId: string, handle: string, text: string) => Promise<void>;
   /** NEP-413 recipient expected in wallet messages (the public host); default: the request's host. */
   walletRecipient?: string;
   /** Short videos can be made here (voice service + video renderer configured on the worker). */
@@ -462,6 +474,45 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     if (o.state !== "paid") return c.json({ error: `order is ${o.state}` }, 409);
     await d.orders.ship(handle, o.orderId, String((await json(c)).note ?? "").slice(0, 300));
     return c.json({ status: "shipping" }, 202);
+  }));
+
+  // One order: decline & refund, answer a refund request, and messages with the buyer.
+  const itemOrder = async (handle: string, id: string) => {
+    const o = d.orders ? (await d.orders.list(handle)).find((x) => x.orderId === id) : undefined;
+    return o && o.serviceId.startsWith("i-") ? o : null;
+  };
+  const REFUNDABLE = ["Held", "RevisionRequested", "RefundRequested", "Disputed"];
+  app.post("/api/app/orders/:id/refund", (c) => authed(c, async (handle) => {
+    const o = await itemOrder(handle, c.req.param("id"));
+    if (!o || !d.orders?.refund || !d.orders.status) return c.json({ error: "not found" }, 404);
+    const chain = await d.orders.status(o.orderId).catch(() => null);
+    if (!chain || !REFUNDABLE.includes(chain.status)) return c.json({ error: chain?.status === "Refunded" ? "already refunded" : "this order can't be refunded now" }, 409);
+    await d.orders.refund(handle, o.orderId);
+    return c.json({ status: "refunding" }, 202);
+  }));
+  app.post("/api/app/orders/:id/decline-refund", (c) => authed(c, async (handle) => {
+    const o = await itemOrder(handle, c.req.param("id"));
+    if (!o || !d.orders?.declineRefund || !d.orders.status) return c.json({ error: "not found" }, 404);
+    if ((await d.orders.status(o.orderId).catch(() => null))?.status !== "RefundRequested") return c.json({ error: "no refund request to decline" }, 409);
+    await d.orders.declineRefund(handle, o.orderId);
+    return c.json({ status: "declining" }, 202);
+  }));
+  app.get("/api/app/orders/:id/messages", (c) => authed(c, async (handle) => {
+    const o = await itemOrder(handle, c.req.param("id"));
+    if (!o || !d.messages) return c.json({ error: "not found" }, 404);
+    await d.messages.markRead(o.orderId, "seller");
+    const chain = d.orders?.status ? await d.orders.status(o.orderId).catch(() => null) : null;
+    return c.json({ messages: await d.messages.list(o.orderId), state: o.state, chainStatus: chain?.status ?? null });
+  }));
+  app.post("/api/app/orders/:id/messages", (c) => authed(c, async (handle) => {
+    const o = await itemOrder(handle, c.req.param("id"));
+    if (!o || !d.messages) return c.json({ error: "not found" }, 404);
+    const text = String((await json(c)).text ?? "").trim().slice(0, 1000);
+    if (!text) return c.json({ error: "write a message" }, 400);
+    if ((await d.messages.recentCount(o.orderId, "seller", 600_000)) >= 30) return c.json({ error: "too many messages — wait a few minutes" }, 429);
+    const m = await d.messages.add(o.orderId, handle, "seller", text);
+    void d.notifyBuyer?.(o.orderId, handle, text).catch(() => {});
+    return c.json({ message: m });
   }));
 
   // Settings: the owner's wishes for posts and pictures (kept across a new analysis), first-sale dismissal, insights.

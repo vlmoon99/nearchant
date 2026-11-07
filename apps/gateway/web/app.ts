@@ -1,6 +1,7 @@
 // Seller app + onboarding client (ADR 0018). The store's NEAR key is made and kept in this browser (testnet);
 // the gateway sponsors the account. After one signature the session cookie carries the rest.
 import { Account, JsonRpcProvider, KeyPair, KeyPairSigner, type KeyPairString } from "near-api-js";
+import { mountChats } from "./chat.js";
 import { toUnits } from "./units.js";
 
 interface Cfg { base: string; rpcUrl: string; network: string; token: string; decimals: number; storeBase: string; page: string }
@@ -274,7 +275,7 @@ function sellerApp() {
     const row = b.closest<HTMLElement>("[data-suggest]")!;
     const price = Number(row.querySelector<HTMLInputElement>("input")!.value);
     if (!(price > 0)) { row.querySelector<HTMLInputElement>("input")!.focus(); return; }
-    try { await api("/api/app/items", { title: row.dataset.suggest, description: row.dataset.desc, price, photoMediaId: row.dataset.photo || null }); location.reload(); } catch (e) { alert((e as Error).message); }
+    try { await api("/api/app/items", { title: row.dataset.suggest, description: row.dataset.desc, price, photoMediaId: row.dataset.photo || null }); location.reload(); } catch (e) { notice("Couldn’t mark it shipped", (e as Error).message); }
   }));
   $$("[data-ship]").forEach((b) => b.addEventListener("click", async () => {
     const id = b.dataset.ship!;
@@ -323,6 +324,17 @@ function sellerApp() {
     (b as HTMLButtonElement).disabled = true;
     try { await api(`/api/app/posts/${b.dataset.makeVideo}/video`, {}); location.reload(); } catch (err) { notice("Couldn’t start the video", (err as Error).message); (b as HTMLButtonElement).disabled = false; }
   }));
+  // Orders: decline & refund / approve or decline a refund request, and the buyer chat.
+  mountChats();
+  for (const [sel, path, done] of [["data-order-refund", "refund", "Refunding — recorded on NEAR in a few seconds."], ["data-order-decline-refund", "decline-refund", "Declined — tell the buyer why in a message."]] as const) {
+    $$(`[${sel}]`).forEach((b) => b.addEventListener("click", async () => {
+      if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
+      const out = document.querySelector<HTMLElement>("[data-order-out]");
+      (b as HTMLButtonElement).disabled = true;
+      try { await api(`/api/app/orders/${b.getAttribute(sel)}/${path}`, {}); if (out) out.textContent = done; setTimeout(() => location.reload(), 6000); }
+      catch (err) { notice("Couldn’t do that", (err as Error).message); (b as HTMLButtonElement).disabled = false; }
+    }));
+  }
   $$("[data-schedule]").forEach((b) => b.addEventListener("click", () => void publishFlow(b.dataset.schedule!, b.dataset.when === "now" ? null : nextSlot(0), b.dataset.store ?? "")));
   // Edit with AI: free-text caption change, a new picture, skip.
   const ask = () => document.querySelector<HTMLTextAreaElement>("#ai-ask")?.value.trim() ?? "";

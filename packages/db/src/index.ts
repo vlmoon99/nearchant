@@ -7,3 +7,4 @@ export * from "./content.js";
 export * from "./fence.js";
 export * from "./feed.js";
 export * from "./mail.js";
+export * from "./messages.js";

@@ -1,7 +1,8 @@
 // Page routes of the seller app (ADR 0018). JSON lives in seller-app.ts; these render the Figma screens.
 import type { Context, Hono } from "hono";
 import { getCookie } from "hono/cookie";
-import { PLAN_LIMITS, type ContentStore } from "@nearchant/db";
+import { PLAN_LIMITS, type ContentStore, type Messages } from "@nearchant/db";
+import { OrdersPage, SellerOrderPage, type SellerOrder } from "./orders.js";
 import { OnboardingPage } from "./onboarding.js";
 import { CreatePage, HomePage, PostPage, PostsPage, SignInPage, checklistFor, type StoreView } from "./app-pages.js";
 import { createHash } from "node:crypto";
@@ -40,6 +41,10 @@ export interface UiDeps {
   accountOf: (handle: string) => string;
   explorer: (accountId: string) => string;
   orders?: (handle: string) => Promise<{ orderId: string; serviceId: string; amount: string; brief: string; state: string; createdAt: string }[]>;
+  /** The order on the orders contract (money state) and the buyer ↔ store messages. */
+  orderStatus?: (orderId: string) => Promise<{ status: string } | null>;
+  messages?: Pick<Messages, "list" | "markRead" | "unreadForSeller" | "latest">;
+  ordersContract?: string;
   /** Chain views for the wallet: nUSD balance + prepaid AI billing (null when the chain is unreachable). */
   balances?: (accountId: string) => Promise<{ wallet: string; billing: { balance: string; spent_month: string } | null } | null>;
 }
@@ -190,6 +195,24 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
       top={firstSale && !(await content.getSetting(`celebrated:${s.handle}`)) ? <Celebration amount={fmt(firstSale.amount)} item={titles.get(firstSale.serviceId) ?? "an item"} store={s} /> : null}
       stats={{ views: sum("view"), sales: sum("sale"), salesUnits: Number((await content.salesSince(s.handle, 7)).units), proofs: posts.filter((p) => p.proof).length, postsMonth: usage.posts, postsLimit: PLAN_LIMITS[b?.plan ?? "free"]!.posts }}
       checklist={checklistFor(b, posts, sum("sale"))} />);
+  }));
+  // Orders (store items): what needs the owner, then one order with its actions and the buyer chat.
+  const sellerOrders = async (handle: string) => {
+    if (!d.orders) return [];
+    const titles = new Map((await content.listItems(handle, false)).map((i) => [i.id, i.title]));
+    const rows = (await d.orders(handle)).filter((o) => o.serviceId.startsWith("i-") && o.state !== "awaiting_payment" && o.state !== "cancelled");
+    const [unread, latest] = d.messages ? await Promise.all([d.messages.unreadForSeller(handle), d.messages.latest(rows.map((o) => o.orderId))]) : [new Map<string, number>(), new Map()];
+    const chain = await Promise.all(rows.map((o) => ["released", "refunded"].includes(o.state) || !d.orderStatus ? null : d.orderStatus(o.orderId).catch(() => null)));
+    const fmt = (u: string) => `${(Number(u) / 10 ** d.cfg.decimals).toLocaleString("en", { maximumFractionDigits: 2 })} ${d.cfg.token}`;
+    return rows.map((o, i): SellerOrder => ({ orderId: o.orderId, title: titles.get(o.serviceId) ?? "Item", amount: fmt(o.amount), brief: o.brief, state: o.state,
+      chainStatus: chain[i]?.status ?? null, createdAt: o.createdAt, unread: unread.get(o.orderId) ?? 0, last: latest.get(o.orderId) ?? null }));
+  };
+  app.get("/app/orders", (c) => withStore(c, async (s) => c.html(<OrdersPage cfg={d.cfg} test={d.test} store={s} orders={await sellerOrders(s.handle)} />)));
+  app.get("/app/orders/:id", (c) => withStore(c, async (s) => {
+    const o = (await sellerOrders(s.handle)).find((x) => x.orderId === c.req.param("id"));
+    if (!o) return c.redirect("/app/orders");
+    if (d.messages) await d.messages.markRead(o.orderId, "seller");
+    return c.html(<SellerOrderPage cfg={d.cfg} test={d.test} store={s} o={o} messages={d.messages ? await d.messages.list(o.orderId) : []} explorer={d.explorer(d.ordersContract ?? "")} />);
   }));
   app.get("/app/create", (c) => withStore(c, async (s) => {
     const [photos, opps, usage, b] = await Promise.all([content.listMedia(s.handle, "photo"), content.listOpportunities(s.handle), content.usage(s.handle), content.getBusiness(s.handle)]);

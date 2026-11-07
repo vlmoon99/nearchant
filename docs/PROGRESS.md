@@ -1381,3 +1381,15 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 - Not verified / blocked: NEAR AI Qwen3.6 answered 502/503 (chat and attestation) from ~10:00 UTC, so the demo could
   not be re-recorded: `make demo` fails on the new prompts until it is. Not pushed. Levanto Sage answered 502 too.
 - Next: re-record the demo when Qwen3.6 is back, push; then orders (accept/decline) and buyer↔seller messages.
+
+## 2026-11-08 — orders page, decline & refund, buyer ↔ store messages (ADR 0025)
+- Contract `orders`: `approve_refund` also from Held / RevisionRequested; sandbox 9/9 (new: seller declines a paid
+  order, buyer gets it all back; a delivered order can't be refunded unasked). Upgraded on testnet; state kept; the
+  deployed code hash equals the local build.
+- Seller app: Orders nav + order page (status in plain words from the chain, buyer details, money, actions), chat.
+  Buyer order page: chat + plain statuses for revision/refund/dispute. Emails on new messages. Worker: outbox
+  `item.refund` / `item.refund_decline`; item revision → back to "to ship" (it used to start the deck rewrite).
+- Verified: gateway 66, worker 28; live e2e `apps/gateway/e2e/order-chat.mjs` on novatest33li — paid 16 s, buyer
+  message seen by the seller, reply on the buyer page in 4 s, decline & refund → buyer page "Refunded" at 80 s,
+  no page errors. Screenshots checked (chat bubbles contrast fixed).
+- Not pushed: `make demo` needs the re-record (NEAR AI Qwen3.6 was down).

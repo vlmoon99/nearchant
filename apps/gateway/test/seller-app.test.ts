@@ -36,7 +36,27 @@ function fakeContent() {
   return { c: c as SellerContent, db };
 }
 
-function setup(ownerKeys: string[] = [], videoEnabled = false, at = Date.now()) {
+// Item orders on a fake orders contract, plus an in-memory message thread.
+function orderDeps(chainStatus: Record<string, string>) {
+  const calls: string[] = [], msgs: { orderId: string; author: string; text: string }[] = [], notified: string[] = [];
+  const list = async (h: string) => h !== "nova" ? [] : [
+    { orderId: "o-new", serviceId: "i-1", amount: "5000000", brief: "Size M, 5th Ave", state: "paid", createdAt: "2026-11-08T10:00:00Z" },
+    { orderId: "o-ask", serviceId: "i-1", amount: "5000000", brief: "", state: "delivered", createdAt: "2026-11-08T10:00:00Z" },
+    { orderId: "o-sent", serviceId: "i-1", amount: "5000000", brief: "", state: "delivered", createdAt: "2026-11-08T10:00:00Z" },
+    { orderId: "o-deck", serviceId: "deck", amount: "5000000", brief: "", state: "paid", createdAt: "2026-11-08T10:00:00Z" }];
+  return { calls, msgs, notified, deps: {
+    orders: { list, ship: async () => {}, status: async (id: string) => (chainStatus[id] ? { status: chainStatus[id]! } : null),
+      refund: async (_h: string, id: string) => { calls.push(`refund:${id}`); }, declineRefund: async (_h: string, id: string) => { calls.push(`decline:${id}`); } },
+    messages: {
+      add: async (orderId: string, _h: string, author: "seller" | "buyer", text: string) => { msgs.push({ orderId, author, text }); return { id: msgs.length, orderId, author, text, at: "t", read: false }; },
+      list: async (orderId: string) => msgs.filter((m) => m.orderId === orderId).map((m, i) => ({ id: i + 1, ...m, at: "t", read: false })) as never,
+      markRead: async () => {}, recentCount: async (orderId: string, author: string) => msgs.filter((m) => m.orderId === orderId && m.author === author).length,
+    },
+    notifyBuyer: async (id: string) => { notified.push(id); },
+  } };
+}
+
+function setup(ownerKeys: string[] = [], videoEnabled = false, at = Date.now(), extra: Record<string, unknown> = {}) {
   const app = new Hono();
   const { c, db } = fakeContent();
   const jobs: { task: string; payload: unknown }[] = [];
@@ -46,7 +66,7 @@ function setup(ownerKeys: string[] = [], videoEnabled = false, at = Date.now()) 
   mountSellerApp(app, {
     mail: async (m) => { mails.push(m); }, publicUrl: "https://nearchant.com",
     content: c, handles: { get: async (h) => (h === "nova" ? nova : null) }, isOwnerKey: async (_a, pk) => ownerKeys.includes(pk),
-    enqueue: async (task, payload) => { jobs.push({ task, payload }); }, mediaDir, sessionKey: key, secureCookies: false, decimals: 6, videoEnabled, walletRecipient: "nearchant.com", now: () => at,
+    enqueue: async (task, payload) => { jobs.push({ task, payload }); }, mediaDir, sessionKey: key, secureCookies: false, decimals: 6, videoEnabled, walletRecipient: "nearchant.com", now: () => at, ...extra,
   });
   const cookie = `nc_session=${signSession(key, "nova", Date.now() + 60_000)}`;
   return { app, db, jobs, mediaDir, cookie, key, mails };
@@ -346,6 +366,27 @@ describe("seller API", () => {
     expect((await app.request("http://x/api/app/posts/r0/rewrite", post({ style: "shorter" }, cookie))).status).toBe(202);
     expect(db.posts[0].idea.rewrite).toEqual({ status: "writing", style: "shorter" });
     expect(jobs.filter((j) => j.task === "rewrite_caption")).toHaveLength(1);
+  });
+
+  it("orders: decline & refund a paid order, answer a refund request, message the buyer — store items only", async () => {
+    const o = orderDeps({ "o-new": "Held", "o-ask": "RefundRequested", "o-sent": "Delivered", "o-deck": "Held" });
+    const { app, cookie } = setup([], false, Date.now(), o.deps);
+    expect((await app.request("http://x/api/app/orders/o-new/refund", post({}))).status).toBe(401);                     // the owner only
+    expect((await app.request("http://x/api/app/orders/o-new/refund", post({}, cookie))).status).toBe(202);            // decline & refund
+    expect((await app.request("http://x/api/app/orders/o-sent/refund", post({}, cookie))).status).toBe(409);           // shipped: the buyer decides
+    expect((await app.request("http://x/api/app/orders/o-deck/refund", post({}, cookie))).status).toBe(404);           // not a store item
+    expect((await app.request("http://x/api/app/orders/o-new/decline-refund", post({}, cookie))).status).toBe(409);    // nothing asked
+    expect((await app.request("http://x/api/app/orders/o-ask/decline-refund", post({}, cookie))).status).toBe(202);
+    expect((await app.request("http://x/api/app/orders/o-ask/refund", post({}, cookie))).status).toBe(202);            // approve the request
+    expect(o.calls).toEqual(["refund:o-new", "decline:o-ask", "refund:o-ask"]);
+    expect((await app.request("http://x/api/app/orders/o-new/messages", post({ text: "  " }, cookie))).status).toBe(400);
+    const sent = await app.request("http://x/api/app/orders/o-new/messages", post({ text: "Shipping today!" }, cookie));
+    expect(sent.status).toBe(200);
+    expect(o.notified).toEqual(["o-new"]);
+    const thread = await (await app.request("http://x/api/app/orders/o-new/messages", { headers: { cookie } })).json();
+    expect(thread).toMatchObject({ messages: [{ author: "seller", text: "Shipping today!" }], chainStatus: "Held" });
+    for (let i = 0; i < 29; i++) await app.request("http://x/api/app/orders/o-new/messages", post({ text: `m${i}` }, cookie));
+    expect((await app.request("http://x/api/app/orders/o-new/messages", post({ text: "one more" }, cookie))).status).toBe(429); // flood limit
   });
 
   it("post editor: a flagged draft can't be published until fixed; ask-AI, new picture and skip", async () => {

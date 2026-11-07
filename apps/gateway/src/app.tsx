@@ -60,6 +60,9 @@ export interface Deps {
   };
   /** Store the buyer's "what to change" note for a revision (read by the write step). */
   saveRevisionNote?: (orderId: string, note: string) => Promise<void>;
+  /** Messages between the buyer and the store about one order (off-chain); the store is emailed on a new one. */
+  messages?: Pick<import("@nearchant/db").Messages, "add" | "list" | "markRead" | "recentCount">;
+  notifySeller?: (orderId: string, handle: string, text: string) => Promise<void>;
   /** Content stores (ADR 0018): the buyer storefront data, or null for a classic card. */
   /** nearchant.com home page (no store in the host): rendered landing; unset → redirect to the dashboard. */
   landing?: () => Promise<unknown>;
@@ -257,6 +260,29 @@ export function createApp(d: Deps) {
     if (note.length < 3) return c.json({ error: "say briefly what to change" }, 400);
     await d.saveRevisionNote(row.orderId, note);
     return c.json({ saved: true });
+  });
+
+  // Buyer ↔ store messages on the order page. The unguessable order id is the buyer's access, as for the page.
+  const msgLimit = new RateLimit(30, 600_000);
+  seller.get("/public/orders/:id/messages", async (c) => {
+    const h = c.get("handle");
+    const row = await d.store.getOrder(c.req.param("id"));
+    if (!h || !row || row.handle !== h.handle || !d.messages || row.state === "awaiting_payment") return c.json({ error: "unknown order" }, 404);
+    await d.messages.markRead(row.orderId, "buyer");
+    return c.json({ messages: await d.messages.list(row.orderId) });
+  });
+  seller.post("/public/orders/:id/messages", async (c) => {
+    const h = c.get("handle");
+    const row = await d.store.getOrder(c.req.param("id"));
+    if (!h || !row || row.handle !== h.handle || !d.messages || row.state === "awaiting_payment") return c.json({ error: "unknown order" }, 404);
+    if (!(c.req.header("content-type") ?? "").startsWith("application/json")) return c.json({ error: "JSON only" }, 415);
+    if (!msgLimit.take(ipOf(c)) || (await d.messages.recentCount(row.orderId, "buyer", 600_000)) >= 30) return c.json({ error: "too many messages — wait a few minutes" }, 429);
+    const b = (await c.req.json().catch(() => null)) as { text?: unknown } | null;
+    const text = typeof b?.text === "string" ? b.text.trim().slice(0, 1000) : "";
+    if (!text) return c.json({ error: "write a message" }, 400);
+    const m = await d.messages.add(row.orderId, h.handle, "buyer", text);
+    void d.notifySeller?.(row.orderId, h.handle, text).catch(() => {});
+    return c.json({ message: m });
   });
 
   seller.get("/o/:id", async (c) => {
