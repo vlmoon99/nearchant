@@ -100,6 +100,9 @@ export function createApp(d: Deps) {
       frameSrc: ["'self'", "https:"],
     },
     crossOriginResourcePolicy: false,
+    // Popup wallets (Meteor, MyNearWallet…) answer through window.opener; "same-origin" cuts it and the popup hangs on
+    // "Receiving details from Dapp" (7 Nov).
+    crossOriginOpenerPolicy: "same-origin-allow-popups",
   });
   // Media files set their own headers (sandboxed HTML); everything else gets the page policy.
   app.use("*", (c, next) => (c.req.path.startsWith("/media/") ? next() : pageHeaders(c, next)));

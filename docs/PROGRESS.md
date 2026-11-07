@@ -1341,3 +1341,21 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
   (a few seconds of 530 each time). Cloudflare answers 403 to Python's default User-Agent, so the public check always
   failed. `http_ok` now sends `nearchant-watchdog/1`; new test checks the header. Verified: 0 restarts and 24/24
   public checks OK over 4 min.
+
+## 2026-11-07 evening — sign-in: Meteor signatures rejected; email links never sent
+- **Meteor**: Wallet Selector's Meteor module (10.1.4) drops `callbackUrl` before asking Meteor to sign, so Meteor
+  signs NEP-413 with no callbackUrl; the gateway rebuilt the bytes with it → every Meteor sign-in/link was
+  "bad signature". New `verifyWalletSignature` (nep413.ts) accepts either form; used by `/api/wallet/verify` and
+  `/api/buyer/wallet`. callbackUrl only routes redirect wallets; message, nonce and recipient still bind the sign-in.
+- **Email**: the live DB has no linked emails or wallets (`email:*`/`wallet:*` settings empty); Resend shows only the
+  2 test emails of 2 Nov. Store sign-in by email only sends to an email linked in Settings, and answers "on its way"
+  either way (no enumeration). Message on the sign-in page now says to link the email first.
+- Verified: gateway 61 tests (new one: callbackUrl-less signature passes, other changes still fail); deployed to the
+  Mac standby (serving; Spark 100.64.0.13 unreachable over SSH), live probe now reaches the on-chain key check (403)
+  instead of 401 bad signature.
+- Not verified: a real Meteor testnet sign-in end to end (needs the owner's wallet). Spark not redeployed (down).
+- **Meteor sign-in fixed (7 Nov)**: the Meteor popup hung on "Receiving details from Dapp". Our pages sent
+  `Cross-Origin-Opener-Policy: same-origin` (Hono default), which cuts `window.opener`, and popup wallets reply through
+  it. Now `same-origin-allow-popups` (test in app.test.ts). Verified live: the Meteor popup opened from
+  nearchant.com/app now has its opener (Meteor's own Cloudflare blocks headless Chrome, so the owner confirms the
+  rest by hand).

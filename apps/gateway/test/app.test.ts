@@ -123,6 +123,7 @@ describe("seller card", () => {
       expect(html).toContain("TEST network");
       expect(res.headers.get("content-security-policy")).toContain("script-src 'self'");
       expect(res.headers.get("content-security-policy")).toContain("connect-src 'self' https://rpc");
+      expect(res.headers.get("cross-origin-opener-policy")).toBe("same-origin-allow-popups"); // popup wallets reply via opener
     }
   });
 
