@@ -22,6 +22,7 @@ STATE = Path.home() / "Library/Application Support/nearchant-standby"
 ROLE_FILE = STATE / "role"
 TICK_S, SYNC_EVERY_S, TAKEOVER_AFTER_S = 15, 60, 180
 RESTART_EVERY_S, BACKUP_EVERY_S, BACKUPS_KEPT = 120, 24 * 3600, 7
+TUNNEL_AFTER_S = 60  # nearchant.com down this long while the local site works → restart the tunnel
 
 
 def env() -> dict:
@@ -107,6 +108,13 @@ def should_restart(site_ok: bool, since_last_try_s: float) -> bool:
     return not site_ok and since_last_try_s >= RESTART_EVERY_S
 
 
+def should_restart_tunnel(local_ok: bool, public_ok: bool, internet_ok: bool, public_down_s: float,
+                          since_last_try_s: float) -> bool:
+    """Pure rule, unit-tested: the site works on this Mac but not on nearchant.com (the Cloudflare tunnel lost its
+    connection and did not get it back, as on 7 Nov), and this Mac is online."""
+    return local_ok and not public_ok and internet_ok and public_down_s >= TUNNEL_AFTER_S and since_last_try_s >= RESTART_EVERY_S
+
+
 def docker_ready(wait_s: float = 300) -> bool:
     """Docker Desktop may still be starting after a login: open it and wait."""
     if run("docker", "info", timeout=30).returncode == 0:
@@ -129,6 +137,13 @@ def restart_site(why: str = "site was down") -> None:
     log(f"{why} — started it: rc={r.returncode} {r.stderr.strip()[-200:]}")
     if r.returncode != 0:
         notify("nearchant.com is down: docker compose up failed (see ~/Library/Logs/nearchant-standby.log)")
+
+
+def restart_tunnel() -> None:
+    r = compose("restart", "tunnel", timeout=120)
+    log(f"nearchant.com did not answer but the local site did — restarted the tunnel: rc={r.returncode}")
+    if r.returncode != 0:
+        notify("nearchant.com is down: restarting the Cloudflare tunnel failed")
 
 
 def backup_db() -> None:
@@ -198,6 +213,7 @@ def main() -> None:
     status["role"] = role()
     log(f"watchdog started, role {role()}")
     last_ok, last_sync = time.time(), 0.0
+    public_ok_at, last_tunnel_try = time.time(), 0.0
     last_restart_try, last_backup = 0.0, time.time() - BACKUP_EVERY_S + 600  # first backup 10 min after start
     if role() == "primary":
         restart_site("watchdog start while primary")  # after a Mac restart (waits for Docker Desktop)
@@ -223,9 +239,17 @@ def main() -> None:
                                                                      http_ok("https://www.cloudflare.com/cdn-cgi/trace", 8), down):
                         take_over()
             elif r == "primary":
-                if should_restart(http_ok("http://127.0.0.1:8797/health"), time.time() - last_restart_try):
+                local_ok = http_ok("http://127.0.0.1:8797/health")
+                if should_restart(local_ok, time.time() - last_restart_try):
                     last_restart_try = time.time()
                     restart_site()
+                public_ok = local_ok and http_ok("https://nearchant.com/health", 10)
+                if public_ok or not local_ok:
+                    public_ok_at = time.time()
+                elif should_restart_tunnel(local_ok, public_ok, http_ok("https://www.cloudflare.com/cdn-cgi/trace", 8),
+                                           time.time() - public_ok_at, time.time() - last_tunnel_try):
+                    last_tunnel_try = time.time()
+                    restart_tunnel()
                 if time.time() - last_backup >= BACKUP_EVERY_S:
                     last_backup = time.time()
                     backup_db()

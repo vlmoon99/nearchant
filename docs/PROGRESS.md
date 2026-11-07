@@ -1327,3 +1327,10 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 - **Speed**: thinking off on the nearai endpoint (opportunity analyst keeps it). Journey: posts live 146 s (morning:
   836 s), paid → Released 48 s, no page errors. GLM 5.3 Flash tried and dropped (slower per token; ignores the flag).
 - **Verified**: providers 29, swarm 41, worker 25, gateway 60, watchdog 8; `make demo` green; journey e2e green.
+
+## 2026-11-07 — tunnel outage, watchdog restarts the tunnel
+- Done: nearchant.com returned 530 for ~20 min. All containers were up and the local site answered; the Cloudflare
+  tunnel lost its connection at 09:02 UTC and did not reconnect. The watchdog only checked the local site, so it did
+  nothing. New rule (`should_restart_tunnel`): local site OK, nearchant.com down for 60 s, internet OK → restart the
+  tunnel (at most every 2 min).
+- Verified: 12 watchdog unit tests pass; live test — stopped the tunnel, the watchdog restarted it, site back in 62 s.
