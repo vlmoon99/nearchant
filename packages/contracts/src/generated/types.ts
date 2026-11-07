@@ -94,6 +94,12 @@ export interface Endpoint {
   model_map?: {
     [k: string]: string;
   };
+  /**
+   * If a model fails on this endpoint (outage, failed attestation), try these instead, in order. Each fallback gets its own attestation check; the replay key stays that of the requested model.
+   */
+  fallback_models?: {
+    [k: string]: string[];
+  };
   timeout_ms?: number;
   /**
    * Merged into every request body (e.g. chat_template_kwargs).

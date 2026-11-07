@@ -12,6 +12,12 @@ endpoints:
     # was 2-6K tokens per step (6 Nov: 9-14 min from photos to posts). Qwen3/GLM read enable_thinking, Kimi thinking.
     extra_body:
       chat_template_kwargs: { enable_thinking: false, thinking: false }
+    # A model outage on NEAR AI (8 Nov: Qwen3.6 502/503 for hours) must not stop the store: the same endpoint tries
+    # another TEE model, attested on its own. All three read photos.
+    fallback_models:
+      Qwen/Qwen3.6-35B-A3B-FP8: [Qwen/Qwen3.8-27B, moonshotai/kimi-k2.6]
+      Qwen/Qwen3.8-27B: [Qwen/Qwen3.6-35B-A3B-FP8, moonshotai/kimi-k2.6]
+      moonshotai/kimi-k2.6: [Qwen/Qwen3.8-27B]
     timeout_ms: 180000
 
   - id: cloud-image                      # Comfy Cloud via our image service; only pictures for posts that will be published

@@ -7,6 +7,8 @@ export interface Fake {
   hits: { path: string; body: any; auth?: string }[];
   /** Respond with this status for the next N chat calls. */
   failNext: (n: number, status?: number) => void;
+  /** Every chat call for this model answers 502 (a model outage). */
+  breakModel: (model: string) => void;
   close: () => Promise<void>;
 }
 
@@ -19,6 +21,7 @@ export async function fakeOpenAI(models: string[], reply = "ok"): Promise<Fake> 
   const sha = (x: string) => createHash("sha256").update(x).digest("hex");
   const answers = new Map<string, { model: string; request: string; response: string }>();
   let fails = 0;
+  const broken = new Set<string>();
   let failStatus = 500;
   const server: Server = createServer(async (req, res) => {
     let raw = "";
@@ -36,6 +39,7 @@ export async function fakeOpenAI(models: string[], reply = "ok"): Promise<Fake> 
       return res.end(JSON.stringify({ text, signature: sign(null, Buffer.from(text), tee.privateKey).toString("hex"), signing_address: teePub, signing_algo: "ed25519", signature_kind: "provider_tee" }));
     }
     if (path === "/v1/chat/completions") {
+      if (broken.has(body.model)) { res.statusCode = 502; return res.end(JSON.stringify({ error: "model down" })); }
       if (fails > 0) {
         fails--;
         res.statusCode = failStatus;
@@ -67,6 +71,7 @@ export async function fakeOpenAI(models: string[], reply = "ok"): Promise<Fake> 
     url: `http://127.0.0.1:${port}/v1`,
     hits,
     failNext: (n, status = 500) => { fails = n; failStatus = status; },
+    breakModel: (m) => { broken.add(m); },
     close: () => new Promise((r) => server.close(() => r())),
   };
 }

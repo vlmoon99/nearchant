@@ -179,6 +179,29 @@ describe("router", () => {
     expect((await r.call(chat())).endpointId).toBe("spark");
   });
 
+  it("a broken model falls back to the endpoint's backup; its circuit doesn't block the other models", async () => {
+    const tee = await fakeOpenAI(["Qwen/Qwen3.6-35B-A3B-FP8", "Qwen/Qwen3.8-27B", "moonshotai/kimi-k2.6"], "from-tee");
+    fakes.push(tee);
+    const config = {
+      endpoints: [{ id: "nearai", base_url: tee.url, privacy_tier: "tee", attestation: "nearai", capabilities: ["chat"],
+        fallback_models: { "Qwen/Qwen3.6-35B-A3B-FP8": ["Qwen/Qwen3.8-27B"] } }],
+      routing: { chat: ["nearai"], private_data_allowed_tiers: ["tee"] },
+      models: { chat: ["Qwen/Qwen3.6-35B-A3B-FP8"] },
+    } as never;
+    const r = Router.fromConfig(config, { ...quiet, env: {}, breaker: { failures: 2, cooldownMs: 60_000 } });
+    await r.discover();
+    tee.breakModel("Qwen/Qwen3.6-35B-A3B-FP8");
+    for (let i = 0; i < 3; i++) {
+      const env = await r.call(chat("private", "Qwen/Qwen3.6-35B-A3B-FP8"));
+      expect(env.model).toBe("Qwen/Qwen3.8-27B");                                       // answered by the backup
+      expect(env.attestation).toBeTruthy();                                            // with its own attestation
+    }
+    expect(r.health().nearai).toMatchObject({ openModels: ["Qwen/Qwen3.6-35B-A3B-FP8"] }); // only that model is off
+    expect((await r.call(chat("private", "moonshotai/kimi-k2.6"))).model).toBe("moonshotai/kimi-k2.6");
+    const same = await r.call(chat("private", "Qwen/Qwen3.6-35B-A3B-FP8"));
+    expect(same.requestHash).toBe((await r.call(chat("private", "Qwen/Qwen3.6-35B-A3B-FP8"))).requestHash); // replay key unchanged
+  });
+
   it("records live envelopes and replays them with no network", async () => {
     const { config } = await two();
     const dir = mkdtempSync(join(tmpdir(), "replay-"));

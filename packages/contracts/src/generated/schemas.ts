@@ -158,6 +158,16 @@ export const schemas = {
               "type": "string"
             }
           },
+          "fallback_models": {
+            "description": "If a model fails on this endpoint (outage, failed attestation), try these instead, in order. Each fallback gets its own attestation check; the replay key stays that of the requested model.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
           "timeout_ms": {
             "type": "integer",
             "minimum": 100,

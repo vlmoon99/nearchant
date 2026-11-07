@@ -24,8 +24,8 @@ export interface RouterOptions {
 interface EndpointState {
   adapter: CapabilityAdapter;
   catalog?: Set<string>;
-  failures: number;
-  openUntil: number;
+  /** Circuit breaker per model: one broken model must not take the endpoint's other models down with it. */
+  breakers: Map<string, { failures: number; openUntil: number }>;
 }
 
 const ATTEST_TTL_MS = 10 * 60_000;
@@ -58,7 +58,7 @@ export class Router {
     adapters: CapabilityAdapter[],
     opts: RouterOptions = {},
   ) {
-    for (const a of adapters) this.state.set(a.endpoint.id, { adapter: a, failures: 0, openUntil: 0 });
+    for (const a of adapters) this.state.set(a.endpoint.id, { adapter: a, breakers: new Map() });
     this.opts = {
       retries: 1,
       breaker: { failures: 3, cooldownMs: 30_000 },
@@ -112,7 +112,8 @@ export class Router {
   health() {
     const now = this.opts.now();
     return Object.fromEntries(
-      [...this.state.entries()].map(([id, s]) => [id, { open: s.openUntil > now, failures: s.failures, models: s.catalog?.size ?? null }]),
+      [...this.state.entries()].map(([id, s]) => [id, { open: [...s.breakers.values()].some((b) => b.openUntil > now), failures: [...s.breakers.values()].reduce((a, b) => a + b.failures, 0),
+        openModels: [...s.breakers.entries()].filter(([, b]) => b.openUntil > now).map(([m]) => m), models: s.catalog?.size ?? null }]),
     );
   }
 
@@ -135,12 +136,23 @@ export class Router {
         reasons[id] = "no preferred model served";
         continue;
       }
-      try {
-        return await this.callEndpoint(s, req, model ?? req.model ?? "", requestKey);
-      } catch (e) {
-        if (req.signal?.aborted) throw e;
-        reasons[id] = (e as Error).message;
-        this.opts.log("warn", `${req.capability} via ${id} failed: ${(e as Error).message}`);
+      // The requested model first, then this endpoint's fallbacks for it (an outage, a failed attestation). The
+      // replay key stays that of the request; the envelope names the model that answered.
+      const first = model ?? req.model ?? "";
+      const wanted = req.model ?? this.config.models?.[req.capability]?.[0] ?? first;
+      const backups = (ep.fallback_models?.[wanted] ?? []).map((m) => ep.model_map?.[m] ?? m).filter((m) => m !== first && (!s.catalog || s.catalog.has(m)));
+      for (const m of [first, ...backups]) {
+        const key = m === first ? id : `${id}:${m}`;
+        if (this.isOpen(s, m)) { reasons[key] = "circuit open"; continue; }
+        try {
+          const env = await this.callEndpoint(s, req, m, requestKey);
+          if (m !== first) this.opts.log("warn", `${req.capability} via ${id}: ${first} failed, answered by fallback ${m}`);
+          return env;
+        } catch (e) {
+          if (req.signal?.aborted) throw e;
+          reasons[key] = (e as Error).message;
+          this.opts.log("warn", `${req.capability} via ${id} (${m}) failed: ${(e as Error).message}`);
+        }
       }
     }
     throw new NoEndpointError(req.capability, reasons);
@@ -151,7 +163,6 @@ export class Router {
     if (req.dataClass === "private" && !this.config.routing.private_data_allowed_tiers.includes(ep.privacy_tier)) {
       return `privacy: ${ep.privacy_tier} tier not allowed for private data`;
     }
-    if (s.openUntil > this.opts.now()) return "circuit open";
     return undefined;
   }
 
@@ -174,7 +185,7 @@ export class Router {
       const started = this.opts.now();
       try {
         const r = await s.adapter.call(req.capability, req.input, { model, timeoutMs: req.timeoutMs ?? ep.timeout_ms ?? 120_000, signal: req.signal, requestKey, ...(req.reasoning === undefined ? {} : { reasoning: req.reasoning }) });
-        s.failures = 0;
+        this.breaker(s, model).failures = 0;
         const replayed = ep.adapter === "replay";
         const env: ResultEnvelope = {
           capability: req.capability,
@@ -205,16 +216,23 @@ export class Router {
         if (!retryable || req.signal?.aborted) break;
       }
     }
-    this.fail(s);
+    this.fail(s, model);
     throw lastErr;
   }
 
-  private fail(s: EndpointState) {
-    s.failures += 1;
-    if (s.failures >= this.opts.breaker.failures) {
-      s.openUntil = this.opts.now() + this.opts.breaker.cooldownMs;
-      s.failures = 0;
-      this.opts.log("warn", `circuit opened for ${s.adapter.endpoint.id} (${this.opts.breaker.cooldownMs} ms)`);
+  private breaker(s: EndpointState, model: string) {
+    let b = s.breakers.get(model);
+    if (!b) s.breakers.set(model, (b = { failures: 0, openUntil: 0 }));
+    return b;
+  }
+  private isOpen(s: EndpointState, model: string) { return (s.breakers.get(model)?.openUntil ?? 0) > this.opts.now(); }
+  private fail(s: EndpointState, model: string) {
+    const b = this.breaker(s, model);
+    b.failures += 1;
+    if (b.failures >= this.opts.breaker.failures) {
+      b.openUntil = this.opts.now() + this.opts.breaker.cooldownMs;
+      b.failures = 0;
+      this.opts.log("warn", `circuit opened for ${s.adapter.endpoint.id} ${model} (${this.opts.breaker.cooldownMs} ms)`);
     }
   }
 

@@ -1393,3 +1393,6 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
   message seen by the seller, reply on the buyer page in 4 s, decline & refund → buyer page "Refunded" at 80 s,
   no page errors. Screenshots checked (chat bubbles contrast fixed).
 - Not pushed: `make demo` needs the re-record (NEAR AI Qwen3.6 was down).
+- **Model fallback (ADR 0023 addendum 3)**: per-model circuit breaker + `fallback_models`; providers tests 30 (new:
+  broken model → backup with its own attestation, other models unaffected, replay key unchanged). Live during the
+  Qwen3.6 outage: answered by Qwen3.8, attested, signature verified. Deployed.

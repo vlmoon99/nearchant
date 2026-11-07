@@ -64,3 +64,12 @@ judgment matters more than speed.
   thinking off like the Sparks did, and only the opportunity analyst thinks (`reasoning: true`). Photos → live posts
   went from 836 s to 146 s. GLM 5.3 Flash was tried and dropped: it was slower per token and ignored the
   no-thinking flag.
+
+## Addendum 3 (8 Nov): model fallback, circuit breaker per model
+- NEAR AI's Qwen3.6 answered 502 (chat) and 503 (attestation) for hours on 8 Nov; photo analysis stopped for new
+  stores, and the endpoint-wide circuit breaker could have switched off the healthy models (Qwen3.8, Kimi) too.
+- Endpoints may list `fallback_models` (schema first). A failed model is retried on the same endpoint with its
+  backups, each attested on its own (private data still only after a passing report); the replay key stays that of
+  the requested model, the envelope names the model that answered. The breaker is now per model.
+- Cloud: Qwen3.6 → Qwen3.8 → Kimi K2.6; Qwen3.8 → Qwen3.6 → Kimi; Kimi → Qwen3.8 (all three read photos).
+  Verified live during the outage: vision for Qwen3.6 answered by Qwen3.8 in 6 s, attested, TEE signature verified.
