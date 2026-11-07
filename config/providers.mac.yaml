@@ -8,6 +8,9 @@ endpoints:
     privacy_tier: tee
     attestation: nearai
     capabilities: [chat, vision, decide]
+    fallback_models:                      # a NEAR AI model outage (ADR 0023 addendum 3)
+      Qwen/Qwen3.6-35B-A3B-FP8: [Qwen/Qwen3.8-27B, moonshotai/kimi-k2.6]
+      Qwen/Qwen3.8-27B: [Qwen/Qwen3.6-35B-A3B-FP8, moonshotai/kimi-k2.6]
     timeout_ms: 180000
 
   - id: cloud-image                      # Comfy Cloud via our image service; product photos for public posts only
