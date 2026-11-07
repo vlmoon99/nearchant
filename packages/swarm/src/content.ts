@@ -218,11 +218,14 @@ export async function checkCaption(router: ModelRouter, a: { caption: string; st
   return { invented_offer: Math.round(p * 1e4) / 1e4, flagged: p >= CAPTION_FLAG_AT, model: env.model, answer_hash: createHash("sha256").update(JSON.stringify(ans)).digest("hex"), at: new Date().toISOString() };
 }
 
-export const CAPTION_STYLES = ["shorter", "playful", "bolder"] as const;
+export const CAPTION_STYLES = ["shorter", "playful", "bolder", "custom", "fix"] as const;
 export type CaptionStyle = (typeof CAPTION_STYLES)[number];
-/** Rewrites a caption in one style (Figma Post ready chips); facts kept, nothing added. */
-export async function rewriteCaption(ask: Asker, a: { profile: StyleProfile; caption: string; style: CaptionStyle }): Promise<string> {
-  const raw = await ask<{ caption?: string }>("caption-editor", [block("style_profile", a.profile), block("caption", a.caption), `Style: ${a.style}`].join("\n\n"));
+/** Rewrites a caption in one style (Figma Post ready chips); facts kept, nothing added. "custom" follows the owner's
+ *  instruction, "fix" removes what the safety check flagged (the reason comes as `instruction`). Both are data blocks. */
+export async function rewriteCaption(ask: Asker, a: { profile: StyleProfile; caption: string; style: CaptionStyle; instruction?: string }): Promise<string> {
+  const extra = a.style === "custom" && a.instruction ? [block("owner_instruction", a.instruction.slice(0, 300))]
+    : a.style === "fix" && a.instruction ? [block("flagged_because", a.instruction.slice(0, 300))] : [];
+  const raw = await ask<{ caption?: string }>("caption-editor", [block("style_profile", a.profile), block("caption", a.caption), `Style: ${a.style}`, ...extra].join("\n\n"));
   const out = str(raw.caption, 2200);
   if (!out) throw new Error("caption-editor: empty caption");
   return out;

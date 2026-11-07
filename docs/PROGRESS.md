@@ -1366,3 +1366,18 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
   (`POST /api/app/wallet/claim`; never replaces an existing link on either side; exact-text HMAC compare). Favicon
   (the "N" mark) at /favicon.ico. Verified: gateway tests 63 (new: claim flow incl. tamper, favicon); live favicon
   200, claim without session 401. Cloudflare Web Analytics beacon turned off by the owner (CSP error gone).
+
+## 2026-11-08 — safety check before publishing; AI post editor (ADR 0024)
+- Cause found: the opportunity analyst proposed "a private Telegram channel for direct ordering"; posts written from
+  it were removed at publish time (2 violations on a real store). Prompts now forbid off-store ordering/payments.
+- Drafts get a check-only moderator verdict (`idea.safety`); flagged drafts can't be scheduled and are held (not
+  removed) at publish time. Editor: Fix with AI, Tell AI what to change, New picture (1 credit), Skip. Post now /
+  Best time show a live window (Live ✓ / Scheduled ✓ / Needs a small change); onboarding's "Post the first,
+  schedule the rest" no longer freezes on an error and lists held posts.
+- Store `vipelectronicsinc`: both violations undone, posts back to drafts with the reason; the bad opportunity
+  un-chosen.
+- Verified: worker tests 28, gateway 64 (new: held draft, check on drafts, picture refund, editor endpoints);
+  deployed; live check on a real draft → "fine" in 30 s (Kimi K2.6).
+- Not verified / blocked: NEAR AI Qwen3.6 answered 502/503 (chat and attestation) from ~10:00 UTC, so the demo could
+  not be re-recorded: `make demo` fails on the new prompts until it is. Not pushed. Levanto Sage answered 502 too.
+- Next: re-record the demo when Qwen3.6 is back, push; then orders (accept/decline) and buyer↔seller messages.

@@ -1,3 +1,4 @@
+import { safetyFlag } from "../post-safety.js";
 // Seller app pages (Figma "Web app (seller)" + "Mobile web" rows): Home, Create, Posts, Post detail with the proof.
 import type { FC } from "hono/jsx";
 import type { Business, Media, Opportunity, Post } from "@nearchant/db";
@@ -15,8 +16,10 @@ export const PostCard: FC<{ p: Post; img: Img }> = ({ p, img }) => (
   <a class="post" href={`/app/posts/${p.id}`} style="color:inherit">
     <div class="img" style={img(p.imageMediaId) ? `background-image:url('${img(p.imageMediaId)}')` : ""}></div>
     <span class="sub b">{clip(p.caption ?? (p.idea as { angle?: string })?.angle ?? "New post", 70)}</span>
-    <span class="foot muted">{when(p)}</span>
-    {p.removedAt ? <span class="cap" style="color:#c0392b">Removed by moderation — {clip(p.removedReason ?? "", 60)}</span> : p.proof ? <Badge /> : null}
+    <span class="foot muted">{p.status === "skipped" ? "Skipped" : when(p)}</span>
+    {p.removedAt ? <span class="cap" style="color:#a15c00">Hidden from buyers — {clip((p.removedReason ?? "").replace(/^[a-z]+: /, ""), 60)}</span>
+      : ["ready", "scheduled"].includes(p.status) && safetyFlag(p) ? <span class="cap b" style="color:#a15c00">Needs a small change — open to fix with AI</span>
+      : p.proof ? <Badge /> : null}
   </a>
 );
 
@@ -108,7 +111,7 @@ export const CreatePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; ph
 export const PostsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; posts: Post[]; img: Img; filter: string; batch?: string }> = ({ cfg, test, store, posts, img, filter, batch }) => {
   // ?batch=… right after Create: only that batch, with step 2 (AI making it) or 3 (review & publish).
   const inBatch = batch ? posts.filter((p) => p.batchId === batch) : [];
-  const shown = inBatch.length ? inBatch : filter === "all" ? posts : posts.filter((p) => p.status === filter);
+  const shown = inBatch.length ? inBatch : filter === "all" ? posts.filter((p) => p.status !== "skipped") : posts.filter((p) => p.status === filter);
   const pending = (inBatch.length ? inBatch : posts).some((p) => ["queued", "writing", "rendering"].includes(p.status));
   return (
     <Page cfg={cfg} test={test} title="Posts" active={inBatch.length ? "Create" : "Posts"} store={store}>
@@ -138,11 +141,20 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
   const check = (p.idea as { check?: { invented_offer: number; flagged: boolean } } | null)?.check;
   const rewrite = (p.idea as { rewrite?: { status: string; style: string } } | null)?.rewrite;
   const rewriting = rewrite?.status === "writing";
+  const picture = (p.idea as { picture?: { status: string; error?: string; startedAt?: number } } | null)?.picture;
+  const repainting = picture?.status === "writing" && Date.now() - (picture.startedAt ?? 0) < 10 * 60_000;
+  const editable = ["ready", "scheduled"].includes(p.status);
+  const needsChange = safetyFlag(p);
+  const checked = (p.idea as { safety?: unknown } | null)?.safety && !needsChange;
+  const refresh = rewriting || repainting ? { "data-refresh": "4000" } : {};
   return (
     <Page cfg={cfg} test={test} title="Post" active="Posts" store={store}>
       <a class="sub" href="/app/posts">‹ Posts</a>
-      {p.removedAt ? <div class="card" style="background:#ffe5e3;gap:4px"><span class="callout b">This post was removed by moderation</span>
-        <span class="foot">{p.removedReason}. Buyers don’t see it. If you think this is a mistake, reply to the email we sent — a person will look at it.</span></div> : null}
+      {p.removedAt ? <div class="card" style="background:#fff3c4;gap:4px"><span class="callout b">Hidden from buyers</span>
+        <span class="foot">Our safety check found: {(p.removedReason ?? "").replace(/^[a-z]+: /, "")} If you think this is a mistake, reply to the email we sent — a person will look at it.</span></div> : null}
+      {editable && needsChange ? <div class="card" style="background:#fff3c4;gap:8px"><span class="callout b">Needs a small change before it can go live</span>
+        <span class="foot">Our safety check found: {needsChange} Nothing is published until you change it.</span>
+        <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" data-rewrite="fix" data-post={p.id}><Icon n="sparkles" />Fix with AI</button><span class="foot muted" style="align-self:center">or edit the caption below</span></div></div> : null}
       <PageHead kicker={clip(p.caption ?? "Post", 60)} title={p.status === "published" ? "Posted" : p.status === "scheduled" ? "Scheduled" : p.status === "ready" ? "Your post is ready" : "Post details"} />
       <div class="cols post-cols">
         <div class="stack s12">
@@ -152,15 +164,23 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
             <span class="foot">Our AI check (Levanto Sage on NEAR AI) thinks it may promise something your store doesn’t say — a discount, free delivery, a gift, a deadline or a different price ({Math.round(check.invented_offer * 100)}% sure). Edit it, or post it if the offer is real.</span></div> : null}
           <textarea class="input" id="caption" data-post={p.id} rows={6}>{p.caption ?? ""}</textarea>
           <span class="sub accent">{((p.hashtags as string[]) ?? []).map((h) => `#${h}`).join(" ")}</span>
-          {["ready", "scheduled"].includes(p.status) ? <div class="row" style="gap:8px;flex-wrap:wrap" {...(rewriting ? { "data-refresh": "4000" } : {})}>
-            {rewriting ? <span class="foot muted">AI is rewriting the caption ({rewrite!.style})…</span>
-              : ([["shorter", "Shorter"], ["playful", "Playful"], ["bolder", "Bolder"]] as const).map(([k, l]) => <button class="chip" data-rewrite={k} data-post={p.id}><Icon n="sparkles" s={14} />{l}</button>)}
-          </div> : null}
           <div class="row" style="gap:8px"><button class="btn secondary" id="save-caption" data-post={p.id}>Save caption</button><output class="foot" id="post-out"></output></div>
+          {editable ? <div class="card" style="gap:10px" {...refresh}><span class="headline">Edit with AI</span>
+            {rewriting ? <span class="sub">AI is rewriting the caption…</span> : repainting ? <span class="sub">AI is making a new picture — about a minute. This page refreshes by itself.</span> : <>
+              {picture?.status === "failed" ? <span class="foot" style="color:#c0392b">New picture: {picture.error ?? "failed"}</span> : null}
+              {rewrite?.status === "failed" ? <span class="foot" style="color:#c0392b">Rewrite: {(rewrite as { error?: string }).error ?? "failed"}</span> : null}
+              <div class="row" style="gap:8px;flex-wrap:wrap">{([["shorter", "Shorter"], ["playful", "Playful"], ["bolder", "Bolder"]] as const).map(([k, l]) => <button class="chip" data-rewrite={k} data-post={p.id}><Icon n="sparkles" s={14} />{l}</button>)}</div>
+              <textarea class="input" id="ai-ask" rows={2} maxlength={300} placeholder="Tell AI what to change, e.g. “mention free engraving” or “darker background, show it on black velvet”"></textarea>
+              <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn secondary" data-ask-caption={p.id}><Icon n="sparkles" />Rewrite caption</button>
+                <button class="btn secondary" data-new-picture={p.id}><Icon n="sparkle" />New picture</button></div>
+              <span class="cap muted">A new picture uses 1 picture credit. Every change is checked again before it goes live.</span></>}
+          </div> : null}
         </div>
         <div class="stack">
-          <div class="card"><span class="headline">Status</span><span class="sub">{when(p)}</span>
-            {["ready", "scheduled"].includes(p.status) ? <div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn" data-schedule={p.id} data-when="best"><Icon n="calendar" />Best time</button><button class="btn secondary" data-schedule={p.id} data-when="now"><Icon n="send" />Post now</button></div> : null}
+          <div class="card"><span class="headline">Status</span><span class="sub">{p.status === "skipped" ? "Skipped — not published" : when(p)}</span>
+            {editable ? <span class="foot muted">{needsChange ? "Safety check: needs a change" : checked ? "Safety check: ✓ fine" : "Safety check: runs before it goes live"}</span> : null}
+            {editable ? <div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn" data-schedule={p.id} data-store={store.handle} data-when="now" {...(needsChange ? { disabled: true } : {})}><Icon n="send" />Post now</button><button class="btn secondary" data-schedule={p.id} data-store={store.handle} data-when="best" {...(needsChange ? { disabled: true } : {})}><Icon n="calendar" />Best time</button>
+              <button class="btn secondary" data-skip={p.id}>Skip this post</button></div> : null}
           </div>
           {["ready", "scheduled", "published"].includes(p.status) ? <div class="card" {...(making ? { "data-refresh": "6000" } : {})}><span class="headline">Video</span>
             {making ? <span class="sub">AI is making a 15-second video with an English voiceover and captions — about 3 minutes. This page refreshes by itself.</span>

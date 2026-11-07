@@ -208,5 +208,14 @@ export function makeMarketTasks(d: MarketTaskDeps) {
       await d.feed.pruneIps();
     },
   };
-  return { tasks, moderate, weekLines };
+  /** The moderator's verdict on a draft, nothing removed and no violation counted (the post editor shows it). */
+  async function precheck(postId: string): Promise<ModVerdict | null> {
+    const p = await d.content.getPost(postId);
+    if (!p?.caption) return null;
+    const b = await d.content.getBusiness(p.handle);
+    const key = p.imageMediaId ? (await d.content.getMedia(p.imageMediaId))?.key : null;
+    const image = key ? await photoDataUrl(join(d.mediaDir, key)).catch(() => null) : null;
+    return moderatePost(ask(p.handle, "moderate"), { caption: p.caption, hashtags: (p.hashtags as string[]) ?? [], store: b?.name ?? p.handle, storeDescription: b?.description ?? "", image, report: null });
+  }
+  return { tasks, moderate, precheck, weekLines };
 }

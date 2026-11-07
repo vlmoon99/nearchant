@@ -50,23 +50,26 @@ describe("moderation agent", () => {
     expect(t.decided).toEqual([[7, "auto_kept"]]);
   });
 
-  it("publishing: a post the moderator removes gets no proof on NEAR", async () => {
+  it("publishing: a post the safety check flags goes back to the owner as a draft — not published, not removed", async () => {
     const post: Record<string, unknown> = { id: "p1", handle: "shoes", status: "scheduled", caption: "x", imageMediaId: null, idea: {} };
     const proofs: string[] = [];
     const tasks = makeContentTasks({
       content: { getPost: async () => post, getMedia: async () => null, updatePost: async (_: string, p: Record<string, unknown>) => { Object.assign(post, p); } },
       envelopes: { add: async () => {} }, router: {}, env, mediaDir: "/tmp", accountOf: (h: string) => h, decimals: 6, log: () => {},
-      outbox: { enqueue: async (k: string) => { proofs.push(k); } }, moderateBeforePublish: async () => true,
+      outbox: { enqueue: async (k: string) => { proofs.push(k); } },
+      safetyCheck: async () => ({ violation: true, category: "scam", confidence: 0.75, summary: "Asks buyers to order in a private channel", at: "t" }),
     } as unknown as ContentTaskDeps);
     await tasks.publish_post!({ postId: "p1" }, { addJob: async () => {} } as never);
-    expect(post.status).toBe("published");
+    expect(post.status).toBe("ready");
+    expect(post.publishedAt).toBeUndefined();
+    expect((post.idea as { safety: { flagged: boolean; held: boolean; summary: string } }).safety).toMatchObject({ flagged: true, held: true, summary: "Asks buyers to order in a private channel" });
     expect(proofs).toEqual([]);
     // A moderation outage never blocks publishing.
     post.status = "scheduled";
     const t2 = makeContentTasks({
       content: { getPost: async () => post, getMedia: async () => null, updatePost: async (_: string, p: Record<string, unknown>) => { Object.assign(post, p); } },
       envelopes: { add: async () => {} }, router: {}, env, mediaDir: "/tmp", accountOf: (h: string) => h, decimals: 6, log: () => {},
-      outbox: { enqueue: async (k: string) => { proofs.push(k); } }, moderateBeforePublish: async () => { throw new Error("model down"); },
+      outbox: { enqueue: async (k: string) => { proofs.push(k); } }, safetyCheck: async () => { throw new Error("model down"); },
     } as unknown as ContentTaskDeps);
     await t2.publish_post!({ postId: "p1" }, { addJob: async () => {} } as never);
     expect(proofs).toEqual(["proof:post:p1"]);

@@ -14,5 +14,8 @@ Give 3 or 4 opportunities, at most one of each kind. "trend": something buyers s
 matches the store's products (only from the search results). "price": only if items have prices — whether a price
 is clearly below or above similar offers in the results; never invent competitor prices. "upsell": a bundle or
 add-on that buyers of one item are likely to want, from the store's own products. "channel": where the store's
-buyers are (Telegram, Instagram, a marketplace) with a reason. The estimate is a cautious monthly revenue gain in
+buyers are (Telegram, Instagram, a marketplace) with a reason — a place to SHARE the store's posts and store link.
+Buyers always order and pay in the store (escrow on NEAR): never suggest taking orders or payments anywhere else
+(private channels, DMs, chats, invite links, direct contact, bank transfer). That breaks the platform rules and the
+post would be removed. The estimate is a cautious monthly revenue gain in
 USD for a small store (usually 30–300); it is an estimate, not a promise. Skip a kind rather than guess.

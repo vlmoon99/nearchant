@@ -9,7 +9,7 @@ import type { ResultEnvelope } from "@nearchant/contracts";
 import { assSubtitles, compose, pickAccent, totalSeconds } from "./video-compose.js";
 import type { Tts } from "./tts.js";
 import { NO_TEXT, applyHeadline, headlineAss } from "./image-text.js";
-import { block, rewriteCaption, type CaptionStyle, checkCaption, type CaptionCheck, writeVideoScript, analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type ShopperDemand, type StyleProfile } from "@nearchant/swarm";
+import { block, shouldRemove, type ModVerdict, rewriteCaption, type CaptionStyle, checkCaption, type CaptionCheck, writeVideoScript, analyzeBusiness, factsFromProfile, findOpportunities, learnTaste, makeAsker, writePostOptions, type OwnerMemory, type AgentEnv, type ModelRouter, type SearchResult, type ShopperDemand, type StyleProfile } from "@nearchant/swarm";
 
 export interface ContentTaskDeps {
   content: ContentStore;
@@ -28,8 +28,9 @@ export interface ContentTaskDeps {
   video?: { render: (prompt: string, picture: Buffer) => Promise<Buffer>; tts: Tts; fontsDir: string; storeLink?: (handle: string) => string };
   /** Fonts for text we put on pictures and videos (headline strip, captions). */
   fontsDir?: string;
-  /** Moderation before a post goes public (ADR 0022): true = the moderator removed it. Errors never block publishing. */
-  moderateBeforePublish?: (postId: string) => Promise<boolean>;
+  /** The moderator's verdict on a draft (ADR 0022), without removing anything or counting a violation: run when a
+   *  post is written or edited and again just before it goes public. Errors never block publishing. */
+  safetyCheck?: (postId: string) => Promise<ModVerdict | null>;
   /** Shop-feed numbers for "What AI noticed" (ADR 0022); absent in the demo, so its recordings stay valid. */
   marketNumbers?: (handle: string) => Promise<Record<string, unknown>>;
   /** Shop-feed demand in the store's country (ADR 0022) for the opportunity analyst. */
@@ -66,6 +67,12 @@ export function postProofEntry(p: { id: string; caption: string; imageSha256: st
 export async function photoDataUrl(path: string): Promise<string> {
   const jpg = await sharp(await readFile(path)).rotate().resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
   return `data:image/jpeg;base64,${jpg.toString("base64")}`;
+}
+
+/** What the post editor shows about the safety check; `caption_hash` ties it to the caption it judged. */
+export function safetyOf(v: ModVerdict, caption: string, image: string | null, held = false) {
+  return { flagged: shouldRemove(v), category: v.category, summary: v.summary, confidence: v.confidence, at: v.at,
+    caption_hash: createHash("sha256").update(caption).digest("hex"), image, ...(held ? { held: true } : {}) };
 }
 
 export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
@@ -127,6 +134,55 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
 
   // Posts: one idea-writer call for the batch, then caption → image per option. A missing image engine is not
   // fatal: the option shows the store's own photo and the owner can still use it.
+  /** One post picture: restyle the product photo (or paint from nothing), retry a blank render, re-roll one with
+   *  text artifacts, then add the headline strip. Null ids = the engine failed (the caller falls back to the photo). */
+  async function renderPicture(handle: string, postId: string, a: { prompt: string; headline?: string | null; src?: { id: string; key: string }; brandColors?: string[]; suffix?: string }): Promise<{ imageMediaId: string | null; cleanMediaId: string | null }> {
+    let imageMediaId: string | null = null, cleanMediaId: string | null = null;
+    try {
+    const prompt = a.prompt + NO_TEXT, src = a.src;
+      const photoB64 = src ? (await photoDataUrl(join(d.mediaDir, src.key))).split(",", 2)[1]! : null;
+      const renderOnce = async (): Promise<Buffer | null> => {
+        const lab = d.labRender ? await d.labRender(prompt, photoB64 ? Buffer.from(photoB64, "base64") : null) : null;
+        if (lab) return lab;
+        const input: Record<string, unknown> = { prompt, n: 1, size: "1024x1280" };
+        if (photoB64) input.image_b64 = photoB64;
+        // Product photos for posts that will be published: public data, so a cloud renderer (Comfy Cloud) may take them.
+        const env = await d.router.call({ capability: "image.generate", dataClass: "public", input, timeoutMs: 300_000 });
+        await d.envelopes.add(`content:${handle}:render`, "render", d.accountOf(handle), env);
+        const b64 = (env.output as { images?: { b64?: string }[] }).images?.[0]?.b64;
+        return b64 ? Buffer.from(b64, "base64") : null;
+      };
+      // A blank (all-black / one-colour) picture is a failed render: one retry, then the product photo.
+      const blank = async (b: Buffer | null) => !b || (await sharp(b).stats()).channels.slice(0, 3).every((c) => c.stdev < 4);
+      let bytes = await renderOnce();
+      if (await blank(bytes)) { d.log(`render ${postId}: blank picture — retry`); bytes = await renderOnce(); if (await blank(bytes)) bytes = null; }
+      // Models garble lettering and even invent brand labels (a "ZARA" tag on our jacket): a picture with text gets
+      // one re-roll. A real label on a restyled product photo may cost one extra render — acceptable.
+      if (bytes && (await hasTextArtifacts(bytes))) { d.log(`render ${postId}: text in the picture — one re-roll`); bytes = (await renderOnce()) ?? bytes; }
+      if (bytes) {
+        const key = `${handle}/gen/${postId}${a.suffix ?? ""}.png`;
+        await mkdir(join(d.mediaDir, handle, "gen"), { recursive: true });
+        await writeFile(join(d.mediaDir, key), bytes);
+        const sha = (b: Buffer) => createHash("sha256").update(b).digest("hex");
+        cleanMediaId = await d.content.addMedia({ handle, kind: "generated", key, contentType: "image/png", sha256: sha(bytes) });
+        imageMediaId = cleanMediaId;
+        // The headline strip goes on in our font and the brand colour; the clean picture stays for videos.
+        if (a.headline && d.fontsDir) {
+          try {
+            const meta = await sharp(bytes).metadata();
+            const assFile = join(d.mediaDir, handle, "gen", `${postId}${a.suffix ?? ""}-h.ass`), hKey = `${handle}/gen/${postId}${a.suffix ?? ""}-h.png`;
+            await writeFile(assFile, headlineAss(a.headline, meta.width ?? 1024, meta.height ?? 1280, pickAccent(a.brandColors)));
+            await applyHeadline({ input: join(d.mediaDir, key), output: join(d.mediaDir, hKey), ass: assFile, fontsDir: d.fontsDir });
+            imageMediaId = await d.content.addMedia({ handle, kind: "generated", key: hKey, contentType: "image/png", sha256: sha(await readFile(join(d.mediaDir, hKey))) });
+          } catch (e) { d.log(`headline ${postId}: ${(e as Error).message.slice(0, 160)} — plain picture`); }
+        }
+      }
+    } catch (e) {
+      d.log(`render ${postId}: ${(e as Error).message.slice(0, 160)} — using the product photo`);
+    }
+    return { imageMediaId, cleanMediaId };
+  }
+
   const generatePostsTask: Task = async (payload, helpers) => {
     const { handle, batchId } = payload as { handle: string; batchId: string };
     const prof = await d.content.getProfile(handle);
@@ -161,49 +217,7 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
       if (!dr) { await d.content.failPost(p.id, "the model wrote fewer options than asked"); continue; }
       const src = dr.photo ? photos[dr.photo - 1] : undefined;
       await d.content.updatePost(p.id, { status: "rendering", caption: dr.caption, hashtags: dr.hashtags, idea: { ...dr, ...(writer ? { writer } : {}) }, sourceMediaId: src?.id ?? null });
-      let imageMediaId: string | null = null, cleanMediaId: string | null = null;
-      try {
-        const prompt = (dr.image_prompt || dr.angle) + NO_TEXT;
-        const photoB64 = src ? (await photoDataUrl(join(d.mediaDir, src.key))).split(",", 2)[1]! : null;
-        const renderOnce = async (): Promise<Buffer | null> => {
-          const lab = d.labRender ? await d.labRender(prompt, photoB64 ? Buffer.from(photoB64, "base64") : null) : null;
-          if (lab) return lab;
-          const input: Record<string, unknown> = { prompt, n: 1, size: "1024x1280" };
-          if (photoB64) input.image_b64 = photoB64;
-          // Product photos for posts that will be published: public data, so a cloud renderer (Comfy Cloud) may take them.
-          const env = await d.router.call({ capability: "image.generate", dataClass: "public", input, timeoutMs: 300_000 });
-          await d.envelopes.add(`content:${handle}:render`, "render", d.accountOf(handle), env);
-          const b64 = (env.output as { images?: { b64?: string }[] }).images?.[0]?.b64;
-          return b64 ? Buffer.from(b64, "base64") : null;
-        };
-        // A blank (all-black / one-colour) picture is a failed render: one retry, then the product photo.
-        const blank = async (b: Buffer | null) => !b || (await sharp(b).stats()).channels.slice(0, 3).every((c) => c.stdev < 4);
-        let bytes = await renderOnce();
-        if (await blank(bytes)) { d.log(`render ${p.id}: blank picture — retry`); bytes = await renderOnce(); if (await blank(bytes)) bytes = null; }
-        // Models garble lettering and even invent brand labels (a "ZARA" tag on our jacket): a picture with text gets
-        // one re-roll. A real label on a restyled product photo may cost one extra render — acceptable.
-        if (bytes && (await hasTextArtifacts(bytes))) { d.log(`render ${p.id}: text in the picture — one re-roll`); bytes = (await renderOnce()) ?? bytes; }
-        if (bytes) {
-          const key = `${handle}/gen/${p.id}.png`;
-          await mkdir(join(d.mediaDir, handle, "gen"), { recursive: true });
-          await writeFile(join(d.mediaDir, key), bytes);
-          const sha = (b: Buffer) => createHash("sha256").update(b).digest("hex");
-          cleanMediaId = await d.content.addMedia({ handle, kind: "generated", key, contentType: "image/png", sha256: sha(bytes) });
-          imageMediaId = cleanMediaId;
-          // The headline strip goes on in our font and the brand colour; the clean picture stays for videos.
-          if (dr.headline && d.fontsDir) {
-            try {
-              const meta = await sharp(bytes).metadata();
-              const assFile = join(d.mediaDir, handle, "gen", `${p.id}-h.ass`), hKey = `${handle}/gen/${p.id}-h.png`;
-              await writeFile(assFile, headlineAss(dr.headline, meta.width ?? 1024, meta.height ?? 1280, pickAccent(profile.brand_colors)));
-              await applyHeadline({ input: join(d.mediaDir, key), output: join(d.mediaDir, hKey), ass: assFile, fontsDir: d.fontsDir });
-              imageMediaId = await d.content.addMedia({ handle, kind: "generated", key: hKey, contentType: "image/png", sha256: sha(await readFile(join(d.mediaDir, hKey))) });
-            } catch (e) { d.log(`headline ${p.id}: ${(e as Error).message.slice(0, 160)} — plain picture`); }
-          }
-        }
-      } catch (e) {
-        d.log(`render ${p.id}: ${(e as Error).message.slice(0, 160)} — using the product photo`);
-      }
+      const { imageMediaId, cleanMediaId } = await renderPicture(handle, p.id, { prompt: dr.image_prompt || dr.angle, headline: dr.headline, ...(src ? { src } : {}), brandColors: profile.brand_colors });
       await d.content.updatePost(p.id, { status: "ready", imageMediaId: imageMediaId ?? src?.id ?? null, error: imageMediaId ? null : "image engine unavailable — showing your photo",
         ...(cleanMediaId && cleanMediaId !== imageMediaId ? { idea: { ...dr, ...(writer ? { writer } : {}), cleanImageMediaId: cleanMediaId } } : {}) });
       await helpers.addJob("check_post", { postId: p.id }, { jobKey: `check:${p.id}`, maxAttempts: 2 });
@@ -252,6 +266,15 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
       await helpers.addJob("publish_post", { postId }, { jobKey: `publish:${postId}`, runAt: p.scheduledAt, maxAttempts: 3 });
       return;
     }
+    // The safety check looks last, on exactly what goes public. A flagged post is not published and not "removed":
+    // it goes back to the owner as a draft with the reason (no violation — nobody saw it).
+    let verdict: ModVerdict | null = null;
+    try { verdict = (await d.safetyCheck?.(p.id)) ?? null; } catch (e) { d.log(`safety check before publish failed (${(e as Error).message}) — publishing, checked again later`); }
+    if (verdict && shouldRemove(verdict)) {
+      await d.content.updatePost(p.id, { status: "ready", scheduledAt: null, idea: { ...(p.idea as object), safety: safetyOf(verdict, p.caption ?? "", p.imageMediaId ?? null, true) } });
+      d.log(`publish ${p.id}: held — ${verdict.category}: ${verdict.summary}`);
+      return;
+    }
     let publicKey: string | null = null;
     const m = p.imageMediaId ? await d.content.getMedia(p.imageMediaId) : null;
     if (m) {
@@ -261,12 +284,9 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     }
     const vid = (p.idea as { video?: { status?: string; key?: string } }).video;
     const publicVideo = vid?.status === "ready" && vid.key ? await publishVideo(p.handle, p.id, vid.key) : null;
-    // The moderator looks first; a removed post is marked removed and gets no proof (it never shows publicly).
-    let removed = false;
-    try { removed = (await d.moderateBeforePublish?.(p.id)) ?? false; } catch (e) { d.log(`moderation before publish failed (${(e as Error).message}) — publishing, checked again later`); }
     const fresh = (await d.content.getPost(p.id)) ?? p;
-    await d.content.updatePost(p.id, { status: "published", publishedAt: new Date(), idea: { ...(fresh.idea as object), publicImage: publicKey, ...(publicVideo ? { publicVideo } : {}) } });
-    if (removed) { d.log(`published ${p.id} — removed by moderation, not shown`); return; }
+    await d.content.updatePost(p.id, { status: "published", publishedAt: new Date(), ...(verdict ? { moderation: verdict } : {}),
+      idea: { ...(fresh.idea as object), publicImage: publicKey, ...(publicVideo ? { publicVideo } : {}), ...(verdict ? { safety: safetyOf(verdict, p.caption ?? "", p.imageMediaId ?? null) } : {}) } });
     await d.outbox.enqueue(`proof:post:${p.id}`, "post.proof", { postId: p.id, handle: p.handle, entry: postProofEntry({ id: p.id, caption: p.caption ?? "", imageSha256: m?.sha256 ?? null, idea: p.idea }) });
     await d.afterPublish?.(p.id).catch((e) => d.log(`after publish ${p.id}: ${(e as Error).message}`));
     d.log(`published ${p.id}`);
@@ -350,18 +370,52 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     } catch (e) {
       d.log(`check ${p.id} skipped: ${(e as Error).message.slice(0, 160)}`);
     }
+    // The safety check on the draft, so the owner sees a problem before publishing (not a removal after).
+    try {
+      const v = await d.safetyCheck?.(postId);
+      const now = await d.content.getPost(postId);
+      if (v && now && now.caption === p.caption && now.imageMediaId === p.imageMediaId) {
+        await d.content.updatePost(p.id, { idea: { ...(now.idea as object), safety: safetyOf(v, p.caption, p.imageMediaId ?? null) } });
+        d.log(`safety ${p.id}: ${v.category}${shouldRemove(v) ? " — NEEDS A CHANGE" : ""}`);
+      }
+    } catch (e) { d.log(`safety ${p.id} skipped: ${(e as Error).message.slice(0, 160)}`); }
+  };
+
+  // "New picture" in the post editor: the same picture step again, optionally with the owner's change. 1 picture
+  // credit (reserved by the gateway), refunded when the engine fails.
+  const remakePictureTask: Task = async (payload, helpers) => {
+    const { postId, instruction } = payload as { postId: string; instruction?: string };
+    const p = await d.content.getPost(postId);
+    if (!p) return;
+    const idea = (p.idea ?? {}) as Record<string, unknown>;
+    const done = async (picture: Record<string, unknown>, patch: Record<string, unknown> = {}) => {
+      const now = (await d.content.getPost(p.id)) ?? p;
+      await d.content.updatePost(p.id, { ...patch, idea: { ...(now.idea as object), ...(patch.idea as object | undefined), picture } });
+    };
+    if (!["ready", "scheduled"].includes(p.status)) { await d.content.refund(p.handle, 0, 1); await done({ status: "failed", error: "the post is no longer editable" }); return; }
+    const profile = (await d.content.getProfile(p.handle))?.data as StyleProfile | undefined;
+    const src = p.sourceMediaId ? await d.content.getMedia(p.sourceMediaId) : null;
+    const base = String(idea.image_prompt ?? idea.angle ?? p.caption ?? "");
+    const prompt = instruction ? `${base}. The owner's change: ${instruction.slice(0, 300)}` : base;
+    const r = await renderPicture(p.handle, p.id, { prompt, headline: (idea.headline as string | undefined) ?? null, ...(src ? { src } : {}), brandColors: profile?.brand_colors ?? [], suffix: `-r${Date.now().toString(36)}` });
+    if (!r.imageMediaId) { await d.content.refund(p.handle, 0, 1); await done({ status: "failed", error: "the picture engine did not answer — your credit is back" }); return; }
+    await done({ status: "ready", at: new Date().toISOString() }, { imageMediaId: r.imageMediaId, idea: { ...(r.cleanMediaId && r.cleanMediaId !== r.imageMediaId ? { cleanImageMediaId: r.cleanMediaId } : { cleanImageMediaId: null }) } });
+    await helpers.addJob("check_post", { postId: p.id }, { jobKey: `check:${p.id}`, maxAttempts: 2 });
+    d.log(`picture ${p.id}: remade`);
   };
 
   // Caption chips (Figma Post ready): rewrite in one style, then check the new caption again.
   const rewriteCaptionTask: Task = async (payload, helpers) => {
-    const { postId, style } = payload as { postId: string; style: CaptionStyle };
+    const { postId, style, instruction } = payload as { postId: string; style: CaptionStyle; instruction?: string };
     const p = await d.content.getPost(postId);
     if (!p) return;
     const idea = (p.idea ?? {}) as Record<string, unknown>;
+    // "fix": the reason comes from our own safety check, never from the request.
+    const why = style === "fix" ? String((idea.safety as { summary?: string } | undefined)?.summary ?? "") : instruction;
     if (!p.caption || !["ready", "scheduled"].includes(p.status)) { await d.content.updatePost(p.id, { idea: { ...idea, rewrite: { status: "failed", style, error: "the post is no longer editable" } } }); return; }
     try {
       const profile = (await d.content.getProfile(p.handle))?.data as StyleProfile;
-      const caption = await rewriteCaption(askFor(p.handle, "rewrite"), { profile, caption: p.caption, style });
+      const caption = await rewriteCaption(askFor(p.handle, "rewrite"), { profile, caption: p.caption, style, ...(why ? { instruction: why } : {}) });
       // The post may have been published (proof bound to the old caption) or edited while the model answered.
       const now = await d.content.getPost(p.id);
       if (!now || !["ready", "scheduled"].includes(now.status) || now.caption !== p.caption) {
@@ -376,5 +430,5 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     }
   };
 
-  return { rewrite_caption: rewriteCaptionTask, check_post: checkPostTask, make_video: makeVideoTask, write_insights: writeInsightsTask, publish_post: publishPostTask, analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
+  return { remake_picture: remakePictureTask, rewrite_caption: rewriteCaptionTask, check_post: checkPostTask, make_video: makeVideoTask, write_insights: writeInsightsTask, publish_post: publishPostTask, analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
 }

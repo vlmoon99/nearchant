@@ -6,6 +6,7 @@ import { join, normalize } from "node:path";
 import sharp from "sharp";
 import type { Context, Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
+import { safetyCurrent, safetyFlag } from "./post-safety.js";
 import type { ContentStore } from "@nearchant/db";
 import { QuotaExceeded } from "@nearchant/db";
 import type { HandleRecord } from "@nearchant/near";
@@ -392,21 +393,59 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     return c.json({ status: "writing" }, 202);
   }));
   // Caption chips: AI rewrites the caption shorter / playful / bolder (not after publishing — the proof is bound to it).
+  // One post's live state for the editor and the "Publishing…" window (status, safety check, picture, video).
+  app.get("/api/app/posts/:id", (c) => authed(c, async (handle) => {
+    const p = await d.content.getPost(c.req.param("id"));
+    if (!p || p.handle !== handle) return c.json({ error: "not found" }, 404);
+    const m = p.imageMediaId ? await d.content.getMedia(p.imageMediaId) : null;
+    const idea = (p.idea ?? {}) as Record<string, unknown>;
+    return c.json({ id: p.id, status: p.status, removed: !!p.removedAt, removedReason: p.removedReason ?? null, proof: p.proof ?? null, caption: p.caption,
+      imageUrl: m ? `/files/${m.key}` : null, needsChange: safetyFlag(p), safetyChecked: safetyCurrent(p) !== null,
+      picture: idea.picture ?? null, rewrite: idea.rewrite ?? null, video: idea.video ?? null });
+  }));
+  // "New picture": the picture step again, optionally with the owner's change (1 picture credit).
+  app.post("/api/app/posts/:id/picture", (c) => authed(c, async (handle) => {
+    const p = await d.content.getPost(c.req.param("id"));
+    if (!p || p.handle !== handle) return c.json({ error: "not found" }, 404);
+    if (!["ready", "scheduled"].includes(p.status)) return c.json({ error: "a published post keeps its picture" }, 409);
+    const pic = ((p.idea ?? {}) as { picture?: { status?: string; startedAt?: number } }).picture;
+    if (pic?.status === "writing" && now() - (pic.startedAt ?? now()) < 10 * 60_000) return c.json({ status: "writing" }, 202);
+    const instruction = String((await json(c)).instruction ?? "").trim().slice(0, 300);
+    try { await d.content.reserve(handle, 0, 1, (await d.content.getBusiness(handle))?.plan ?? "free"); }
+    catch (e) { if (e instanceof QuotaExceeded) return c.json({ error: e.message, code: "quota_exceeded" }, 402); throw e; }
+    await d.content.updatePost(p.id, { idea: { ...(p.idea as object), picture: { status: "writing", startedAt: now() } } });
+    await d.enqueue("remake_picture", { postId: p.id, ...(instruction ? { instruction } : {}) }, `picture:${p.id}:${now()}`);
+    return c.json({ status: "writing" }, 202);
+  }));
+  // "Skip this post": it leaves the drafts (and the AI learns the owner passed on that angle).
+  app.post("/api/app/posts/:id/skip", (c) => authed(c, async (handle) => {
+    const p = await d.content.getPost(c.req.param("id"));
+    if (!p || p.handle !== handle) return c.json({ error: "not found" }, 404);
+    if (p.status === "published") return c.json({ error: "a published post can't be skipped" }, 409);
+    await d.content.updatePost(p.id, { status: "skipped", passedAt: new Date(now()), scheduledAt: null });
+    await d.content.addSignal(handle, p.id, "passed", { idea: p.idea });
+    return c.json({ ok: true });
+  }));
   app.post("/api/app/posts/:id/rewrite", (c) => authed(c, async (handle) => {
     const p = await d.content.getPost(c.req.param("id"));
     if (!p || p.handle !== handle) return c.json({ error: "not found" }, 404);
-    const style = String((await json(c)).style ?? "");
-    if (!["shorter", "playful", "bolder"].includes(style)) return c.json({ error: "style: shorter, playful or bolder" }, 400);
+    const b = await json(c);
+    const style = String(b.style ?? ""), instruction = String(b.instruction ?? "").trim().slice(0, 300);
+    if (!["shorter", "playful", "bolder", "custom", "fix"].includes(style)) return c.json({ error: "style: shorter, playful, bolder, custom or fix" }, 400);
+    if (style === "custom" && instruction.length < 3) return c.json({ error: "Tell the AI what to change (a few words)." }, 400);
+    if (style === "fix" && !safetyFlag(p)) return c.json({ error: "Nothing to fix: the safety check is fine." }, 409);
     if (!["ready", "scheduled"].includes(p.status)) return c.json({ error: "a published post can't be rewritten" }, 409);
     if ((p.idea as { rewrite?: { status?: string } }).rewrite?.status === "writing") return c.json({ status: "writing" }, 202); // one at a time
     await d.content.updatePost(p.id, { idea: { ...(p.idea as object), rewrite: { status: "writing", style } } });
-    await d.enqueue("rewrite_caption", { postId: p.id, style }, `rewrite:${p.id}`);
+    await d.enqueue("rewrite_caption", { postId: p.id, style, ...(style === "custom" ? { instruction } : {}) }, `rewrite:${p.id}`);
     return c.json({ status: "writing" }, 202);
   }));
   app.post("/api/app/posts/:id/schedule", (c) => authed(c, async (handle) => {
     const p = await d.content.getPost(c.req.param("id"));
     if (!p || p.handle !== handle) return c.json({ error: "not found" }, 404);
     if (!["ready", "scheduled"].includes(p.status)) return c.json({ error: "post is not ready yet" }, 409);
+    const flag = safetyFlag(p);
+    if (flag) return c.json({ error: `Needs a small change first: ${flag}`, code: "needs_change" }, 409);
     const at = new Date(String((await json(c)).at ?? ""));
     const when = Number.isNaN(at.getTime()) ? new Date(now()) : at;
     await d.content.updatePost(p.id, { status: "scheduled", scheduledAt: when, chosenAt: p.chosenAt ?? new Date(now()) });

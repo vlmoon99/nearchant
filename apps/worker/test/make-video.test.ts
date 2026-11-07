@@ -59,3 +59,37 @@ describe("check_post", () => {
     expect(post.idea.check.caption_hash).toMatch(/^[0-9a-f]{64}$/);
   });
 });
+
+describe("safety check on drafts", () => {
+  it("check_post stores the moderator's verdict on the draft, tied to its caption and picture", async () => {
+    const post: any = { id: "p1", handle: "nova", caption: "Order in our private channel", imageMediaId: "m1", idea: { angle: "a" } };
+    const d = {
+      content: { getPost: async () => post, getBusiness: async () => null, getProfile: async () => null, listItems: async () => [], updatePost: async (_id: string, patch: any) => { Object.assign(post, patch); } },
+      router: { call: async () => { throw new Error("sage down"); } },
+      safetyCheck: async () => ({ violation: true, category: "scam", confidence: 0.8, summary: "Sends buyers to a private channel", at: "t" }),
+      env: loadAgentEnv(join(import.meta.dirname, "../../../envs/content-store")), decimals: 6, log: () => {}, outbox: { enqueue: async () => {} }, envelopes: { add: async () => {} }, mediaDir: "/tmp", accountOf: (h: string) => h,
+    } as unknown as ContentTaskDeps;
+    await makeContentTasks(d).check_post!({ postId: "p1" }, {} as never);
+    expect(post.idea.safety).toMatchObject({ flagged: true, category: "scam", summary: "Sends buyers to a private channel", image: "m1" });
+    expect(post.idea.safety.caption_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(post.removedAt).toBeUndefined(); // a draft is never "removed"
+  });
+});
+
+describe("remake_picture", () => {
+  it("gives the picture credit back when the engine fails", async () => {
+    const post: any = { id: "p1", handle: "nova", status: "ready", caption: "c", imageMediaId: "m1", sourceMediaId: null, idea: { angle: "a", image_prompt: "on velvet", picture: { status: "writing" } } };
+    const { tasks, refunds } = deps(post, { router: { call: async () => { throw new Error("engine down"); } } } as never);
+    await tasks.remake_picture!({ postId: "p1", instruction: "darker" }, { addJob: async () => {} } as never);
+    expect(post.idea.picture).toMatchObject({ status: "failed" });
+    expect(post.imageMediaId).toBe("m1");
+    expect(refunds).toEqual([1]);
+  });
+  it("refuses a post that is already published, and refunds", async () => {
+    const post: any = { id: "p1", handle: "nova", status: "published", caption: "c", idea: { picture: { status: "writing" } } };
+    const { tasks, refunds } = deps(post);
+    await tasks.remake_picture!({ postId: "p1" }, { addJob: async () => {} } as never);
+    expect(post.idea.picture).toMatchObject({ status: "failed" });
+    expect(refunds).toEqual([1]);
+  });
+});

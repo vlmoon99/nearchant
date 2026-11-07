@@ -187,10 +187,21 @@ function onboarding() {
       if (settled) {
         btn.onclick = async () => {
           btn.disabled = true;
-          await api("/api/app/posts/choose", { batchId, keep: ready.map((p) => p.id) });
-          // The first post goes live now, so buyers see it in the store's feed today; the rest go out at the best times.
-          for (const [k, p] of ready.entries()) await api(`/api/app/posts/${p.id}/schedule`, k === 0 ? {} : { at: nextSlot(k - 1).toISOString() });
-          live();
+          const w = notice("Publishing…", "Checking your posts and putting the first one live.", []);
+          try {
+            await api("/api/app/posts/choose", { batchId, keep: ready.map((p) => p.id) });
+            // The first post that passes goes live now, so buyers see it today; the rest go out at the best times. A post
+            // the safety check flags stays a draft with the reason — the others still go out.
+            const held: string[] = []; let k = 0;
+            for (const p of ready) {
+              try { await api(`/api/app/posts/${p.id}/schedule`, k === 0 ? {} : { at: nextSlot(k - 1).toISOString() }); k++; }
+              catch (err) { held.push((err as Error).message.replace(/^Needs a small change first: /, "")); }
+            }
+            if (!held.length) { w.close(); live(); return; }
+            w.set(k ? `${k} posted, ${held.length} need${held.length === 1 ? "s" : ""} a small change` : "Your posts need a small change",
+              `Our safety check found:\n• ${held.join("\n• ")}\n\nNothing like that was published. Open Posts to fix it with AI in one tap.`,
+              [{ label: "Fix in Posts", primary: true, href: "/app/posts" }, ...(k ? [{ label: "Continue", onClick: () => { w.close(); live(); } }] : [])]);
+          } catch (err) { w.set("Couldn’t publish", (err as Error).message, [{ label: "Try again", primary: true, onClick: () => { w.close(); btn.disabled = false; } }]); }
         };
         return;
       }
@@ -306,16 +317,83 @@ function sellerApp() {
   });
   $$("[data-rewrite]").forEach((b) => b.addEventListener("click", async () => {
     (b as HTMLButtonElement).disabled = true;
-    try { await api(`/api/app/posts/${b.dataset.post}/rewrite`, { style: b.dataset.rewrite }); location.reload(); } catch (err) { alert((err as Error).message); (b as HTMLButtonElement).disabled = false; }
+    try { await api(`/api/app/posts/${b.dataset.post}/rewrite`, { style: b.dataset.rewrite }); location.reload(); } catch (err) { notice("Couldn’t rewrite", (err as Error).message); (b as HTMLButtonElement).disabled = false; }
   }));
   $$("[data-make-video]").forEach((b) => b.addEventListener("click", async () => {
     (b as HTMLButtonElement).disabled = true;
-    try { await api(`/api/app/posts/${b.dataset.makeVideo}/video`, {}); location.reload(); } catch (err) { alert((err as Error).message); (b as HTMLButtonElement).disabled = false; }
+    try { await api(`/api/app/posts/${b.dataset.makeVideo}/video`, {}); location.reload(); } catch (err) { notice("Couldn’t start the video", (err as Error).message); (b as HTMLButtonElement).disabled = false; }
   }));
-  $$("[data-schedule]").forEach((b) => b.addEventListener("click", async () => {
-    const at = b.dataset.when === "now" ? new Date() : nextSlot(0);
-    try { await api(`/api/app/posts/${b.dataset.schedule}/schedule`, { at: at.toISOString() }); location.reload(); } catch (err) { alert((err as Error).message); }
+  $$("[data-schedule]").forEach((b) => b.addEventListener("click", () => void publishFlow(b.dataset.schedule!, b.dataset.when === "now" ? null : nextSlot(0), b.dataset.store ?? "")));
+  // Edit with AI: free-text caption change, a new picture, skip.
+  const ask = () => document.querySelector<HTMLTextAreaElement>("#ai-ask")?.value.trim() ?? "";
+  const busy = async (b: HTMLElement, fn: () => Promise<unknown>) => {
+    (b as HTMLButtonElement).disabled = true;
+    try { await fn(); location.reload(); } catch (err) { notice("Couldn’t do that", (err as Error).message); (b as HTMLButtonElement).disabled = false; }
+  };
+  $$("[data-ask-caption]").forEach((b) => b.addEventListener("click", () => {
+    if (ask().length < 3) { notice("Tell AI what to change", "Write a few words in the box above, e.g. “mention free engraving”."); return; }
+    void busy(b, () => api(`/api/app/posts/${b.dataset.askCaption}/rewrite`, { style: "custom", instruction: ask() }));
   }));
+  $$("[data-new-picture]").forEach((b) => b.addEventListener("click", () => void busy(b, () => api(`/api/app/posts/${b.dataset.newPicture}/picture`, { instruction: ask() }))));
+  $$("[data-skip]").forEach((b) => b.addEventListener("click", () => {
+    if (confirm("Skip this post? It won’t be published, and AI will write fewer posts like it.")) void busy(b, () => api(`/api/app/posts/${b.dataset.skip}/skip`, {}));
+  }));
+}
+
+// A small window with a title, a message and buttons (instead of alert()).
+function notice(title: string, text: string, buttons: { label: string; primary?: boolean; href?: string; onClick?: () => void }[] = [{ label: "OK", primary: true }]) {
+  const back = document.createElement("div");
+  back.className = "sheet-back";
+  back.innerHTML = `<div class="sheet card" role="dialog" aria-modal="true"><button class="sheet-x" aria-label="Close">×</button><span class="headline" data-t></span><span class="sub" data-m style="white-space:pre-line"></span><div class="stack" style="gap:8px" data-b></div></div>`;
+  const close = () => back.remove();
+  back.addEventListener("click", (e) => { if (e.target === back) close(); });
+  back.querySelector(".sheet-x")!.addEventListener("click", close);
+  const set = (t: string, m: string, bs: typeof buttons) => {
+    back.querySelector("[data-t]")!.textContent = t; back.querySelector("[data-m]")!.textContent = m;
+    const box = back.querySelector("[data-b]")!; box.innerHTML = "";
+    for (const x of bs) {
+      const el = document.createElement(x.href ? "a" : "button");
+      el.className = x.primary ? "btn" : "btn secondary"; el.textContent = x.label;
+      if (x.href) (el as HTMLAnchorElement).href = x.href;
+      el.addEventListener("click", () => { if (x.onClick) x.onClick(); else if (!x.href) close(); });
+      box.append(el);
+    }
+  };
+  set(title, text, buttons);
+  document.body.append(back);
+  return { set, close };
+}
+
+type PostState = { status: string; removed: boolean; removedReason: string | null; needsChange: string | null; proof: { proofId?: string } | null };
+// "Post now" / "Best time": say what is happening until the post is live, scheduled or held back with the reason.
+async function publishFlow(id: string, at: Date | null, handle: string) {
+  const w = notice(at ? "Scheduling…" : "Publishing…", at ? "Saving the time." : "Checking the post…", []);
+  const reload = { label: "OK", primary: true, onClick: () => location.reload() };
+  const fix = (why: string) => w.set("Needs a small change", `Our safety check found: ${why}\n\nNothing was published. AI can fix the caption for you.`, [
+    { label: "Fix with AI", primary: true, onClick: async () => { w.set("Fixing…", "AI is rewriting the caption.", []); await api(`/api/app/posts/${id}/rewrite`, { style: "fix" }).catch(() => {}); location.reload(); } },
+    { label: "I’ll edit it myself", onClick: () => location.reload() }]);
+  try { await api(`/api/app/posts/${id}/schedule`, at ? { at: at.toISOString() } : {}); }
+  catch (err) {
+    const e = err as Error & { code?: string };
+    if (e.code === "needs_change") return fix(e.message.replace(/^Needs a small change first: /, ""));
+    return w.set("Couldn’t post", e.message, [reload]);
+  }
+  if (at) return w.set("Scheduled ✓", `It goes live ${at.toLocaleString([], { weekday: "long", hour: "2-digit", minute: "2-digit" })}. The safety check runs just before.`, [reload]);
+  const t0 = Date.now();
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const p = await api<PostState>(`/api/app/posts/${id}`).catch(() => null);
+    if (p?.status === "ready" && p.needsChange) return fix(p.needsChange);
+    if (p?.status === "published" && p.removed) return w.set("Hidden from buyers", `Our safety check found: ${(p.removedReason ?? "").replace(/^[a-z]+: /, "")}`, [reload]);
+    if (p?.status === "published") {
+      if (p.proof?.proofId) return w.set("Live ✓", `Your post is on your store and in the shop feed. Proof #${p.proof.proofId} is on NEAR.`, [{ label: "View it", primary: true, href: `/h/${handle}/p/${id}` }, reload]);
+      w.set("Live ✓", "Your post is on your store. Recording its proof on NEAR…", [reload]);
+      if (Date.now() - t0 > 60_000) return;
+      continue;
+    }
+    w.set("Publishing…", Date.now() - t0 < 20_000 ? "Checking the post…" : "Still working — the safety check takes a little longer sometimes.", []);
+    if (Date.now() - t0 > 120_000) return w.set("Taking longer than usual", "Your post is queued and will go live by itself. You can close this.", [reload]);
+  }
 }
 
 /** No session cookie: sign in with the store key kept in this browser, else go to onboarding. */

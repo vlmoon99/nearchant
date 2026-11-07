@@ -14,6 +14,9 @@ translated later). Return ONLY a JSON object:
 "photo" is the 1-based photo number to restyle, or null for a post without a product photo; then the image prompt
 describes a full picture to paint from nothing.
 When an opportunity is given, each post serves it (the trend, the bundle, the channel) without inventing facts.
+The call to action always points to the store ("in our store", "tap to see it", "link in bio"): buyers order and pay
+only there, through escrow. Never invite buyers to order, pay or "talk privately" anywhere else (DMs, private
+channels or chats, invite links, phone, email, bank transfer) — the platform removes such posts.
 The posts are OPTIONS shown side by side: the owner keeps some. Make them clearly different from each other
 (angle, product, mood). When a memory of the owner's taste or their earlier picks are given, they outweigh the
 style profile: write most options the way the owner likes, and make exactly one option try something the owner

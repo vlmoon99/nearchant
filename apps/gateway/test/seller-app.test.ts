@@ -20,6 +20,7 @@ function fakeContent() {
     setProfile: async (h, p) => { db.profile.set(h, { ...(db.profile.get(h) ?? {}), ...p }); },
     addMedia: async (m) => { const id = `m${db.media.length}`; db.media.push({ id, ...m }); return id; },
     listMedia: async (h, k) => db.media.filter((m) => m.handle === h && (!k || m.kind === k)),
+    getMedia: async (id: string) => db.media.find((m) => m.id === id) ?? null,
     usage: async () => ({ posts: 12 - db.quota, images: 0 }),
     createPosts: async (h, ideas, plan) => { db.lastPlan = plan; if (ideas.length > db.quota) throw new QuotaExceeded("posts", 12); db.quota -= ideas.length; const ids = ideas.map((_, i) => `p${db.posts.length + i}`); ids.forEach((id) => db.posts.push({ id, handle: h, status: "ready" })); return { batchId: "b1", ids }; },
     listItems: async () => [],
@@ -345,6 +346,38 @@ describe("seller API", () => {
     expect((await app.request("http://x/api/app/posts/r0/rewrite", post({ style: "shorter" }, cookie))).status).toBe(202);
     expect(db.posts[0].idea.rewrite).toEqual({ status: "writing", style: "shorter" });
     expect(jobs.filter((j) => j.task === "rewrite_caption")).toHaveLength(1);
+  });
+
+  it("post editor: a flagged draft can't be published until fixed; ask-AI, new picture and skip", async () => {
+    const { createHash } = await import("node:crypto");
+    const { app, cookie, db, jobs } = setup();
+    const h = (x: string) => createHash("sha256").update(x).digest("hex");
+    db.posts.push({ id: "f0", handle: "nova", status: "ready", caption: "Order in our private channel", imageMediaId: "m1",
+      idea: { safety: { flagged: true, summary: "Sends buyers to a private channel", caption_hash: h("Order in our private channel"), image: "m1" } } });
+    const sched = await app.request("http://x/api/app/posts/f0/schedule", post({}, cookie));
+    expect(sched.status).toBe(409);
+    expect(await sched.json()).toMatchObject({ code: "needs_change", error: expect.stringContaining("private channel") });
+    const one = await (await app.request("http://x/api/app/posts/f0", { headers: { cookie } })).json();
+    expect(one).toMatchObject({ status: "ready", needsChange: "Sends buyers to a private channel", safetyChecked: true });
+    expect((await app.request("http://x/api/app/posts/f0/rewrite", post({ style: "fix" }, cookie))).status).toBe(202);
+    expect(jobs.at(-1)).toMatchObject({ task: "rewrite_caption", payload: { postId: "f0", style: "fix" } });
+    // A changed caption is no longer covered by the old verdict: it may be scheduled (and is checked again on publish).
+    db.posts[0].caption = "See it in our store"; db.posts[0].idea.rewrite = { status: "ready" };
+    expect((await app.request("http://x/api/app/posts/f0/schedule", post({}, cookie))).status).toBe(200);
+    db.posts[0].status = "ready";
+    expect((await app.request("http://x/api/app/posts/f0/rewrite", post({ style: "fix" }, cookie))).status).toBe(409);   // nothing to fix now
+    expect((await app.request("http://x/api/app/posts/f0/rewrite", post({ style: "custom", instruction: "x" }, cookie))).status).toBe(400);
+    expect((await app.request("http://x/api/app/posts/f0/rewrite", post({ style: "custom", instruction: "mention gift wrapping" }, cookie))).status).toBe(202);
+    expect(jobs.at(-1)).toMatchObject({ task: "rewrite_caption", payload: { style: "custom", instruction: "mention gift wrapping" } });
+    const q = db.quota;
+    expect((await app.request("http://x/api/app/posts/f0/picture", post({ instruction: "black velvet" }, cookie))).status).toBe(202);
+    expect(db.quota).toBe(q - 1);
+    expect(jobs.at(-1)).toMatchObject({ task: "remake_picture", payload: { postId: "f0", instruction: "black velvet" } });
+    expect((await app.request("http://x/api/app/posts/f0/picture", post({}, cookie))).status).toBe(202);                 // one at a time: no second charge
+    expect(db.quota).toBe(q - 1);
+    expect((await app.request("http://x/api/app/posts/f0/skip", post({}, cookie))).status).toBe(200);
+    expect(db.posts[0].status).toBe("skipped");
+    expect(db.signals.at(-1)).toMatchObject({ postId: "f0", kind: "passed" });
   });
 
   it("a video stuck 'in progress' for 15 min (cut off) can be started again", async () => {

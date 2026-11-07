@@ -240,9 +240,11 @@ const market = makeMarketTasks({
 const withTimeout = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`timeout ${ms} ms`)), ms))]);
 
 const contentTasks = makeContentTasks({
-  moderateBeforePublish: async (postId) => {
-    try { const v = await withTimeout(market.moderate(postId), 120_000); return !!v && (await contentStore.getPost(postId))?.removedAt != null; }
-    catch (e) { await workerUtils.addJob("moderate_post", { postId }, { jobKey: `moderate:${postId}`, maxAttempts: 5, runAt: new Date(Date.now() + 60_000) }); throw e; }
+  // Drafts: verdict only. If the check is down at publish time the post goes out and the full moderator (which can
+  // remove) looks again a minute later.
+  safetyCheck: async (postId) => {
+    try { return await withTimeout(market.precheck(postId), 120_000); }
+    catch (e) { const p = await contentStore.getPost(postId); if (p?.status === "scheduled") await workerUtils.addJob("moderate_post", { postId }, { jobKey: `moderate:${postId}`, maxAttempts: 5, runAt: new Date(Date.now() + 60_000) }); throw e; }
   },
   marketNumbers: async (handle) => {
     const b = await contentStore.getBusiness(handle);
