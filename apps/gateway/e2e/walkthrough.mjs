@@ -1,6 +1,6 @@
 // A recorded walkthrough of nearchant.com for the submission video (docs/demo-script.md):
 //   1. desktop: landing → seller app of an existing store (Home, a post with its short + proof, Analytics, Wallet,
-//      Settings → NEAR wallet)
+//      Settings → NEAR wallet), then the public "Verify a post" page (VERIFY_PROOF=<n>, e.g. one with a TEE-signed text)
 //   2. phone: a live onboarding of a new store (AI waits sped up ×6)
 //   3. phone: the storefront → an item → checkout form
 //   4. phone: the shop feed — "denim jacket, knit sweater and whey protein" → Stores that sell it → a post → Ask the store
@@ -39,6 +39,7 @@ await segment("1-desktop", { width: 1440, height: 900 }, async (p) => {
   await p.goto(`${base}/app/posts/${postId}`); await pause(p, 2000);
   await p.evaluate(() => { const v = document.querySelector("video"); if (v) { v.muted = true; v.play(); } }); await pause(p, 6000); await scroll(p, 3);
   for (const u of ["/app/analytics", "/app/wallet", "/app/settings#wallet"]) { await p.goto(`${base}${u}`); await pause(p, 2500); await scroll(p, 2); }
+  if (process.env.VERIFY_PROOF) { await p.goto(`${base}/verify/${process.env.VERIFY_PROOF}`); await pause(p, 3000); await scroll(p, 5, 1000); }
 });
 
 // 2 · phone onboarding (a new store; waits sped up later)

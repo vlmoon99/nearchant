@@ -1334,3 +1334,6 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
   nothing. New rule (`should_restart_tunnel`): local site OK, nearchant.com down for 60 s, internet OK → restart the
   tunnel (at most every 2 min).
 - Verified: 12 watchdog unit tests pass; live test — stopped the tunnel, the watchdog restarted it, site back in 62 s.
+- Walkthrough video re-recorded on the final build (109 s): seller app → the public Verify page of proof #53 ("The
+  text was signed inside the model's TEE", new `VERIFY_PROOF` step) → live onboarding of a new store (`novademobcu`,
+  added to `showcase_hidden`) → buyer checkout → shop feed with "Ask the store". The mp4 stays out of git.

@@ -12,7 +12,7 @@ and a public proof log.
 
 > Built for the [NEAR Hackathon](https://nearhackathon.com) (Nov 2026). Tracks: **Agent Economy**, Autonomous Business,
 > Privacy & Private AI, AI Security & Defense ([how it fits each](docs/hackathon-tracks.md)). Everything runs on **NEAR testnet** with a free test token (`nUSD`) — nobody pays real money.
-> Live: **https://nearchant.com/start** · 101-second recorded walkthrough: recorded with `apps/gateway/e2e/walkthrough.mjs` (not in git)
+> Live: **https://nearchant.com/start** · 109-second recorded walkthrough: recorded with `apps/gateway/e2e/walkthrough.mjs` (not in git)
 
 ## The story (try it at nearchant.com/start)
 
