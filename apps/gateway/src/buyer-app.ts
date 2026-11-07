@@ -6,7 +6,7 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { REPORT_REASONS, type FeedPost, type FeedStore, type ReportReason, type StoreMatch } from "@nearchant/db";
 import { RateLimit, clientIp } from "./buyers.js";
 import { emailHtml, normEmail, readEmailToken, signEmailToken, type Mailer } from "./email.js";
-import { verifyNep413 } from "./nep413.js";
+import { verifyWalletSignature } from "./nep413.js";
 import { readSession, signSession } from "./seller-app.js";
 
 export const BUYER_COOKIE = "nc_buyer";
@@ -103,7 +103,7 @@ export function mountBuyerApp(app: Hono<any>, d: BuyerAppDeps): void {
     if (!m || now() - Number(m[1]) > 10 * 60_000 || Number(m[1]) - now() > 60_000) return c.json({ error: "expired or malformed message" }, 401);
     if (recipient !== d.walletRecipient) return c.json({ error: "message is for another site" }, 401);
     if (nonce.length !== 32 || usedNonces.has(nonce.toString("hex"))) return c.json({ error: "nonce reused" }, 401);
-    if (!/^[a-z0-9._-]{2,64}$/.test(accountId) || !verifyNep413({ message, nonce, recipient, callbackUrl }, publicKey, signature)) return c.json({ error: "bad signature" }, 401);
+    if (!/^[a-z0-9._-]{2,64}$/.test(accountId) || !verifyWalletSignature({ message, nonce, recipient, callbackUrl }, publicKey, signature)) return c.json({ error: "bad signature" }, 401);
     usedNonces.set(nonce.toString("hex"), now());
     for (const [k, t] of usedNonces) if (now() - t > 20 * 60_000) usedNonces.delete(k);
     if (!(await d.isOwnerKey(accountId, publicKey))) return c.json({ error: "that key is not a full-access key of the wallet account" }, 403);

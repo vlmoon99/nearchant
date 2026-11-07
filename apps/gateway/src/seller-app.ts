@@ -12,7 +12,7 @@ import type { HandleRecord } from "@nearchant/near";
 import { verifySellerSignature } from "./telegram.js";
 import { RateLimit, clientIp } from "./buyers.js";
 import { emailHtml, normEmail, readEmailToken, signEmailToken, type Mailer } from "./email.js";
-import { verifyNep413 } from "./nep413.js";
+import { verifyWalletSignature } from "./nep413.js";
 
 /** The parts of the content store the API uses (a fake in tests, Postgres in the gateway). */
 export type SellerContent = Pick<ContentStore,
@@ -67,6 +67,18 @@ export function readSession(key: Buffer, token: string | undefined, now = Date.n
   return got.length === want.length && timingSafeEqual(got, want) ? m[1]! : null;
 }
 
+const NEW_WALLET = "nc_wallet_new";
+function signNewWallet(key: Buffer, accountId: string, exp: number): string {
+  const body = `${Buffer.from(accountId).toString("base64url")}.${exp}`;
+  return `${body}.${createHmac("sha256", key).update(`wallet-new:${body}`).digest("base64url")}`;
+}
+function readNewWallet(key: Buffer, token: string | undefined, now: number): string | null {
+  const m = token?.match(/^([\w-]+)\.(\d+)\.([\w-]+)$/);
+  if (!m || Number(m[2]) < now) return null;
+  const want = Buffer.from(createHmac("sha256", key).update(`wallet-new:${m[1]}.${m[2]}`).digest("base64url")), got = Buffer.from(m[3]!);
+  return got.length === want.length && timingSafeEqual(got, want) ? Buffer.from(m[1]!, "base64url").toString() : null;
+}
+
 export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
   const now = () => (d.now ? d.now() : Date.now());
   const seller = (c: Context) => readSession(d.sessionKey, getCookie(c, COOKIE), now());
@@ -109,7 +121,7 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     if (!m || now() - Number(m[2]) > 10 * 60_000 || Number(m[2]) - now() > 60_000) return c.json({ error: "expired or malformed message" }, 401);
     if (recipient !== (d.walletRecipient ?? new URL(c.req.url).host)) return c.json({ error: "message is for another site" }, 401);
     if (nonce.length !== 32 || usedNonces.has(nonce.toString("hex"))) return c.json({ error: "nonce reused" }, 401);
-    if (!/^[a-z0-9._-]{2,64}$/.test(accountId) || !verifyNep413({ message, nonce, recipient, callbackUrl }, publicKey, signature)) return c.json({ error: "bad signature" }, 401);
+    if (!/^[a-z0-9._-]{2,64}$/.test(accountId) || !verifyWalletSignature({ message, nonce, recipient, callbackUrl }, publicKey, signature)) return c.json({ error: "bad signature" }, 401);
     // Claim the nonce before the chain lookup, so two parallel requests can't both pass.
     usedNonces.set(nonce.toString("hex"), now());
     for (const [k, t] of usedNonces) if (now() - t > 20 * 60_000) usedNonces.delete(k);
@@ -124,10 +136,24 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
       return c.json({ linked: accountId, handle });
     }
     const handle = await d.content.getSetting<string>(`wallet:${accountId}`);
-    if (!handle) return c.json({ error: "no store is linked to this wallet yet — open your store in the browser where you made it, then Settings → Connect a NEAR wallet" }, 404);
+    if (!handle) {
+      // Remember the proven wallet for 30 min (signed, HttpOnly): a store created next in this browser gets it.
+      setCookie(c, NEW_WALLET, signNewWallet(d.sessionKey, accountId, now() + 30 * 60_000), { httpOnly: true, sameSite: "Lax", secure: d.secureCookies, path: "/", maxAge: 30 * 60 });
+      return c.json({ error: `No store uses ${accountId} yet. Create one and this wallet will sign in to it — or, if you have a store, open it and go to Settings → Connect a NEAR wallet.`, code: "no_store", accountId }, 404);
+    }
     setCookie(c, COOKIE, signSession(d.sessionKey, handle, now() + SESSION_MS), { httpOnly: true, sameSite: "Lax", secure: d.secureCookies, path: "/", maxAge: SESSION_MS / 1000 });
     return c.json({ handle });
   });
+  // After "no store uses this wallet": the store just created in this browser takes the wallet, unless either side
+  // already has one.
+  app.post("/api/app/wallet/claim", (c) => authed(c, async (handle) => {
+    const accountId = readNewWallet(d.sessionKey, getCookie(c, NEW_WALLET), now());
+    if (!accountId || (await d.content.getSetting<string>(`walletOf:${handle}`)) || (await d.content.getSetting<string>(`wallet:${accountId}`))) return c.json({ linked: null });
+    await d.content.setSetting(`wallet:${accountId}`, handle);
+    await d.content.setSetting(`walletOf:${handle}`, accountId);
+    deleteCookie(c, NEW_WALLET, { path: "/" });
+    return c.json({ linked: accountId });
+  }));
   // Email (ADR 0021): the owner links an email in Settings (confirm link), then can sign in with a one-time link.
   // Links open a page with one button (POST), so mail scanners that open links don't use them up. Unknown emails
   // get the same answer as known ones (no way to test which emails have stores).

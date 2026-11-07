@@ -79,6 +79,7 @@ function onboarding() {
       store.set(CUR, h); handle = h;
       await signIn(h);
       await api("/api/app/business", { name: n, kind });
+      await api("/api/app/wallet/claim", {}).catch(() => {}); // a wallet that just found no store signs in to this one
       out.textContent = "";
       show("show");
     } catch (err) { out.textContent = `Could not create the store: ${(err as Error).message}`; btn.disabled = false; }
@@ -383,6 +384,15 @@ document.querySelector<HTMLFormElement>("#withdraw-form")?.addEventListener("sub
 // ── NEAR wallet (NEP-413 sign message) through NEAR Wallet Selector: Meteor, HOT, HERE, Intear, MyNearWallet, …
 // (web/wallet.ts, loaded on demand). Browser wallets answer here; redirect wallets come back to /app/wallet-connect.
 const b64 = (u: Uint8Array) => btoa(String.fromCharCode(...u));
+// "No store uses this wallet": say it plainly and offer to make one (the server remembers the wallet for 30 min).
+function walletError(out: HTMLElement | null, err: unknown) {
+  if (!out) return;
+  out.textContent = (err as Error).message;
+  if ((err as { code?: string }).code === "no_store") {
+    const a = document.createElement("a"); a.className = "btn"; a.href = "/start"; a.textContent = "Create a store with this wallet"; a.style.marginTop = "10px";
+    out.append(document.createElement("br"), a);
+  }
+}
 async function walletGo(purpose: "link" | "signin", btn?: HTMLElement) {
   const nonce = crypto.getRandomValues(new Uint8Array(32));
   const req = { purpose, message: `nearchant:wallet:${purpose}:${Date.now()}`, nonce: b64(nonce), recipient: location.host, callbackUrl: `${location.origin}/app/wallet-connect`, back: location.pathname };
@@ -397,7 +407,7 @@ async function walletGo(purpose: "link" | "signin", btn?: HTMLElement) {
     const r = await api<{ handle: string; linked?: string }>("/api/wallet/verify", { ...signed, message: req.message, nonce: req.nonce, recipient: req.recipient, callbackUrl: req.callbackUrl });
     if (out) out.textContent = r.linked ? `Linked ${r.linked} to your store.` : "Signed in.";
     location.href = r.linked ? "/app/settings#wallet" : "/app";
-  } catch (err) { if (out) out.textContent = (err as Error).message; }
+  } catch (err) { walletError(out, err); }
   finally { btn?.removeAttribute("disabled"); }
 }
 document.querySelectorAll<HTMLElement>("[data-wallet]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); void walletGo(b.dataset.wallet as "link" | "signin", b); }));
@@ -415,7 +425,7 @@ async function walletConnectPage() {
     const r = await api<{ handle: string; linked?: string }>("/api/wallet/verify", body);
     msg.textContent = r.linked ? `Linked ${r.linked} to your store.` : "Signed in.";
     location.href = r.linked ? "/app/settings#wallet" : "/app";
-  } catch (err) { msg.textContent = (err as Error).message; }
+  } catch (err) { walletError(msg, err); }
 }
 
 if (cfg.page === "wallet-connect") void walletConnectPage();
@@ -423,7 +433,7 @@ if (cfg.page === "onboarding") onboarding();
 if (cfg.page === "app") sellerApp();
 // Email (ADR 0021): Settings → link an email; sign-in page → email me a link.
 for (const [sel, path, ok] of [["[data-email-link]", "/api/app/email", (j: { sent?: string }) => `Sent — open the link in the email to ${j.sent}.`],
-  ["[data-email-signin]", "/api/email/signin", () => "If this email belongs to a store, a sign-in link is on its way. Check your inbox (and spam)."]] as const) {
+  ["[data-email-signin]", "/api/email/signin", () => "If this email is linked to a store, a sign-in link is on its way (check spam). No email? Link it first: open your store in the browser where you made it → Settings → Email."]] as const) {
   document.querySelector<HTMLFormElement>(sel)?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = e.currentTarget as HTMLFormElement, out = f.querySelector("output")!, btn = f.querySelector("button")!;

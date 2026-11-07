@@ -297,6 +297,30 @@ describe("seller API", () => {
     expect((await app.request("http://x/api/wallet/verify", post(once))).status).toBe(401);           // nonce replay
   });
 
+  it("wallet with no store: says so, then a store made in the same browser gets that wallet", async () => {
+    const { KeyPair } = await import("near-api-js");
+    const { randomBytes } = await import("node:crypto");
+    const { walletSign } = await import("./wallet-helper.js");
+    const wallet = KeyPair.fromRandom("ed25519"), pk = wallet.getPublicKey().toString(), at = 1_790_000_000_000;
+    const { app, cookie, db } = setup([pk], false, at);
+    const p = { message: `nearchant:wallet:signin:${at}`, nonce: randomBytes(32), recipient: "nearchant.com", callbackUrl: null } as any;
+    const res = await app.request("http://x/api/wallet/verify", post({ accountId: "fresh.testnet", publicKey: pk, signature: walletSign(wallet, p), message: p.message, nonce: Buffer.from(p.nonce).toString("base64"), recipient: p.recipient, callbackUrl: null }));
+    expect(res.status).toBe(404);
+    expect((await res.json()).code).toBe("no_store");
+    const pending = /nc_wallet_new=[^;]+/.exec(res.headers.get("set-cookie") ?? "")![0];
+    expect(res.headers.get("set-cookie")).toMatch(/HttpOnly/i);
+    const claim = (h: Record<string, string>) => app.request("http://x/api/app/wallet/claim", { method: "POST", headers: { "content-type": "application/json", ...h }, body: "{}" });
+    expect((await claim({ cookie: pending })).status).toBe(401);                                    // needs a store session
+    expect(await (await claim({ cookie })).json()).toEqual({ linked: null });                           // no pending wallet
+    expect(await (await claim({ cookie: `${pending.slice(0, -1)}${pending.endsWith("A") ? "B" : "A"}; ${cookie}` })).json()).toEqual({ linked: null }); // tampered
+    const ok = await claim({ cookie: `${pending}; ${cookie}` });
+    expect(await ok.json()).toEqual({ linked: "fresh.testnet" });
+    expect(db.settings.get("wallet:fresh.testnet")).toBe("nova");
+    expect(db.settings.get("walletOf:nova")).toBe("fresh.testnet");
+    db.settings.set("walletOf:nova", "other.testnet");                                              // never replaces a wallet already set
+    expect(await (await claim({ cookie: `${pending}; ${cookie}` })).json()).toEqual({ linked: null });
+  });
+
   it("serves a resized WebP of a picture with ?w=, cached on disk", async () => {
     const { app, cookie, mediaDir } = setup();
     const { mkdirSync, writeFileSync, existsSync } = await import("node:fs");

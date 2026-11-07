@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { KeyPair } from "near-api-js";
 import { describe, expect, it } from "vitest";
-import { nep413Payload, verifyNep413 } from "../src/nep413.js";
+import { nep413Payload, verifyNep413, verifyWalletSignature } from "../src/nep413.js";
 import { walletSign } from "./wallet-helper.js";
 
 describe("NEP-413", () => {
@@ -18,5 +18,13 @@ describe("NEP-413", () => {
     expect(verifyNep413({ ...p, callbackUrl: null }, pk, sig)).toBe(false);
     expect(verifyNep413(p, KeyPair.fromRandom("ed25519").getPublicKey().toString(), sig)).toBe(false);
     expect(verifyNep413(p, "garbage", sig)).toBe(false);
+  });
+  it("sign-in accepts a wallet that signed without callbackUrl (Meteor via Wallet Selector)", () => {
+    const sig = walletSign(kp, { ...p, callbackUrl: null });
+    expect(verifyNep413(p, pk, sig)).toBe(false);
+    expect(verifyWalletSignature(p, pk, sig)).toBe(true);
+    expect(verifyWalletSignature(p, pk, walletSign(kp, p))).toBe(true);
+    expect(verifyWalletSignature({ ...p, recipient: "evil.com" }, pk, sig)).toBe(false);
+    expect(verifyWalletSignature({ ...p, message: "nearchant:wallet:link:1790000000000" }, pk, sig)).toBe(false);
   });
 });

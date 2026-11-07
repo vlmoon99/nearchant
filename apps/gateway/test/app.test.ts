@@ -127,6 +127,13 @@ describe("seller card", () => {
     }
   });
 
+  it("serves the logo mark as the favicon", async () => {
+    const { app } = await setup();
+    const res = await app.request("http://x/favicon.ico", host("nearchant.com"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/svg+xml");
+  });
+
   it("shows a 404 card for unknown handles and redirects the bare domain", async () => {
     const { app } = await setup();
     expect((await app.request("http://x/", host("bob.nearchant.com"))).status).toBe(404);

@@ -129,6 +129,9 @@ export function createApp(d: Deps) {
   });
 
   app.get("/health", (c) => c.json({ ok: true, profile: d.config.profile, network: d.config.network }));
+  // The "N" mark of the logo; browsers ask for /favicon.ico on every site.
+  const FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#121916"/><text x="16" y="22.5" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#00ec97">N</text></svg>`;
+  for (const path of ["/favicon.ico", "/favicon.svg"]) app.get(path, (c) => c.body(FAVICON, 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=86400" }));
   app.get("/assets/site.css", (c) => c.body(SITE_CSS, 200, { "content-type": "text/css; charset=utf-8", "cache-control": "public, max-age=300" }));
   app.get("/assets/checkout.js", (c) => d.checkoutJs ? c.body(d.checkoutJs, 200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=300" }) : c.notFound());
 

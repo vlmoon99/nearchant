@@ -1359,3 +1359,10 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
   it. Now `same-origin-allow-popups` (test in app.test.ts). Verified live: the Meteor popup opened from
   nearchant.com/app now has its opener (Meteor's own Cloudflare blocks headless Chrome, so the owner confirms the
   rest by hand).
+- **Wallet sign-in without a store (7 Nov)**: email and Meteor sign-in "did not work" because no store had an email or
+  wallet linked (by design), and the Mac's `.env` had an empty `RESEND_API_KEY` (filled from Keychain; Resend domain
+  verified). A wallet with no store now gets a clear message + "Create a store with this wallet"; the proven account
+  is kept 30 min in a signed HttpOnly cookie (`nc_wallet_new`), and the store created next in that browser takes it
+  (`POST /api/app/wallet/claim`; never replaces an existing link on either side; exact-text HMAC compare). Favicon
+  (the "N" mark) at /favicon.ico. Verified: gateway tests 63 (new: claim flow incl. tamper, favicon); live favicon
+  200, claim without session 401. Cloudflare Web Analytics beacon turned off by the owner (CSP error gone).

@@ -25,3 +25,10 @@ export function verifyNep413(p: Nep413, publicKey: string, signature: string): b
     return PublicKey.fromString(publicKey).verify(hash, Buffer.from(signature, "base64"));
   } catch { return false; }
 }
+
+/** What the sign-in routes check. Wallets that answer in the page (Meteor through Wallet Selector 10.1.4, which drops
+ *  callbackUrl before asking the wallet) sign with no callbackUrl, redirect wallets sign with it, so either form is
+ *  accepted. callbackUrl only says where a redirect wallet goes next; message, nonce and recipient bind the sign-in. */
+export function verifyWalletSignature(p: Nep413, publicKey: string, signature: string): boolean {
+  return verifyNep413(p, publicKey, signature) || (p.callbackUrl != null && verifyNep413({ ...p, callbackUrl: null }, publicKey, signature));
+}
