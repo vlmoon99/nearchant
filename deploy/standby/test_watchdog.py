@@ -1,8 +1,9 @@
 # python3 -m unittest deploy/standby/test_watchdog.py — the takeover rule of the standby watchdog (ADR 0020).
-import sys, unittest
+import sys, threading, unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from watchdog import RESTART_EVERY_S, TAKEOVER_AFTER_S, TUNNEL_AFTER_S, should_restart, should_restart_tunnel, should_take_over
+from watchdog import RESTART_EVERY_S, TAKEOVER_AFTER_S, TUNNEL_AFTER_S, UA, http_ok, should_restart, should_restart_tunnel, should_take_over
 
 
 class TakeoverRule(unittest.TestCase):
@@ -46,6 +47,20 @@ class TunnelRule(unittest.TestCase):
     def test_waits_a_minute_and_does_not_loop(self):
         self.assertFalse(should_restart_tunnel(True, False, True, TUNNEL_AFTER_S - 1, 999))
         self.assertFalse(should_restart_tunnel(True, False, True, 999, RESTART_EVERY_S - 1))
+
+
+class HealthCheck(unittest.TestCase):
+    def test_sends_its_own_user_agent(self):  # Cloudflare blocks "Python-urllib"
+        seen = []
+        class H(BaseHTTPRequestHandler):
+            def do_GET(self):
+                seen.append(self.headers.get("User-Agent")); self.send_response(200); self.end_headers()
+            def log_message(self, *a): pass
+        srv = HTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.handle_request, daemon=True).start()
+        self.assertTrue(http_ok(f"http://127.0.0.1:{srv.server_port}/health"))
+        srv.server_close()
+        self.assertEqual(seen, [UA])
 
 
 if __name__ == "__main__":

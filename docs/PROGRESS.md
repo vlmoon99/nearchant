@@ -1337,3 +1337,7 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 - Walkthrough video re-recorded on the final build (109 s): seller app → the public Verify page of proof #53 ("The
   text was signed inside the model's TEE", new `VERIFY_PROOF` step) → live onboarding of a new store (`novademobcu`,
   added to `showcase_hidden`) → buyer checkout → shop feed with "Ask the store". The mp4 stays out of git.
+- **Bug in the tunnel rule (fixed 15:22)**: the watchdog restarted a working tunnel every ~2 min from 13:38 to 15:20
+  (a few seconds of 530 each time). Cloudflare answers 403 to Python's default User-Agent, so the public check always
+  failed. `http_ok` now sends `nearchant-watchdog/1`; new test checks the header. Verified: 0 restarts and 24/24
+  public checks OK over 4 min.

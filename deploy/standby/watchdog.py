@@ -66,9 +66,12 @@ def set_role(r: str) -> None:
     status["role"] = r
 
 
+UA = "nearchant-watchdog/1"  # Cloudflare answers 403 to Python's default "Python-urllib/…" (7 Nov: tunnel restarted every 2 min)
+
+
 def http_ok(url: str, timeout: float = 5) -> bool:
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as r:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=timeout) as r:
             return 200 <= r.status < 300
     except Exception:
         return False
