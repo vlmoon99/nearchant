@@ -23,6 +23,21 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return j as T;
 }
 
+/** The test wallet's account id: NEAR's implicit account of its key (hex of the public key), worked out here. */
+const implicitOf = (key: KeyPair) => Array.from(key.getPublicKey().data, (b) => b.toString(16).padStart(2, "0")).join("");
+/** Network failures in words (Safari says "Load failed", Chrome "Failed to fetch"). */
+const plain = (e: unknown) => { const m = (e as Error).message ?? String(e); return /load failed|failed to fetch|networkerror|network request failed/i.test(m) ? "Couldn't reach NEAR or Nearchant — check your connection and try again." : m; };
+
+/** The wallet that paid, for actions on an existing order: no server call (it used to ask the sponsor endpoint,
+ *  which spent up to 30 s on a faucet call the buyer didn't need — and failed the button when the relayer was low). */
+function payingAccount(): Account | null {
+  let s: string | null = null;
+  try { s = localStorage.getItem(KEY); } catch { /* storage blocked */ }
+  if (!s) return null;
+  const key = KeyPair.fromString(s as KeyPairString);
+  return new Account(implicitOf(key), new JsonRpcProvider({ url: cfg.rpcUrl }), new KeyPairSigner(key));
+}
+
 async function buyerAccount(): Promise<Account> {
   const key = buyerKey();
   const { accountId } = await post<{ accountId: string }>("public/buyers", { publicKey: key.getPublicKey().toString() });
@@ -206,7 +221,14 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("button[data-order-
     out.classList.remove("hidden"); out.dataset.tone = ""; out.textContent = "Preparing…";
     b.disabled = true;
     try {
-      const account = await buyerAccount();
+      // Only the wallet that paid can confirm or ask for a refund. It lives in the browser where the order was paid.
+      const account = payingAccount();
+      const paidBy = b.closest<HTMLElement>("[data-order-buyer]")?.dataset.orderBuyer;
+      if (!account || (paidBy && account.accountId !== paidBy)) {
+        out.dataset.tone = "bad"; b.disabled = false;
+        out.textContent = "This order was paid from a test wallet in another browser (or on the store's own address). Open this page there to confirm or ask for a refund. If you can't, the payment is released to the store automatically after the deadline — or contact the store.";
+        return;
+      }
       if (b.dataset.orderAction === "request_revision") {
         const note = document.querySelector<HTMLTextAreaElement>("#revision-note")?.value.trim() ?? "";
         if (note.length < 3) { out.dataset.tone = "bad"; out.textContent = "Say briefly what should change."; b.disabled = false; return; }
@@ -227,7 +249,7 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("button[data-order-
       location.reload();
     } catch (e) {
       out.dataset.tone = "bad";
-      out.textContent = `Could not complete: ${(e as Error).message}`;
+      out.textContent = `Could not complete: ${plain(e)}`;
       b.disabled = false;
     }
   });

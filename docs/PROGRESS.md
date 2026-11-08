@@ -1615,3 +1615,23 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 
 **Not verified**
 - Real iOS Safari; screenshots are Chrome with phone emulation.
+
+## 2026-11-08 (night) — "Could not complete: Load failed" on "I got it — release payment"
+
+**Cause**
+- Each buyer button on the order page first called `POST /public/buyers`, the test-wallet sponsor. For an existing wallet that still ran `nusd.faucet_for`, signed by the relayer.
+- `relayer.nearchant.testnet` was down to 0.005–0.035 NEAR, so that call failed slowly: 27 s for one request. Safari dropped the request ("Load failed") before the buyer's own transaction was even signed.
+- The hourly balance check didn't watch the relayer.
+
+**Fixed**
+- Buyer actions (confirm, refund request, revision) no longer call the server. The wallet's account id is the hex of its key, computed in the browser.
+- If the browser's wallet isn't the one that paid (another browser, or the store's own address), the page says so and what to do, instead of signing with a wrong wallet.
+- Network errors are shown in plain words.
+- The sponsor endpoint's faucet call is capped at 12 s.
+- The watchdog now watches `relayer.nearchant.testnet`, in the repo and in the deployed copy, which was restarted.
+- Relayer topped up to 30 NEAR from three faucet accounts that were created and then deleted with the relayer as beneficiary.
+
+**Verified**
+- `buy-item.mjs` live: paid 12 s → shipped 30 s → the buyer's "I got it" released the payment 4 s later. No page errors.
+- Clicking from a browser that didn't pay shows the explanation.
+- The sponsor endpoint for an existing wallet was measured at 27 s before the fix.

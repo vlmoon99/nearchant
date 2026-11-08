@@ -328,7 +328,7 @@ export function createApp(d: Deps) {
     const sf = o.item && d.storefront ? await d.storefront(h.handle).catch(() => null) : null;
     const paid = !!o.chainStatus && o.chainStatus !== "Opening";
     const storeContact = sf && paid && d.storeContact ? await d.storeContact(h.handle).catch(() => null) : null;
-    if (sf) return c.html(<ItemOrderPage s={sf} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, token: d.client.token, network: d.client.network, site: d.config.public_url }} test={d.config.token.test} o={{ orderId: o.orderId, title: o.serviceTitle, amount: o.amountDisplay, chainStatus: o.chainStatus }} storeContact={storeContact} />);
+    if (sf) return c.html(<ItemOrderPage s={sf} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, token: d.client.token, network: d.client.network, site: d.config.public_url }} test={d.config.token.test} o={{ orderId: o.orderId, title: o.serviceTitle, amount: o.amountDisplay, chainStatus: o.chainStatus, buyer: row.buyerAccountId }} storeContact={storeContact} />);
     return c.html(<OrderPage o={o} base={base} cfg={d.client} testToken={d.config.token.test} />);
   });
 

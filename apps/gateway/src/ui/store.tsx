@@ -170,7 +170,7 @@ export const ItemPage: FC<{ s: StoreData; i: StoreItem; cfg: CheckoutCfg; test: 
 
 /** Buyer's order page for a store item (Figma "Order paid"): paid → shipped → you confirm. Buttons are handled by
  *  web/checkout.ts (data-order-action / #order-msg / data-poll-order), so the escrow logic is shared with decks. */
-export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; o: { orderId: string; title: string; amount: string; chainStatus: string | null }; storeContact?: Contact | null }> = ({ s, cfg, test, o, storeContact }) => {
+export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; o: { orderId: string; title: string; amount: string; chainStatus: string | null; buyer?: string | null }; storeContact?: Contact | null }> = ({ s, cfg, test, o, storeContact }) => {
   const st = o.chainStatus;
   const step = st === "Released" ? 4 : st === "Delivered" ? 2 : st === "Held" ? 1 : 0;
   const rows: [string, string][] = [
@@ -196,7 +196,7 @@ export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; 
             <span class="stack" style="gap:2px"><span class={`callout b ${i > step ? "muted" : ""}`}>{t}</span><span class="foot muted">{d}</span></span>
           </div>))}
       </section>
-      {st === "Delivered" ? <div class="stack s12"><button class="btn block" data-order-action="accept" data-order={o.orderId}><Icon n="check" />I got it — release payment</button><button class="btn secondary block" data-order-action="request_refund" data-order={o.orderId}>Problem — request a refund</button></div> : null}
+      {st === "Delivered" ? <div class="stack s12" data-order-buyer={o.buyer ?? ""}><button class="btn block" data-order-action="accept" data-order={o.orderId}><Icon n="check" />I got it — release payment</button><button class="btn secondary block" data-order-action="request_refund" data-order={o.orderId}>Problem — request a refund</button></div> : null}
       <output id="order-msg" class="live hidden" aria-live="polite"></output>
       {st !== "Released" && st !== "Refunded" ? <span class="cap muted" style="text-align:center">This page updates by itself when {s.name} ships or answers.</span> : null}
       {st && st !== "Opening" ? <section class="group">

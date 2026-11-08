@@ -80,7 +80,7 @@ def http_ok(url: str, timeout: float = 5) -> bool:
 # Contract accounts pay for their own storage: below this much free NEAR, writes fail with "lacks balance for state"
 # (8 Nov: proofs ran out, so "mark shipped" and post proofs failed silently). The owner gets a notification.
 NEAR_RPC = CFG.get("NEAR_RPC", "https://rpc.testnet.near.org")
-WATCH_ACCOUNTS = [a for a in CFG.get("WATCH_ACCOUNTS", "nearchant.testnet,proofs.nearchant.testnet,orders.nearchant.testnet,escrow.nearchant.testnet,billing.nearchant.testnet,nusd.nearchant.testnet").split(",") if a]
+WATCH_ACCOUNTS = [a for a in CFG.get("WATCH_ACCOUNTS", "nearchant.testnet,relayer.nearchant.testnet,proofs.nearchant.testnet,orders.nearchant.testnet,escrow.nearchant.testnet,billing.nearchant.testnet,nusd.nearchant.testnet").split(",") if a]
 LOW_FREE_NEAR = float(CFG.get("LOW_FREE_NEAR", "1"))
 BALANCE_EVERY_S = 3600
 

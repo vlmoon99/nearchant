@@ -49,7 +49,8 @@ export async function sponsorBuyer(d: { chain: Chain; accounts: PlatformAccounts
   // Limits are checked BEFORE any NEAR leaves the relayer (security review H1).
   if (!exists && !allowNew()) throw new RateLimited();
   if (!exists) await d.chain.transferFromRelayer(accountId, gasNear);
-  let funded = true;
-  await d.chain.call(d.accounts.nusd, "faucet_for", { account_id: accountId }, { gasTgas: 30 }).catch(() => { funded = false; });
+  // Test money: at most 12 s (it once took 27 s against a relayer low on NEAR and made the buyer's button fail).
+  const faucet = d.chain.call(d.accounts.nusd, "faucet_for", { account_id: accountId }, { gasTgas: 30 }).then(() => true, () => false);
+  const funded = await Promise.race([faucet, new Promise<boolean>((r) => setTimeout(() => r(false), 12_000))]);
   return { accountId, created: !exists, funded };
 }
