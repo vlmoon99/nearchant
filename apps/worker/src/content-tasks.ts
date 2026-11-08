@@ -115,7 +115,9 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     const { handle } = payload as { handle: string };
     const profile = (await d.content.getProfile(handle))?.data as StyleProfile | undefined;
     if (!profile?.products) throw new Error(`no profile for ${handle}`);
-    const items = (await d.content.listItems(handle)).map((i) => ({ title: i.title, price: `${Number(i.priceUnits) / 10 ** d.decimals} USD` }));
+    const shop = await d.content.listItems(handle);
+    profile.products = withShopItems(profile.products, shop, []);
+    const items = shop.map((i) => ({ title: i.title, price: `${Number(i.priceUnits) / 10 ** d.decimals} USD` }));
     try {
       const demand = d.demand ? await d.demand(handle).catch(() => []) : [];
       const { opportunities, searched } = await findOpportunities(askFor(handle, "opportunities"), profile, items, d.search, "", demand);
@@ -191,6 +193,8 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     const batch = (await d.content.listPosts(handle, { limit: 50 })).filter((p) => p.batchId === batchId && p.status === "queued");
     if (!batch.length) return;
     const photos = (await d.content.listMedia(handle, "photo")).slice(0, 8);
+    // What the owner added in Shop (products and services) is something to post about too (ADR 0026).
+    profile.products = withShopItems(profile.products, await d.content.listItems(handle), photos.map((m) => m.id));
     const opps = await d.content.listOpportunities(handle);
     const first = batch[0]!;
     const opp = opps.find((o) => o.id === first.opportunityId) ?? null;
@@ -430,5 +434,32 @@ export function makeContentTasks(d: ContentTaskDeps): Record<string, Task> {
     }
   };
 
-  return { remake_picture: remakePictureTask, rewrite_caption: rewriteCaptionTask, check_post: checkPostTask, make_video: makeVideoTask, write_insights: writeInsightsTask, publish_post: publishPostTask, analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
+  // Shop (ADR 0026): an item held by the safety check — AI rewrites its description, then the check runs again.
+  const fixItemTask: Task = async (payload, helpers) => {
+    const { handle, itemId } = payload as { handle: string; itemId: string };
+    const it = await d.content.getItem(handle, itemId);
+    if (!it?.held) return;
+    const profile = (await d.content.getProfile(handle))?.data as StyleProfile;
+    const text = await rewriteCaption(askFor(handle, "fix-item"), { profile, caption: `${it.title}\n\n${it.description || it.title}`, style: "fix", instruction: it.held });
+    // The editor writes captions: drop hashtags and a repeated title line, keep the rest as the description.
+    const description = text.replace(/(^|\s)#[\p{L}\p{N}_]+/gu, "").replace(new RegExp(`^\\s*${it.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\n+`, "i"), "").trim().slice(0, 2000);
+    const now = await d.content.getItem(handle, itemId);
+    if (!now || now.description !== it.description || now.title !== it.title) return; // the owner edited it meanwhile
+    await d.content.upsertItem({ id: it.id, handle, kind: it.kind, title: it.title, description, priceUnits: it.priceUnits, options: (it.options as string[]) ?? [], photoMediaId: it.photoMediaId, active: it.active });
+    await d.content.addSignal(handle, null, "edited", { item: it.id, before: it.description, after: description, by: "ai:fix" });
+    await helpers.addJob("index_store", { handle }, { jobKey: `index-store:${handle}:fix:${it.id}`, maxAttempts: 3 });
+    d.log(`fix item ${it.id}: rewritten`);
+  };
+
+  return { fix_item: fixItemTask, remake_picture: remakePictureTask, rewrite_caption: rewriteCaptionTask, check_post: checkPostTask, make_video: makeVideoTask, write_insights: writeInsightsTask, publish_post: publishPostTask, analyze_business: analyzeBusinessTask, find_opportunities: findOpportunitiesTask, generate_posts: generatePostsTask, learn_taste: learnTasteTask };
+}
+
+/** The AI's products from the photos plus the owner's Shop items it doesn't list yet (a service says so). */
+export function withShopItems(products: StyleProfile["products"], items: { title: string; description: string; kind: string; photoMediaId: string | null }[], photoIds: string[]): StyleProfile["products"] {
+  const known = new Set(products.map((p) => p.name.toLowerCase()));
+  const extra = items.filter((i) => !known.has(i.title.toLowerCase())).map((i) => {
+    const k = i.photoMediaId ? photoIds.indexOf(i.photoMediaId) : -1;
+    return { name: i.title, description: `${i.kind === "service" ? "A service: " : ""}${i.description}`.slice(0, 400), photo: k >= 0 ? k + 1 : null };
+  });
+  return [...products, ...extra].slice(0, 30);
 }

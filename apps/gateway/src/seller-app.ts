@@ -7,7 +7,8 @@ import sharp from "sharp";
 import type { Context, Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { safetyCurrent, safetyFlag } from "./post-safety.js";
-import type { Messages } from "@nearchant/db";
+import { parseContact } from "./contact.js";
+import { parseDetails } from "./item-details.js";
 import type { ContentStore } from "@nearchant/db";
 import { QuotaExceeded } from "@nearchant/db";
 import type { HandleRecord } from "@nearchant/near";
@@ -33,7 +34,7 @@ export interface SellerAppDeps {
   sessionKey: Buffer;
   secureCookies: boolean;
   /** Mirror an item as an orderable service, so the existing escrow checkout sells it. */
-  mirrorService?: (s: { id: string; handle: string; title: string; description: string; priceUnits: string }) => Promise<void>;
+  mirrorService?: (s: { id: string; handle: string; title: string; description: string; priceUnits: string; active?: boolean }) => Promise<void>;
   /** Paid item orders of a store + queue "shipped" (proof + mark_delivered via the outbox). */
   orders?: {
     list: (handle: string) => Promise<{ orderId: string; serviceId: string; amount: string; brief: string; state: string; createdAt: string }[]>;
@@ -44,9 +45,8 @@ export interface SellerAppDeps {
     refund?: (handle: string, orderId: string) => Promise<void>;
     declineRefund?: (handle: string, orderId: string) => Promise<void>;
   };
-  /** Messages with the buyer of an order (off-chain) and an email to the buyer when the store writes. */
-  messages?: Pick<Messages, "add" | "list" | "markRead" | "recentCount">;
-  notifyBuyer?: (orderId: string, handle: string, text: string) => Promise<void>;
+  /** NEAR AI Agent Market (ADR 0010): keep the store's market token + webhook secret (sealed). */
+  marketConnect?: (handle: string, token: string, webhookSecret: string) => Promise<void>;
   /** NEP-413 recipient expected in wallet messages (the public host); default: the request's host. */
   walletRecipient?: string;
   /** Short videos can be made here (voice service + video renderer configured on the worker). */
@@ -497,22 +497,24 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     await d.orders.declineRefund(handle, o.orderId);
     return c.json({ status: "declining" }, 202);
   }));
-  app.get("/api/app/orders/:id/messages", (c) => authed(c, async (handle) => {
-    const o = await itemOrder(handle, c.req.param("id"));
-    if (!o || !d.messages) return c.json({ error: "not found" }, 404);
-    await d.messages.markRead(o.orderId, "seller");
-    const chain = d.orders?.status ? await d.orders.status(o.orderId).catch(() => null) : null;
-    return c.json({ messages: await d.messages.list(o.orderId), state: o.state, chainStatus: chain?.status ?? null });
+
+  // How buyers reach the store (ADR 0026): shown on the buyer's order page once they paid. Email or phone + app.
+  app.post("/api/app/contact", (c) => authed(c, async (handle) => {
+    const pc = parseContact(await json(c));
+    if ("error" in pc) return c.json({ error: pc.error }, 400);
+    const { name: _n, address: _a, ...contact } = pc.contact;
+    await d.content.setSetting(`contactOf:${handle}`, contact);
+    return c.json({ contact });
   }));
-  app.post("/api/app/orders/:id/messages", (c) => authed(c, async (handle) => {
-    const o = await itemOrder(handle, c.req.param("id"));
-    if (!o || !d.messages) return c.json({ error: "not found" }, 404);
-    const text = String((await json(c)).text ?? "").trim().slice(0, 1000);
-    if (!text) return c.json({ error: "write a message" }, 400);
-    if ((await d.messages.recentCount(o.orderId, "seller", 600_000)) >= 30) return c.json({ error: "too many messages — wait a few minutes" }, 429);
-    const m = await d.messages.add(o.orderId, handle, "seller", text);
-    void d.notifyBuyer?.(o.orderId, handle, text).catch(() => {});
-    return c.json({ message: m });
+  // NEAR AI Agent Market (ADR 0010): the owner pastes the market token; the webhook secret is made here, shown once.
+  app.post("/api/app/market", (c) => authed(c, async (handle) => {
+    if (!d.marketConnect) return c.json({ error: "the market connection is off on this server" }, 503);
+    const token = String((await json(c)).token ?? "").trim();
+    if (!/^[\w.-]{10,400}$/.test(token)) return c.json({ error: "paste the API token from market.near.ai (it starts with aat_)" }, 400);
+    const webhookSecret = `whsec_${randomUUID().replaceAll("-", "")}`;
+    await d.marketConnect(handle, token, webhookSecret);
+    await d.content.setSetting(`marketOn:${handle}`, new Date(now()).toISOString());
+    return c.json({ webhookUrl: `${d.publicUrl ?? ""}/market/webhook/${handle}`, webhookSecret });
   }));
 
   // Settings: the owner's wishes for posts and pictures (kept across a new analysis), first-sale dismissal, insights.
@@ -526,24 +528,46 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
   app.post("/api/app/celebrated", (c) => authed(c, async (handle) => { await d.content.setSetting(`celebrated:${handle}`, true); return c.json({ ok: true }); }));
   app.post("/api/app/insights", (c) => authed(c, async (handle) => { await d.enqueue("write_insights", { handle }, `insights:${handle}`); return c.json({ status: "writing" }, 202); }));
 
-  // Items the store sells (products or services).
+  // What the store sells (ADR 0026): products and services — add, edit, hide/unhide, fix with AI.
   app.get("/api/app/items", (c) => authed(c, async (handle) => c.json({ items: await d.content.listItems(handle, false) })));
   app.post("/api/app/items", (c) => authed(c, async (handle) => {
     const b = await json(c);
-    const title = String(b.title ?? "").trim(), price = Number(b.price);
-    if (title.length < 2 || title.length > 120) return c.json({ error: "title: 2–120 characters" }, 400);
-    if (!(price > 0 && price <= 10_000)) return c.json({ error: "price must be above 0" }, 400);
-    const priceUnits = String(Math.round(price * 10 ** d.decimals)), description = String(b.description ?? "").slice(0, 1000);
+    const kind = b.kind === "service" ? "service" : "product";
+    const title = String(b.title ?? "").trim().replace(/\s+/g, " "), price = Number(b.price);
+    if (title.length < 2 || title.length > 120) return c.json({ error: "name: 2–120 characters" }, 400);
+    if (!(price >= 0.5 && price <= 100_000)) return c.json({ error: "price: from 0.5 to 100,000" }, 400);
+    const prev = b.id ? await d.content.getItem(handle, String(b.id)) : null;
+    if (b.id && !prev) return c.json({ error: "not found" }, 404);
+    const priceUnits = String(Math.round(price * 10 ** d.decimals)), description = String(b.description ?? "").trim().slice(0, 2000);
     const photoMediaId = b.photoMediaId ? String(b.photoMediaId) : null;
-    const id = await d.content.upsertItem({ id: b.id ? String(b.id) : undefined, handle, kind: b.kind === "service" ? "service" : "product", title, description, priceUnits, options: (Array.isArray(b.options) ? b.options : []).map(String).slice(0, 20), photoMediaId });
-    // Checked by the moderator agent and indexed for the shop feed (ADR 0022).
+    if (photoMediaId && (await d.content.getMedia(photoMediaId))?.handle !== handle) return c.json({ error: "unknown photo" }, 400);
+    const options = (Array.isArray(b.options) ? b.options : []).map((o) => String(o).trim().slice(0, 40)).filter(Boolean).slice(0, 12);
+    const details = parseDetails(kind, b.details);
+    const active = prev ? prev.active : true;
+    // Saved text is checked again by the safety check (index_store); until then it is not held.
+    const id = await d.content.upsertItem({ id: prev?.id, handle, kind, title, description, priceUnits, options: kind === "product" ? options : [], photoMediaId, active, details, held: null });
     await d.enqueue("index_store", { handle }, `index-store:${handle}:${Math.floor(now() / 10_000)}`).catch(() => {});
     // The item's photo is shown on the public storefront: publish a copy (the original stays private).
     if (photoMediaId) {
       const m = await d.content.getMedia(photoMediaId);
-      if (m && m.handle === handle) { await mkdir(join(d.mediaDir, handle, "public"), { recursive: true }); await writeFile(join(d.mediaDir, handle, "public", `item-${id}.jpg`), await readFile(join(d.mediaDir, m.key))); }
+      if (m) { await mkdir(join(d.mediaDir, handle, "public"), { recursive: true }); await writeFile(join(d.mediaDir, handle, "public", `item-${id}.jpg`), await readFile(join(d.mediaDir, m.key))); }
     }
-    await d.mirrorService?.({ id, handle, title, description, priceUnits });
-    return c.json({ id }, 201);
+    await d.mirrorService?.({ id, handle, title, description, priceUnits, active });
+    return c.json({ id }, prev ? 200 : 201);
+  }));
+  app.post("/api/app/items/:id/visibility", (c) => authed(c, async (handle) => {
+    const it = await d.content.getItem(handle, c.req.param("id"));
+    if (!it) return c.json({ error: "not found" }, 404);
+    const active = (await json(c)).active === true;
+    await d.content.upsertItem({ id: it.id, handle, kind: it.kind, title: it.title, description: it.description, priceUnits: it.priceUnits, options: (it.options as string[]) ?? [], photoMediaId: it.photoMediaId, active });
+    await d.mirrorService?.({ id: it.id, handle, title: it.title, description: it.description, priceUnits: it.priceUnits, active });
+    return c.json({ active });
+  }));
+  app.post("/api/app/items/:id/fix", (c) => authed(c, async (handle) => {
+    const it = await d.content.getItem(handle, c.req.param("id"));
+    if (!it) return c.json({ error: "not found" }, 404);
+    if (!it.held) return c.json({ error: "nothing to fix — it is fine" }, 409);
+    await d.enqueue("fix_item", { handle, itemId: it.id }, `fix-item:${it.id}:${Math.floor(now() / 60_000)}`);
+    return c.json({ status: "fixing" }, 202);
   }));
 }

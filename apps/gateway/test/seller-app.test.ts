@@ -12,7 +12,7 @@ const nova = { handle: "nova", account_id: "nova.nearchant.testnet" } as HandleR
 
 /** In-memory stand-in for ContentStore: only what the API touches. */
 function fakeContent() {
-  const db = { settings: new Map<string, any>(), lastPlan: undefined as string | undefined, business: new Map<string, any>(), profile: new Map<string, any>(), media: [] as any[], posts: [] as any[], signals: [] as any[], quota: 12 };
+  const db = { items: [] as any[], settings: new Map<string, any>(), lastPlan: undefined as string | undefined, business: new Map<string, any>(), profile: new Map<string, any>(), media: [] as any[], posts: [] as any[], signals: [] as any[], quota: 12 };
   const c: Partial<SellerContent> = {
     upsertBusiness: async (b) => { db.business.set(b.handle, b); if (!db.profile.has(b.handle)) db.profile.set(b.handle, { status: "none", facts: [] }); },
     getBusiness: async (h) => db.business.get(h) ?? null,
@@ -23,7 +23,9 @@ function fakeContent() {
     getMedia: async (id: string) => db.media.find((m) => m.id === id) ?? null,
     usage: async () => ({ posts: 12 - db.quota, images: 0 }),
     createPosts: async (h, ideas, plan) => { db.lastPlan = plan; if (ideas.length > db.quota) throw new QuotaExceeded("posts", 12); db.quota -= ideas.length; const ids = ideas.map((_, i) => `p${db.posts.length + i}`); ids.forEach((id) => db.posts.push({ id, handle: h, status: "ready" })); return { batchId: "b1", ids }; },
-    listItems: async () => [],
+    listItems: async (h: string, activeOnly = true) => db.items.filter((i) => i.handle === h && (!activeOnly || (i.active && !i.held))),
+    getItem: async (h: string, id: string) => db.items.find((i) => i.handle === h && i.id === id) ?? null,
+    upsertItem: async (i: any) => { const id = i.id ?? `i-${db.items.length + 1}`; const old = db.items.find((x) => x.id === id); const v = { held: null, details: {}, ...(old ?? {}), ...Object.fromEntries(Object.entries(i).filter(([, x]) => x !== undefined)), id }; if (old) Object.assign(old, v); else db.items.push(v); return id; },
     listPosts: async (h) => db.posts.filter((p) => p.handle === h),
     getPost: async (id) => db.posts.find((p) => p.id === id) ?? null,
     updatePost: async (id, p) => { Object.assign(db.posts.find((x) => x.id === id), p); },
@@ -36,23 +38,17 @@ function fakeContent() {
   return { c: c as SellerContent, db };
 }
 
-// Item orders on a fake orders contract, plus an in-memory message thread.
+// Item orders on a fake orders contract.
 function orderDeps(chainStatus: Record<string, string>) {
-  const calls: string[] = [], msgs: { orderId: string; author: string; text: string }[] = [], notified: string[] = [];
+  const calls: string[] = [];
   const list = async (h: string) => h !== "nova" ? [] : [
     { orderId: "o-new", serviceId: "i-1", amount: "5000000", brief: "Size M, 5th Ave", state: "paid", createdAt: "2026-11-08T10:00:00Z" },
     { orderId: "o-ask", serviceId: "i-1", amount: "5000000", brief: "", state: "delivered", createdAt: "2026-11-08T10:00:00Z" },
     { orderId: "o-sent", serviceId: "i-1", amount: "5000000", brief: "", state: "delivered", createdAt: "2026-11-08T10:00:00Z" },
     { orderId: "o-deck", serviceId: "deck", amount: "5000000", brief: "", state: "paid", createdAt: "2026-11-08T10:00:00Z" }];
-  return { calls, msgs, notified, deps: {
+  return { calls, deps: {
     orders: { list, ship: async () => {}, status: async (id: string) => (chainStatus[id] ? { status: chainStatus[id]! } : null),
       refund: async (_h: string, id: string) => { calls.push(`refund:${id}`); }, declineRefund: async (_h: string, id: string) => { calls.push(`decline:${id}`); } },
-    messages: {
-      add: async (orderId: string, _h: string, author: "seller" | "buyer", text: string) => { msgs.push({ orderId, author, text }); return { id: msgs.length, orderId, author, text, at: "t", read: false }; },
-      list: async (orderId: string) => msgs.filter((m) => m.orderId === orderId).map((m, i) => ({ id: i + 1, ...m, at: "t", read: false })) as never,
-      markRead: async () => {}, recentCount: async (orderId: string, author: string) => msgs.filter((m) => m.orderId === orderId && m.author === author).length,
-    },
-    notifyBuyer: async (id: string) => { notified.push(id); },
   } };
 }
 
@@ -368,7 +364,7 @@ describe("seller API", () => {
     expect(jobs.filter((j) => j.task === "rewrite_caption")).toHaveLength(1);
   });
 
-  it("orders: decline & refund a paid order, answer a refund request, message the buyer — store items only", async () => {
+  it("orders: decline & refund a paid order, answer a refund request — store items only", async () => {
     const o = orderDeps({ "o-new": "Held", "o-ask": "RefundRequested", "o-sent": "Delivered", "o-deck": "Held" });
     const { app, cookie } = setup([], false, Date.now(), o.deps);
     expect((await app.request("http://x/api/app/orders/o-new/refund", post({}))).status).toBe(401);                     // the owner only
@@ -379,14 +375,59 @@ describe("seller API", () => {
     expect((await app.request("http://x/api/app/orders/o-ask/decline-refund", post({}, cookie))).status).toBe(202);
     expect((await app.request("http://x/api/app/orders/o-ask/refund", post({}, cookie))).status).toBe(202);            // approve the request
     expect(o.calls).toEqual(["refund:o-new", "decline:o-ask", "refund:o-ask"]);
-    expect((await app.request("http://x/api/app/orders/o-new/messages", post({ text: "  " }, cookie))).status).toBe(400);
-    const sent = await app.request("http://x/api/app/orders/o-new/messages", post({ text: "Shipping today!" }, cookie));
-    expect(sent.status).toBe(200);
-    expect(o.notified).toEqual(["o-new"]);
-    const thread = await (await app.request("http://x/api/app/orders/o-new/messages", { headers: { cookie } })).json();
-    expect(thread).toMatchObject({ messages: [{ author: "seller", text: "Shipping today!" }], chainStatus: "Held" });
-    for (let i = 0; i < 29; i++) await app.request("http://x/api/app/orders/o-new/messages", post({ text: `m${i}` }, cookie));
-    expect((await app.request("http://x/api/app/orders/o-new/messages", post({ text: "one more" }, cookie))).status).toBe(429); // flood limit
+    expect((await app.request("http://x/api/app/orders/o-new/messages", post({ text: "hi" }, cookie))).status).toBe(404); // no in-app chat (ADR 0026)
+  });
+
+  it("shop: add a product and a service, edit, hide and show again, fix with AI only when held", async () => {
+    const mirrored: any[] = [];
+    const { app, cookie, db, jobs } = setup([], false, Date.now(), { mirrorService: async (x: unknown) => { mirrored.push(x); } });
+    db.media.push({ id: "m-own", handle: "nova", kind: "photo", key: "nova/photos/a.jpg" }, { id: "m-other", handle: "bob", kind: "photo", key: "bob/photos/b.jpg" });
+    const add = (b: unknown) => app.request("http://x/api/app/items", post(b, cookie));
+    expect((await app.request("http://x/api/app/items", post({ title: "Gold phone", price: 10 }))).status).toBe(401);
+    expect((await add({ title: "G", price: 10 })).status).toBe(400);
+    expect((await add({ title: "Gold phone", price: 0 })).status).toBe(400);
+    expect((await add({ title: "Gold phone", price: 10, photoMediaId: "m-other" })).status).toBe(400);   // another store's photo
+    const p = await add({ kind: "product", title: "Gold phone", price: 4999.5, description: "18k", options: ["Yellow", "Rose", ""], details: { stock: "made_to_order", shipping: "pickup", optionName: "Gold", evil: 1 } });
+    expect(p.status).toBe(201);
+    const pid = (await p.json()).id;
+    expect(db.items[0]).toMatchObject({ kind: "product", priceUnits: "4999500000", options: ["Yellow", "Rose"], details: { stock: "made_to_order", shipping: "pickup", optionName: "Gold" }, active: true, held: null });
+    expect(db.items[0].details.evil).toBeUndefined();
+    const sv = await add({ kind: "service", title: "Security upgrade", price: 300, options: ["x", "y"], details: { mode: "buyer", deliveryDays: 3, question: "Which model?", priceFrom: true } });
+    expect(db.items[1]).toMatchObject({ kind: "service", options: [], details: { mode: "buyer", deliveryDays: 3, question: "Which model?", priceFrom: true } });
+    expect(jobs.filter((j) => j.task === "index_store").length).toBeGreaterThan(0);                  // the safety check runs
+    expect((await add({ id: pid, kind: "product", title: "Gold phone 2", price: 10 })).status).toBe(200);
+    expect((await add({ id: "i-nope", title: "Gold phone 2", price: 10 })).status).toBe(404);
+    const vis = (id: string, active: boolean) => app.request(`http://x/api/app/items/${id}/visibility`, post({ active }, cookie));
+    expect((await vis(pid, false)).status).toBe(200);
+    expect(db.items[0].active).toBe(false);
+    expect(mirrored.at(-1)).toMatchObject({ id: pid, active: false });                                // checkout stops selling it
+    await add({ id: pid, kind: "product", title: "Gold phone 3", price: 10 });
+    expect(db.items[0].active).toBe(false);                                                           // editing keeps it hidden
+    await vis(pid, true);
+    expect(db.items[0].active).toBe(true);
+    const fix = (id: string) => app.request(`http://x/api/app/items/${id}/fix`, post({}, cookie));
+    expect((await fix(pid)).status).toBe(409);                                                        // nothing to fix
+    db.items[0].held = "mentions paying outside the store";
+    expect((await fix(pid)).status).toBe(202);
+    expect(jobs.at(-1)).toMatchObject({ task: "fix_item", payload: { handle: "nova", itemId: pid } });
+    expect((await sv.json()).id).toBe("i-2");
+  });
+
+  it("store contact: email or phone with its app; Agent Market token from Settings", async () => {
+    const connected: string[] = [];
+    const { app, cookie, db } = setup([], false, Date.now(), { marketConnect: async (h: string, t: string) => { connected.push(`${h}:${t}`); } });
+    const save = (b: unknown) => app.request("http://x/api/app/contact", post(b, cookie));
+    expect((await save({})).status).toBe(400);
+    expect((await save({ phone: "050 123 4567" })).status).toBe(400);                                 // needs the country code
+    expect((await save({ email: "nope" })).status).toBe(400);
+    expect((await save({ phone: "+971 50 123-45-67", app: "whatsapp" })).status).toBe(200);
+    expect(db.settings.get("contactOf:nova")).toEqual({ phone: "+971501234567", app: "whatsapp" });
+    expect((await save({ phone: "+971501234567", app: "pigeon", email: "Shop@Example.com" })).status).toBe(200);
+    expect(db.settings.get("contactOf:nova")).toEqual({ phone: "+971501234567", app: "sms", email: "shop@example.com" });
+    expect((await app.request("http://x/api/app/market", post({ token: "x" }, cookie))).status).toBe(400);
+    const m = await app.request("http://x/api/app/market", post({ token: "aat_0123456789abcdef" }, cookie));
+    expect(await m.json()).toMatchObject({ webhookUrl: "https://nearchant.com/market/webhook/nova", webhookSecret: expect.stringMatching(/^whsec_[0-9a-f]{32}$/) });
+    expect(connected).toEqual(["nova:aat_0123456789abcdef"]);
   });
 
   it("post editor: a flagged draft can't be published until fixed; ask-AI, new picture and skip", async () => {

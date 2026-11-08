@@ -1396,3 +1396,41 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 - **Model fallback (ADR 0023 addendum 3)**: per-model circuit breaker + `fallback_models`; providers tests 30 (new:
   broken model → backup with its own attestation, other models unaffected, replay key unchanged). Live during the
   Qwen3.6 outage: answered by Qwen3.8, attested, signature verified. Deployed.
+
+## 2026-11-08: Shop, contact details instead of chat, Apple-style UI (ADR 0026)
+
+**Done**
+- Grilled the owner on 16 decisions; all of my recommendations were accepted.
+- Shop page (products/services, add/edit/hide, "Fix with AI" for held items, suggestions from photos).
+- Item details (stock, shipping, options; delivery days, where, question, "from" price).
+- Buyer contact at checkout (`orders.contact`), with tap-to-open links on the seller's order page; hidden 90 days after an order closes.
+- Store contact, required in onboarding and shown to the buyer after payment.
+- Buyer receipt email.
+- Agent Market setup in Settings.
+- Chat removed.
+- HIG layer + dark mode; new bottom bar.
+- Items are held, not removed, by the safety check.
+- Migration 0010.
+
+**Found and fixed live**
+- `proofs.nearchant.testnet` had run out of NEAR for storage: 1.7 NEAR with 169 KB stored. Every "mark shipped", and every new post proof, failed with "lacks balance for state".
+  - Topped up: proofs +10 NEAR, orders +5 NEAR from the root.
+  - The stuck outbox row went through.
+- Checkout grabbed the first `<button>` of the form, which is now the option picker.
+
+**Verified**
+- Tests: gateway 68, worker 28 (new: items API, contact, market, checkout contact rules, item hold/release).
+- `make demo` passes.
+- Live e2e `e2e/buy-item.mjs` on novatest33li: paid 12 s → shipped → delivered 54 s → accepted → released 73 s.
+  - The seller page has the buyer's `wa.me` link.
+  - The buyer page shows the store's Telegram/call/email.
+  - No page errors.
+- Screenshots of Shop, edit screen, Orders, order, Settings, Home, the buyer's item and order pages: desktop, phone, phone dark (`e2e/shop-shots.mjs`).
+- On vipelectronicsinc, deleted the leftover "private Telegram channel" opportunity.
+
+**Not verified**
+- "Fix with AI" for an item against the live model (unit-tested only).
+- The receipt email to a real inbox.
+
+**Next**
+- Watch the contract balances: add a low-balance alert to the watchdog.

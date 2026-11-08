@@ -1,7 +1,9 @@
 // Page routes of the seller app (ADR 0018). JSON lives in seller-app.ts; these render the Figma screens.
 import type { Context, Hono } from "hono";
 import { getCookie } from "hono/cookie";
-import { PLAN_LIMITS, type ContentStore, type Messages } from "@nearchant/db";
+import { PLAN_LIMITS, type BuyerContact, type ContentStore } from "@nearchant/db";
+import { ItemEditPage, ShopPage, type ShopItem } from "./shop.js";
+import type { ItemDetails } from "../item-details.js";
 import { OrdersPage, SellerOrderPage, type SellerOrder } from "./orders.js";
 import { OnboardingPage } from "./onboarding.js";
 import { CreatePage, HomePage, PostPage, PostsPage, SignInPage, checklistFor, type StoreView } from "./app-pages.js";
@@ -40,10 +42,11 @@ export interface UiDeps {
   walletJs?: string;
   accountOf: (handle: string) => string;
   explorer: (accountId: string) => string;
-  orders?: (handle: string) => Promise<{ orderId: string; serviceId: string; amount: string; brief: string; state: string; createdAt: string }[]>;
-  /** The order on the orders contract (money state) and the buyer ↔ store messages. */
+  orders?: (handle: string) => Promise<{ orderId: string; serviceId: string; amount: string; brief: string; state: string; createdAt: string; updatedAt: string; contact?: BuyerContact | null }[]>;
+  /** The order on the orders contract (money state). */
   orderStatus?: (orderId: string) => Promise<{ status: string } | null>;
-  messages?: Pick<Messages, "list" | "markRead" | "unreadForSeller" | "latest">;
+  /** The Agent Market connection can be set up from Settings. */
+  marketOn?: boolean;
   ordersContract?: string;
   /** Chain views for the wallet: nUSD balance + prepaid AI billing (null when the chain is unreachable). */
   balances?: (accountId: string) => Promise<{ wallet: string; billing: { balance: string; spent_month: string } | null } | null>;
@@ -196,23 +199,59 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
       stats={{ views: sum("view"), sales: sum("sale"), salesUnits: Number((await content.salesSince(s.handle, 7)).units), proofs: posts.filter((p) => p.proof).length, postsMonth: usage.posts, postsLimit: PLAN_LIMITS[b?.plan ?? "free"]!.posts }}
       checklist={checklistFor(b, posts, sum("sale"))} />);
   }));
-  // Orders (store items): what needs the owner, then one order with its actions and the buyer chat.
+  // Orders (store items): what needs the owner, then one order with its actions and the buyer's contact (ADR 0026).
   const sellerOrders = async (handle: string) => {
     if (!d.orders) return [];
-    const titles = new Map((await content.listItems(handle, false)).map((i) => [i.id, i.title]));
+    const items = new Map((await content.listItems(handle, false)).map((i) => [i.id, i]));
     const rows = (await d.orders(handle)).filter((o) => o.serviceId.startsWith("i-") && o.state !== "awaiting_payment" && o.state !== "cancelled");
-    const [unread, latest] = d.messages ? await Promise.all([d.messages.unreadForSeller(handle), d.messages.latest(rows.map((o) => o.orderId))]) : [new Map<string, number>(), new Map()];
     const chain = await Promise.all(rows.map((o) => ["released", "refunded"].includes(o.state) || !d.orderStatus ? null : d.orderStatus(o.orderId).catch(() => null)));
     const fmt = (u: string) => `${(Number(u) / 10 ** d.cfg.decimals).toLocaleString("en", { maximumFractionDigits: 2 })} ${d.cfg.token}`;
-    return rows.map((o, i): SellerOrder => ({ orderId: o.orderId, title: titles.get(o.serviceId) ?? "Item", amount: fmt(o.amount), brief: o.brief, state: o.state,
-      chainStatus: chain[i]?.status ?? null, createdAt: o.createdAt, unread: unread.get(o.orderId) ?? 0, last: latest.get(o.orderId) ?? null }));
+    return rows.map((o, i): SellerOrder => ({ orderId: o.orderId, title: items.get(o.serviceId)?.title ?? "Item", kind: items.get(o.serviceId)?.kind ?? "product", amount: fmt(o.amount), brief: o.brief, state: o.state,
+      chainStatus: chain[i]?.status ?? null, createdAt: o.createdAt, updatedAt: o.updatedAt, contact: o.contact ?? null }));
   };
-  app.get("/app/orders", (c) => withStore(c, async (s) => c.html(<OrdersPage cfg={d.cfg} test={d.test} store={s} orders={await sellerOrders(s.handle)} />)));
+  app.get("/app/orders", (c) => withStore(c, async (s) => {
+    const f = ["done", "all"].includes(c.req.query("f") ?? "") ? c.req.query("f")! : "open";
+    return c.html(<OrdersPage cfg={d.cfg} test={d.test} store={s} orders={await sellerOrders(s.handle)} filter={f} />);
+  }));
   app.get("/app/orders/:id", (c) => withStore(c, async (s) => {
     const o = (await sellerOrders(s.handle)).find((x) => x.orderId === c.req.param("id"));
     if (!o) return c.redirect("/app/orders");
-    if (d.messages) await d.messages.markRead(o.orderId, "seller");
-    return c.html(<SellerOrderPage cfg={d.cfg} test={d.test} store={s} o={o} messages={d.messages ? await d.messages.list(o.orderId) : []} explorer={d.explorer(d.ordersContract ?? "")} />);
+    return c.html(<SellerOrderPage cfg={d.cfg} test={d.test} store={s} o={o} explorer={d.explorer(d.ordersContract ?? "")} />);
+  }));
+
+  // Shop (ADR 0026): products and services — list, add, edit.
+  const shopItems = async (handle: string, img: (id: string | null) => string | null): Promise<ShopItem[]> => (await content.listItems(handle, false)).map((i) => ({
+    id: i.id, kind: i.kind === "service" ? "service" : "product", title: i.title, description: i.description, photoMediaId: i.photoMediaId, img: img(i.photoMediaId), active: i.active, held: i.held,
+    priceNumber: Number(i.priceUnits) / 10 ** d.cfg.decimals, price: `${(Number(i.priceUnits) / 10 ** d.cfg.decimals).toLocaleString("en", { maximumFractionDigits: 2 })} ${d.cfg.token}`,
+    options: (i.options as string[]) ?? [], details: (i.details ?? {}) as ItemDetails,
+  }));
+  const shopSuggestions = async (handle: string, items: { title: string }[]) => {
+    const prof = (await content.getProfile(handle))?.data as { products?: { name: string; photo: number | null; description: string }[] } | undefined;
+    const photos = (await content.listMedia(handle, "photo")).slice(0, 8);
+    const taken = new Set(items.map((i) => i.title.toLowerCase()));
+    return (prof?.products ?? []).filter((p) => !taken.has(p.name.toLowerCase())).slice(0, 8).map((p) => {
+      const m = p.photo ? photos[p.photo - 1] : undefined;
+      return { title: p.name, description: p.description, photoMediaId: m?.id ?? null, img: m ? `/files/${m.key}?w=320` : null };
+    });
+  };
+  app.get("/app/shop", (c) => withStore(c, async (s, img) => {
+    const items = await shopItems(s.handle, img);
+    const b = await content.getBusiness(s.handle);
+    const k = c.req.query("k");
+    const tab = k === "service" || k === "product" ? k : b?.kind === "services" ? "service" : "product";
+    return c.html(<ShopPage cfg={d.cfg} test={d.test} store={s} items={items} suggestions={await shopSuggestions(s.handle, items)} tab={tab} />);
+  }));
+  const photoPicks = async (handle: string) => (await content.listMedia(handle)).filter((m) => m.kind !== "video").reverse().slice(0, 30).map((m) => ({ id: m.id, img: `/files/${m.key}?w=320` }));
+  app.get("/app/shop/new", (c) => withStore(c, async (s, img) => {
+    const items = await shopItems(s.handle, img);
+    const n = Number(c.req.query("suggest"));
+    const prefill = Number.isInteger(n) && n >= 0 ? (await shopSuggestions(s.handle, items))[n] ?? null : null;
+    return c.html(<ItemEditPage cfg={d.cfg} test={d.test} store={s} item={null} kind={c.req.query("kind") === "service" ? "service" : "product"} photos={await photoPicks(s.handle)} prefill={prefill} />);
+  }));
+  app.get("/app/shop/:id", (c) => withStore(c, async (s, img) => {
+    const item = (await shopItems(s.handle, img)).find((i) => i.id === c.req.param("id"));
+    if (!item) return c.redirect("/app/shop");
+    return c.html(<ItemEditPage cfg={d.cfg} test={d.test} store={s} item={item} kind={item.kind as "product" | "service"} photos={await photoPicks(s.handle)} />);
   }));
   app.get("/app/create", (c) => withStore(c, async (s) => {
     const [photos, opps, usage, b] = await Promise.all([content.listMedia(s.handle, "photo"), content.listOpportunities(s.handle), content.usage(s.handle), content.getBusiness(s.handle)]);
@@ -274,7 +313,9 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     return c.html(<SettingsPage cfg={d.cfg} test={d.test} store={s} b={{ name: b!.name, kind: b!.kind, description: b!.description, links: (b!.links as string[]) ?? [], city: b!.city, country: b!.country, ships: b!.ships, placeBy: b!.placeBy }}
       tone={data.tone ?? ""} colors={data.brand_colors ?? []} wishes={data.wishes ?? ""} usage={{ posts: usage.posts, limit: PLAN_LIMITS[b?.plan ?? "free"]!.posts }} wallet={await content.getSetting<string>(`walletOf:${s.handle}`)}
       plan={b?.plan ?? "free"} created={b!.createdAt.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "America/New_York" })} telegramBot={await content.getSetting<string>(`telegramBot:${s.handle}`)}
-      email={await content.getSetting<string>(`emailOf:${s.handle}`)} emailOn={!!d.emailOn} />);
+      email={await content.getSetting<string>(`emailOf:${s.handle}`)} emailOn={!!d.emailOn}
+      contact={await content.getSetting<{ email?: string; phone?: string; app?: string }>(`contactOf:${s.handle}`)}
+      market={d.marketOn ? { on: !!(await content.getSetting<string>(`marketOn:${s.handle}`)) } : null} />);
   }));
 
   app.get("/app/report", (c) => withStore(c, async (s) => {

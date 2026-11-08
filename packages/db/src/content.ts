@@ -63,14 +63,20 @@ export class ContentStore {
   async listMedia(handle: string, kind?: "photo" | "generated"): Promise<Media[]> {
     return this.db.select().from(s.media).where(kind ? and(eq(s.media.handle, handle), eq(s.media.kind, kind)) : eq(s.media.handle, handle)).orderBy(s.media.createdAt);
   }
-  async upsertItem(i: { id?: string; handle: string; kind?: string; title: string; description?: string; priceUnits: string; options?: string[]; photoMediaId?: string | null; active?: boolean }): Promise<string> {
+  async upsertItem(i: { id?: string; handle: string; kind?: string; title: string; description?: string; priceUnits: string; options?: string[]; photoMediaId?: string | null; active?: boolean; details?: object; held?: string | null }): Promise<string> {
     const id = i.id ?? `i-${randomUUID()}`;
-    const v = { id, handle: i.handle, kind: i.kind ?? "product", title: i.title, description: i.description ?? "", priceUnits: i.priceUnits, options: i.options ?? [], photoMediaId: i.photoMediaId ?? null, active: i.active ?? true };
+    const v = { id, handle: i.handle, kind: i.kind ?? "product", title: i.title, description: i.description ?? "", priceUnits: i.priceUnits, options: i.options ?? [], photoMediaId: i.photoMediaId ?? null, active: i.active ?? true,
+      ...(i.details !== undefined ? { details: i.details } : {}), ...(i.held !== undefined ? { held: i.held } : {}) };
     await this.db.insert(s.items).values(v).onConflictDoUpdate({ target: s.items.id, set: { ...v, id: undefined } });
     return id;
   }
+  /** Items buyers can see (`activeOnly`: switched on by the owner and not held by the safety check), or all of them. */
   async listItems(handle: string, activeOnly = true): Promise<Item[]> {
-    return this.db.select().from(s.items).where(activeOnly ? and(eq(s.items.handle, handle), eq(s.items.active, true)) : eq(s.items.handle, handle)).orderBy(s.items.createdAt);
+    return this.db.select().from(s.items).where(activeOnly ? and(eq(s.items.handle, handle), eq(s.items.active, true), isNull(s.items.held)) : eq(s.items.handle, handle)).orderBy(s.items.createdAt);
+  }
+  /** The safety check's verdict on an item: a reason holds it back from buyers, null lets it show. */
+  async setItemHeld(handle: string, id: string, reason: string | null): Promise<void> {
+    await this.db.update(s.items).set({ held: reason }).where(and(eq(s.items.handle, handle), eq(s.items.id, id)));
   }
   async getItem(handle: string, id: string): Promise<Item | null> {
     return (await this.db.select().from(s.items).where(and(eq(s.items.handle, handle), eq(s.items.id, id))))[0] ?? null;

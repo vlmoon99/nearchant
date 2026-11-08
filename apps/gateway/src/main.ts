@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { makeWorkerUtils, type WorkerUtils } from "graphile-worker";
 import { parse } from "yaml";
-import { Artifacts, ContentStore, FeedStore, Messages, PLAN_LIMITS, Envelopes, Outbox, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, waitWhileFenced, type Connection, type Service, type Store } from "@nearchant/db";
+import { Artifacts, ContentStore, FeedStore, PLAN_LIMITS, Envelopes, Outbox, MemoryStore, PgStore, Sealer, a2aResult, claimA2aPayment, saveA2aResult, connect, createShop, getSecret, handlesWithSecret, putSecret, runMigrations, waitWhileFenced, type Connection, type Service, type Store } from "@nearchant/db";
 import { sql } from "drizzle-orm";
 import { TelegramApi, handleUpdate, type TgUpdate } from "./telegram.js";
 import { marketOrderId, type HireCreated } from "./market.js";
@@ -14,6 +14,8 @@ import { formatUnits } from "./config.js";
 import { Router } from "@nearchant/providers";
 import { answerShopper, loadAgentEnv, makeAsker, planSearch, type AgentEnv } from "@nearchant/swarm";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
+import { contactLine, type Contact } from "./contact.js";
+import { ships, soldOut, type ItemDetails } from "./item-details.js";
 import { createApp } from "./app.js";
 import { mountSellerApp, readSession } from "./seller-app.js";
 import { getCookie } from "hono/cookie";
@@ -178,13 +180,12 @@ if (!mailer) console.info("[gateway] email off (no RESEND_API_KEY)");
 
 // Shop feed store (ADR 0022), used by the store pages ("More like this") and the feed.
 const feedStore = conn ? new FeedStore(conn.db) : null;
-const messages = conn ? new Messages(conn.db) : undefined;
 const orderOnChain = (id: string) => chain.view<{ status: string } | null>(accounts.orders, "get_order", { order_id: id });
-// A message about an order: an email to the other side when we know their address (a failed email never blocks).
+// An email about an order to the store or the buyer, when we know their address (a failed email never blocks).
 const mailAbout = async (to: string | null | undefined, subject: string, lines: string[], url: string, key: string) => {
   if (!to || !mailer) return;
   await mailer({ to, subject, idempotencyKey: key, text: `${lines.join("\n\n")}\n\n${url}`, html: emailHtml({ title: subject, lines, button: { label: "Open the order", url } }) })
-    .catch((e) => console.warn(`[gateway] message email: ${(e as Error).message}`));
+    .catch((e) => console.warn(`[gateway] order email: ${(e as Error).message}`));
 };
 const buyerKey = createHash("sha256").update(`nearchant-buyer:${process.env.NEARCHANT_SECRET_KEY ?? "dev"}`).digest();
 
@@ -270,10 +271,19 @@ const app = createApp({
       execute: executeA2a,
     },
   } : {}),
-  ...(messages && conn ? { messages, notifySeller: async (orderId: string, handle: string, text: string) => {
-    const to = await new ContentStore(conn!.db).getSetting<string>(`emailOf:${handle}`);
-    await mailAbout(to, "A buyer wrote to your store", [`About order ${orderId.slice(0, 10)}…:`, `“${text.slice(0, 500)}”`, "Reply from the order page — the buyer sees it right away."], `${config.public_url}/app/orders/${orderId}`, `msg-seller:${orderId}:${createHash("sha256").update(text).digest("hex").slice(0, 12)}`);
-  } } : {}),
+  ...(conn ? {
+    // Checkout of a store item (ADR 0026): on sale now? ships? the store's question and options.
+    itemForSale: async (handle: string, id: string) => {
+      const i = await new ContentStore(conn!.db).getItem(handle, id);
+      if (!i) return null;
+      const det = (i.details ?? {}) as ItemDetails;
+      return { kind: i.kind, sellable: i.active && !i.held && !soldOut(i.kind, det), ships: ships(i.kind, det), ...(det.question ? { question: det.question } : {}), ...(det.optionName ? { optionName: det.optionName } : {}), options: (i.options as string[]) ?? [] };
+    },
+    storeContact: async (handle: string) => {
+      const cs = new ContentStore(conn!.db);
+      return (await cs.getSetting<Contact>(`contactOf:${handle}`)) ?? null;
+    },
+  } : {}),
   saveRevisionNote: artifacts ? async (orderId: string, note: string) => {
     await artifacts!.clear(orderId, "revision_note");
     await artifacts!.put(orderId, "revision_note", { note, at: new Date().toISOString() });
@@ -334,7 +344,7 @@ const app = createApp({
     return {
       handle, name: b.name, account: `${handle}.${accounts.root}`, summary: prof?.summary ?? b.description,
       orders: (await store.listOrders(handle, 500)).filter((o) => ["paid", "in_progress", "delivered", "released"].includes(o.state)).length,
-      items: items.map((i) => ({ id: i.id, title: i.title, description: i.description, price: fmt(i.priceUnits), kind: i.kind, options: i.options as string[], img: i.photoMediaId ? `/files/${handle}/public/item-${i.id}.jpg?w=640&v=${createHash("sha256").update(`${i.photoMediaId}|${i.title}`).digest("hex").slice(0, 8)}` : null })),
+      items: items.map((i) => ({ id: i.id, title: i.title, description: i.description, price: fmt(i.priceUnits), kind: i.kind, options: i.options as string[], details: (i.details ?? {}) as ItemDetails, img: i.photoMediaId ? `/files/${handle}/public/item-${i.id}.jpg?w=640&v=${createHash("sha256").update(`${i.photoMediaId}|${i.title}`).digest("hex").slice(0, 8)}` : null })),
       posts: posts.map((p) => ({ id: p.id, itemId: p.itemId, publishedAt: (p.publishedAt ?? p.createdAt).toISOString(), hashtags: (p.hashtags as string[]) ?? [], caption: p.caption ?? "", img: (p.idea as { publicImage?: string }).publicImage ? `/files/${(p.idea as { publicImage: string }).publicImage}?w=640` : null, video: (p.idea as { publicVideo?: string }).publicVideo ? `/files/${(p.idea as { publicVideo: string }).publicVideo}?v=${((p.idea as { video?: { mediaId?: string } }).video?.mediaId ?? "").slice(-8)}` : null, proofId: (p.proof as { proofId?: string } | null)?.proofId ?? null, likes: likes.get(p.id) ?? 0 })),
     };
   } } : {}),
@@ -351,10 +361,21 @@ const app = createApp({
         if (!to) return;
         const item = await cs.getItem(order.handle, order.serviceId);
         const amount = `${formatUnits(order.amount, config.token.decimals)} ${config.token.symbol}`, what = item?.title ?? "an item";
-        const lines = [`Someone bought ${what} for ${amount}. The money is held in escrow on NEAR until the buyer confirms they got it.`, `What they wrote: ${order.brief.slice(0, 300)}`, "Ship it, then mark it shipped in your store."];
+        const c = order.contact;
+        const lines = [`Someone bought ${what} for ${amount}. The money is held in escrow on NEAR until the buyer confirms they got it.`,
+          ...(c ? [`Buyer: ${c.name ?? ""} — ${contactLine(c)}`, ...(c.address ? [`Deliver to: ${c.address}`] : [])] : []),
+          ...(order.brief ? [`Their note: ${order.brief.slice(0, 300)}`] : []), "Contact the buyer if you need to, ship it, then mark it shipped in your store."];
         await mailer({ to, subject: `New order: ${what} — ${amount}`, idempotencyKey: `order-paid:${id}`, text: `${lines.join("\n\n")}\n\n${config.public_url}/app/orders/${id}`,
           html: emailHtml({ title: `New order: ${what}`, lines, button: { label: "Open the order", url: `${config.public_url}/app/orders/${id}` } }) });
       })().catch((e) => console.warn(`[gateway] order email ${id}: ${(e as Error).message}`));
+      // The buyer's receipt with the private link to their order (there are no buyer accounts to find it again).
+      if (conn && order.contact?.email) void (async () => {
+        const cs = new ContentStore(conn.db);
+        const [b, item, sc] = await Promise.all([cs.getBusiness(order.handle), cs.getItem(order.handle, order.serviceId), cs.getSetting<Contact>(`contactOf:${order.handle}`)]);
+        const name = b?.name ?? order.handle, amount = `${formatUnits(order.amount, config.token.decimals)} ${config.token.symbol}`;
+        await mailAbout(order.contact!.email, `Your order from ${name}`, [`You paid ${amount} for ${item?.title ?? "your order"}. The money waits in escrow on NEAR until you confirm you got it.`,
+          ...(sc ? [`Questions? Contact ${name}: ${contactLine(sc)}`] : []), "Keep this email: the button opens your order."], `${config.public_url}/h/${order.handle}/o/${id}`, `order-buyer:${id}`);
+      })();
       console.info(`[gateway] order ${id} paid on chain → item sale for ${order.handle}`);
       return;
     }
@@ -403,7 +424,11 @@ async function suggestions(): Promise<string[]> {
 if (conn && process.env.NEARCHANT_SECRET_KEY) {
   mountSellerApp(app, {
     content: new ContentStore(conn.db), handles, isOwnerKey, mediaDir,
-    mirrorService: (x) => store.upsertService({ ...x, deliveryHours: 7 * 24, active: true }),
+    mirrorService: (x) => store.upsertService({ id: x.id, handle: x.handle, title: x.title, description: x.description, priceUnits: x.priceUnits, deliveryHours: 7 * 24, active: x.active ?? true }),
+    ...(sealer ? { marketConnect: async (handle: string, token: string, webhookSecret: string) => {
+      await putSecret({ db: conn.db, sealer: sealer! }, handle, "market-token", token);
+      await putSecret({ db: conn.db, sealer: sealer! }, handle, "market-webhook-secret", webhookSecret);
+    } } : {}),
     orders: {
       list: (h) => store.listOrders(h, 50),
       ship: async (h, orderId, note) => { await new Outbox(conn.db).enqueue(`ship:${orderId}`, "item.ship", { orderId, handle: h, note }); },
@@ -411,12 +436,6 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
       refund: async (h, orderId) => { await new Outbox(conn.db).enqueue(`refund:${orderId}`, "item.refund", { orderId, handle: h }); },
       declineRefund: async (h, orderId) => { await new Outbox(conn.db).enqueue(`refund-decline:${orderId}`, "item.refund_decline", { orderId, handle: h }); },
     },
-    ...(messages ? { messages, notifyBuyer: async (orderId: string, handle: string, text: string) => {
-      const buyer = await new ContentStore(conn.db).getSetting<string>(`orderBuyer:${orderId}`);
-      const email = buyer && feedStore ? (await feedStore.getBuyer(buyer))?.email : null;
-      const name = (await new ContentStore(conn.db).getBusiness(handle))?.name ?? handle;
-      await mailAbout(email, `${name} wrote about your order`, [`“${text.slice(0, 500)}”`, "Reply on the order page."], `${config.public_url}/h/${handle}/o/${orderId}`, `msg-buyer:${orderId}:${createHash("sha256").update(text).digest("hex").slice(0, 12)}`);
-    } } : {}),
     enqueue: async (task, payload, jobKey) => {
       if (!queue) throw new Error("no job queue (DATABASE_URL unset)");
       await queue.addJob(task, payload, { ...(jobKey ? { jobKey } : {}), maxAttempts: 3 });
@@ -451,7 +470,7 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     accountOf: (h) => `${h}.${accounts.root}`,
     orders: (h) => store.listOrders(h, 50),
     orderStatus: orderOnChain, ordersContract: accounts.orders,
-    ...(messages ? { messages } : {}),
+    marketOn: !!(conn && sealer),
     balances: async (a) => {
       const [wallet, billing] = await Promise.all([
         chain.view<string>(accounts.nusd, "ft_balance_of", { account_id: a }),

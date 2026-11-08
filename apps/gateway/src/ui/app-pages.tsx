@@ -58,23 +58,18 @@ export const HomePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; post
           {opps.length ? opps.slice(0, 3).map((o) => <div class="card white" style="gap:4px;padding:12px;border:0"><span class="foot b">{o.title}</span><span class="foot muted">{o.why}</span><span class="foot b okt">≈ +{money(cfg, o.estimateUnits)}/mo</span></div>) : <span class="foot muted">AI looks for opportunities after it learns your store.</span>}
           <a class="foot b" href="/app/create">Make a post for one →</a>
         </div>
-        {orders.length ? <div class="card soft"><div class="spread"><span class="headline">Orders to ship</span><a class="foot" href="/app/orders">All orders</a></div>
-          {orders.map((o) => <div class="card white" style="gap:6px;padding:12px;border:0"><div class="spread"><a class="foot b" href={`/app/orders/${o.orderId}`}>{o.title}</a><span class="foot b">{o.amount}</span></div><span class="foot muted">{o.brief}</span>
-            {o.state === "paid" ? <div class="row" style="gap:8px"><input class="input" data-ship-note={o.orderId} placeholder="Tracking number (optional)" style="padding:8px 10px" /><button class="btn" data-ship={o.orderId}>Mark shipped</button></div> : <span class="foot proof-t">{o.state === "delivered" ? "Shipped · waiting for the buyer to confirm" : o.state}</span>}</div>)}
-        </div> : null}
+        {orders.length ? <section class="group"><div class="spread"><span class="group-h">Orders to handle</span><a class="foot" href="/app/orders">All orders</a></div>
+          <div class="list">{orders.map((o) => <a class="list-row nav" href={`/app/orders/${o.orderId}`}><span class="list-text"><span class="body b clamp1">{o.title}</span><span class="foot muted clamp1">{o.state === "paid" ? "New — paid, ready to ship" : o.state === "delivered" ? "Shipped · waiting for the buyer" : "Recording on NEAR…"}</span></span><span class="sub b">{o.amount}</span><Icon n="chevron" s={16} c="#c7c7cc" /></a>)}</div></section> : null}
         <div class="card"><div class="spread"><span class="headline">Payments</span><a class="foot" href="/app/wallet">View all</a></div>
           {payments.length ? payments.map((o) => <div class="spread"><span class="stack" style="gap:2px;min-width:0"><span class="foot b">{o.title}</span><span class="cap proof-t">{o.when} · {o.state}</span></span><span class="sub b okt">+{o.amount}</span></div>)
             : <span class="foot muted">No payments yet. Buyers pay into escrow on NEAR; it shows up here.</span>}
           <div class="spread" style="border-top:1px solid var(--sep);padding-top:12px"><span class="stack" style="gap:2px"><span class="cap muted">Balance</span><span class="headline">{store.balance ?? "—"}</span></span><a class="btn secondary" href="/app/wallet">Wallet</a></div>
         </div>
-        <div class="card"><span class="headline">Your shop</span>
-          {items.map((i) => <div class="spread"><span class="foot">{i.title}</span><span class="foot b">{i.price}</span></div>)}
-          {suggestions.length ? <span class="foot muted">AI found these in your photos — set a price to sell them:</span> : null}
-          {suggestions.map((sg) => <div class="row" style="gap:8px;align-items:center" data-suggest={sg.title} data-desc={sg.description} data-photo={sg.photoMediaId ?? ""}>
-            <span class="th" style={`width:44px;height:44px;border-radius:10px;flex:none;background:var(--grouped) center/cover${sg.img ? ` url('${sg.img}')` : ""}`}></span>
-            <span class="foot b" style="flex:1;min-width:0">{sg.title}</span>
-            <input class="input" type="number" min="0.5" step="0.5" placeholder="Price" style="width:84px;padding:8px" /><button class="chip" data-add-item>Sell</button></div>)}
-          {items.length ? <a class="foot b" href={`/h/${store.handle}/`} target="_blank">Open your store →</a> : null}
+        <div class="card"><div class="spread"><span class="headline">Your shop</span><a class="foot" href="/app/shop">Manage</a></div>
+          {items.slice(0, 5).map((i) => <div class="spread"><span class="foot clamp1">{i.title}</span><span class="foot b">{i.price}</span></div>)}
+          {!items.length ? <span class="foot muted">Nothing for sale yet. Add a product or a service with a photo and a price.</span> : null}
+          {suggestions.length ? <a class="foot" href="/app/shop?k=product"><Icon n="sparkles" s={13} /> AI found {suggestions.length} thing{suggestions.length === 1 ? "" : "s"} to sell in your photos</a> : null}
+          <a class="btn secondary" href="/app/shop/new"><Icon n="plus" />Add a product or service</a>
         </div>
         <div class="card"><div class="spread"><span class="headline">Getting started</span><span class="foot b muted">{checklist.filter((c) => c[1]).length} of {checklist.length}</span></div>
           {checklist.map(([t, done]) => <div class="row" style="align-items:center;gap:10px"><span class={`dot ${done ? "ok" : "todo"}`} style="width:22px;height:22px">{done ? <Icon n="check" s={13} /> : null}</span><span class={`sub ${done ? "muted" : "b"}`}>{t}</span></div>)}

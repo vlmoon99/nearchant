@@ -2,6 +2,7 @@
 import type { FC } from "hono/jsx";
 import { Badge, Icon, PageHead, Shell, Stat, UiPage, type UiConfig } from "./kit.js";
 import type { StoreView } from "./app-pages.js";
+import { APPS } from "../contact.js";
 
 export interface Insight { text: string; action: string; kind: string }
 export interface Insights { insights: Insight[]; best_time: string | null; headline: string; at?: string }
@@ -120,11 +121,22 @@ export const WalletPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; ba
   </Page>
 );
 
-export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; b: { name: string; kind: string; description: string; links: string[]; city?: string | null; country?: string | null; ships?: string | null; placeBy?: string | null }; tone: string; colors: string[]; wishes: string; usage: { posts: number; limit: number }; wallet?: string | null; plan: string; created: string; telegramBot?: string | null; email?: string | null; emailOn?: boolean }> = ({ cfg, test, store, b, tone, colors, wishes, usage, wallet, plan, created, telegramBot, email, emailOn }) => (
+export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; b: { name: string; kind: string; description: string; links: string[]; city?: string | null; country?: string | null; ships?: string | null; placeBy?: string | null }; tone: string; colors: string[]; wishes: string; usage: { posts: number; limit: number }; wallet?: string | null; plan: string; created: string; telegramBot?: string | null; email?: string | null; emailOn?: boolean; contact?: { email?: string; phone?: string; app?: string } | null; market?: { on: boolean } | null }> = ({ cfg, test, store, b, tone, colors, wishes, usage, wallet, plan, created, telegramBot, email, emailOn, contact, market }) => (
   <Page cfg={cfg} test={test} title="Settings" active="Settings" store={store}>
     <PageHead kicker={store.name} title="Settings" />
+    <div class="list only-m"><a class="list-row nav" href="/app/wallet"><span class="list-ic" style="background:#121916"><Icon n="wallet" s={16} c="#00ec97" /></span><span class="list-text"><span class="body">Wallet</span><span class="foot muted">{store.balance ?? "Balance, withdraw"}</span></span><Icon n="chevron" s={16} c="#c7c7cc" /></a>
+      <a class="list-row nav" href="/app/analytics"><span class="list-ic" style="background:#af52de"><Icon n="chart" s={16} c="#fff" /></span><span class="list-text"><span class="body">Analytics</span></span><Icon n="chevron" s={16} c="#c7c7cc" /></a></div>
     <div class="cols">
       <div class="stack">
+        <form class={`card ${contact ? "" : "warn"}`} id="settings-contact"><span class="headline">How buyers reach you</span>
+          <span class="foot muted">Shown to a buyer after they pay, so they can ask about their order in your messenger or by email. A phone or an email is enough.</span>
+          <div class="list">
+            <label class="list-field"><span>Phone</span><input name="phone" type="tel" autocomplete="tel" value={contact?.phone ?? ""} placeholder="+971 50 123 4567" /></label>
+            <label class="list-field"><span>On</span><select name="app">{Object.entries(APPS).map(([v, l]) => <option value={v} selected={(contact?.app ?? "whatsapp") === v}>{l}</option>)}</select></label>
+            <label class="list-field"><span>Email</span><input name="email" type="email" autocomplete="email" value={contact?.email ?? ""} placeholder="orders@yourstore.com" /></label>
+          </div>
+          <button class="btn" type="submit">Save</button><output class="foot"></output>
+        </form>
         <form class="card" id="settings-store"><span class="headline">Store profile</span>
           <label class="field">Store name<input class="input" name="name" value={b.name} maxlength={80} /></label>
           <label class="field">What you sell<textarea class="input" name="description" maxlength={600}>{b.description}</textarea></label>
@@ -155,6 +167,11 @@ export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
               <a class="sub" style="color:#007AFF" href={href as string}>{act}</a>
             </div>)}
         </div>
+        {market ? <form class="card" id="settings-market"><div class="row" style="align-items:center;gap:8px"><Icon n="users" s={18} c="#007aff" /><span class="headline">NEAR AI Agent Market</span>{market.on ? <span class="pill done">Connected</span> : null}</div>
+          <span class="foot muted">Let other AI agents hire your store on market.near.ai. Jobs paid there show up in your Orders.</span>
+          <ol class="foot steps-list"><li>Open <a href="https://market.near.ai" target="_blank" rel="noopener">market.near.ai</a>, sign in and create an agent for your store.</li><li>Copy its API token (starts with <code>aat_</code>) and paste it here.</li><li>Paste the webhook address and secret we show into the market.</li></ol>
+          <input class="input" name="token" required placeholder="aat_…" autocomplete="off" />
+          <button class="btn secondary" type="submit">{market.on ? "Replace token" : "Connect"}</button><output class="foot" style="overflow-wrap:anywhere"></output></form> : null}
       </div>
       <div class="stack">
         <div class="card dark" style="gap:10px"><div class="row" style="align-items:center;gap:8px"><span class="mark" style="background:var(--near);color:var(--near-ink)">N</span><span class="headline">NEAR account</span></div>

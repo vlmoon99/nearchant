@@ -23,6 +23,8 @@ export const orders = pgTable("orders", {
   amount: text("amount").notNull(),
   brief: text("brief").notNull(),
   buyerAccountId: text("buyer_account_id"),
+  /** How the seller reaches the buyer (ADR 0026): { name, email?, phone?, app?, address? }. Shown only to that store. */
+  contact: jsonb("contact"),
   state: text("state").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -131,7 +133,12 @@ export const items = pgTable("items", {
   priceUnits: text("price_units").notNull(),
   options: jsonb("options").notNull().default(sql`'[]'::jsonb`),
   photoMediaId: text("photo_media_id"),
+  /** The owner's switch: false = hidden from the store (kept for past orders). */
   active: boolean("active").notNull().default(true),
+  /** Product: stock, shipping, option name. Service: delivery days, where it's done, the question for the buyer, "from" price (ADR 0026). */
+  details: jsonb("details").notNull().default(sql`'{}'::jsonb`),
+  /** Set by the safety check: why this item needs a small change before buyers see it (null = fine). */
+  held: text("held"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("items_handle").on(t.handle)]);
 

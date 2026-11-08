@@ -1,9 +1,11 @@
 // Buyer storefront (Figma "Storefront for buyers"): store page + item page with the existing escrow checkout
 // (web/checkout.ts hooks onto form.order[data-service] and the #nc-config tag).
 import type { FC, PropsWithChildren } from "hono/jsx";
-import { Badge, BuyerScripts, Icon, asset } from "./kit.js";
+import { Badge, BuyerScripts, ContactList, Icon, asset } from "./kit.js";
+import { APPS, type Contact } from "../contact.js";
+import { itemFacts, ships, soldOut, type ItemDetails } from "../item-details.js";
 
-export interface StoreItem { id: string; title: string; description: string; price: string; img: string | null; kind: string; options: string[] }
+export interface StoreItem { id: string; title: string; description: string; price: string; img: string | null; kind: string; options: string[]; details?: ItemDetails }
 export interface StorePost { id: string; itemId?: string | null; publishedAt: string; hashtags?: string[]; caption: string; img: string | null; video?: string | null; proofId: string | null; likes?: number }
 /** A post of another store shown under "More like this". */
 export interface SimilarPost { id: string; handle: string; storeName: string; caption: string; img: string; video: boolean }
@@ -45,8 +47,8 @@ export const StorePage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean }> = 
     {s.items.length ? <div class="grid4">{s.items.map((i) => (
       <a class="post" href={`${cfg.base}i/${i.id}`} style="color:inherit">
         <div class="img" style={i.img ? `background-image:url('${i.img}');aspect-ratio:4/5` : "aspect-ratio:4/5"}></div>
-        <div class="spread"><span class="sub b">{i.title}</span><span class="sub b">{i.price}</span></div>
-        {i.options.length ? <span class="foot muted">{i.options.join(" · ")}</span> : null}
+        <div class="spread" style="align-items:flex-start"><span class="sub b">{i.title}</span><span class="sub b" style="white-space:nowrap">{i.details?.priceFrom ? "from " : ""}{i.price}</span></div>
+        <span class="foot muted">{soldOut(i.kind, i.details ?? {}) ? "Sold out" : itemFacts(i.kind, i.details ?? {}).join(" · ")}</span>
       </a>))}</div> : <p class="sub muted">Nothing for sale yet — check back soon.</p>}
     <AskStore s={s} cfg={cfg} />
     {s.posts.length ? <><div class="spread"><h2 class="t4">Posts</h2>{s.posts.length > 8 ? <a class="sub" href={`${cfg.base}posts`}>All {s.posts.length} posts ›</a> : null}</div>
@@ -123,32 +125,51 @@ export const PublicPostPage: FC<{ s: StoreData; p: StorePost; cfg: CheckoutCfg; 
   );
 };
 
-export const ItemPage: FC<{ s: StoreData; i: StoreItem; cfg: CheckoutCfg; test: boolean }> = ({ s, i, cfg, test }) => (
-  <Shell title={`${i.title} · ${s.name}`} s={s} cfg={cfg} test={test}>
-    <a class="sub" href={cfg.base}>‹ {s.name}</a>
-    <div class="cols post-cols">
-      <div class="post"><div class="img" style={i.img ? `background-image:url('${i.img}');aspect-ratio:4/5` : "aspect-ratio:4/5"}></div></div>
-      <div class="stack">
-        <h1 class="t2">{i.title}</h1>
-        <span class="t4">{i.price}</span>
-        {i.description ? <p class="sub muted" style="margin:0">{i.description}</p> : null}
-        <form class="order card" data-service={i.id}>
-          <label class="field">{i.kind === "service" ? "What do you need, and when?" : "Delivery details — size, name, address, phone"}
-            <textarea class="input" name="brief" required minlength={10} maxlength={1000} rows={4} placeholder={i.kind === "service" ? "Describe what you need" : `Size ${i.options[0] ?? "M"}, Jane Doe, 120 Spring St, New York, NY 10012, +1 212 555 0100`}></textarea></label>
-          <button class="btn block" type="submit"><Icon n="lock" />Pay {i.price} into escrow</button>
-          <output class="result foot"></output>
-          <span class="cap muted">A free test wallet is created in your browser. Money is held on NEAR until you confirm you got it.</span>
-        </form>
+export const ItemPage: FC<{ s: StoreData; i: StoreItem; cfg: CheckoutCfg; test: boolean }> = ({ s, i, cfg, test }) => {
+  const d = i.details ?? {}, service = i.kind === "service", gone = soldOut(i.kind, d), needsAddress = ships(i.kind, d);
+  return (
+    <Shell title={`${i.title} · ${s.name}`} s={s} cfg={cfg} test={test}>
+      <a class="sub" href={cfg.base}>‹ {s.name}</a>
+      <div class="cols post-cols">
+        <div class="post"><div class="img" style={i.img ? `background-image:url('${i.img}');aspect-ratio:4/5` : "aspect-ratio:4/5"}></div></div>
+        <div class="stack">
+          <div class="stack s8"><h1 class="t2">{i.title}</h1>
+            <span class="t4">{d.priceFrom ? "From " : ""}{i.price}</span>
+            <span class="foot muted">{gone ? "Sold out" : itemFacts(i.kind, d).join(" · ")}</span></div>
+          {i.description ? <p class="body" style="margin:0;white-space:pre-line">{i.description}</p> : null}
+          {gone ? <div class="card"><span class="headline">Sold out</span><span class="foot muted">Follow {s.name} to see when it is back.</span></div> :
+          <form class="order stack" data-service={i.id} style="gap:20px">
+            {i.options.length ? <div class="group"><span class="group-h">{d.optionName || "Choose"}</span>
+              <div class="seg" data-seg="option">{i.options.map((o, k) => <button type="button" data-value={o} class={k === 0 ? "on" : ""} aria-selected={k === 0 ? "true" : "false"}>{o}</button>)}</div>
+              <input type="hidden" name="option" value={i.options[0]} /></div> : null}
+            <div class="group"><span class="group-h">{service ? "Your request" : "Note for the store"}</span>
+              <div class="list"><label class="list-field"><span class="sr">{service ? d.question || "What do you need, and when?" : "Note"}</span>
+                <textarea name="brief" rows={3} maxlength={1000} {...(service && d.question ? { required: true } : {})} placeholder={service ? d.question || "What do you need, and when?" : "Size, engraving, anything the store should know (optional)"}></textarea></label></div>
+              {service && d.priceFrom ? <span class="group-f">You pay {i.price} now. If the final price is higher, {s.name} agrees it with you directly.</span> : null}</div>
+            <div class="group"><span class="group-h">How can {s.name} reach you?</span>
+              <div class="list">
+                <label class="list-field"><span>Name</span><input name="name" required minlength={2} maxlength={80} autocomplete="name" placeholder="Your name" /></label>
+                <label class="list-field"><span>Phone</span><input name="phone" type="tel" autocomplete="tel" placeholder="+1 212 555 0100" /></label>
+                <label class="list-field"><span>On</span><select name="app">{Object.entries(APPS).map(([v, l]) => <option value={v} selected={v === "whatsapp"}>{l}</option>)}</select></label>
+                <label class="list-field"><span>Email</span><input name="email" type="email" autocomplete="email" placeholder="you@example.com" /></label>
+                {needsAddress ? <label class="list-field top"><span>Address</span><textarea name="address" rows={2} required minlength={8} maxlength={300} autocomplete="street-address" placeholder="Street, city, postcode, country"></textarea></label> : null}
+              </div>
+              <span class="group-f">A phone or an email is enough. Only {s.name} sees it, to arrange {service ? "the details" : "delivery"} with you.</span></div>
+            <button class="btn block lg" type="submit"><Icon n="lock" />Pay {i.price}</button>
+            <output class="result foot" aria-live="polite"></output>
+            <span class="cap muted" style="text-align:center">Your money waits in escrow on NEAR and goes to {s.name} only when you confirm. A free test wallet is made in this browser.</span>
+          </form>}
+        </div>
       </div>
-    </div>
-  </Shell>
-);
+    </Shell>
+  );
+};
 
 /** Buyer's order page for a store item (Figma "Order paid"): paid → shipped → you confirm. Buttons are handled by
  *  web/checkout.ts (data-order-action / #order-msg / data-poll-order), so the escrow logic is shared with decks. */
-export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; o: { orderId: string; title: string; amount: string; chainStatus: string | null } }> = ({ s, cfg, test, o }) => {
+export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; o: { orderId: string; title: string; amount: string; chainStatus: string | null }; storeContact?: Contact | null }> = ({ s, cfg, test, o, storeContact }) => {
   const st = o.chainStatus;
-  const step = st === "Released" ? 3 : st === "Delivered" ? 2 : st === "Held" ? 1 : 0;
+  const step = st === "Released" ? 4 : st === "Delivered" ? 2 : st === "Held" ? 1 : 0;
   const rows: [string, string][] = [
     ["Paid", "Your money is held in escrow on NEAR"],
     [`${s.name} ships it`, "Recorded on NEAR when it is shipped"],
@@ -161,7 +182,7 @@ export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; 
       <section class="card" style="align-items:center;text-align:center;gap:10px" {...(st === "Held" || st === "Opening" || !st ? { "data-poll-order": o.orderId } : {})}>
         <span class={`dot ${step >= 1 ? "ok" : "now"}`} style="width:64px;height:64px"><Icon n={step >= 1 ? "check" : "lock"} s={32} /></span>
         <h1 class="t2">{st === "Released" ? "Done — thank you!" : st === "Delivered" ? "Shipped — confirm when you get it" : st === "Held" ? "Paid — safe in escrow" : st === "Refunded" ? "Refunded — the money is back in your wallet"
-          : st === "RevisionRequested" ? "The store will make it right" : st === "RefundRequested" ? "Refund requested — the store will answer" : st === "Disputed" ? "The store declined the refund — talk it through below"
+          : st === "RevisionRequested" ? "The store will make it right" : st === "RefundRequested" ? "Refund requested — the store will answer" : st === "Disputed" ? "The store declined the refund — contact them below"
           : st === "Refunding" ? "Refunding…" : st === "Releasing" ? "Paying the store…" : "Waiting for payment…"}</h1>
         <span class="sub muted">{o.amount} · {o.title} · {s.name}</span>
       </section>
@@ -174,11 +195,10 @@ export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; 
       </section>
       {st === "Delivered" ? <div class="stack s12"><button class="btn block" data-order-action="accept" data-order={o.orderId}><Icon n="check" />I got it — release payment</button><button class="btn secondary block" data-order-action="request_refund" data-order={o.orderId}>Problem — request a refund</button></div> : null}
       <output id="order-msg" class="foot"></output>
-      {st && st !== "Opening" ? <section class="card chat" data-chat={`${cfg.base}public/orders/${o.orderId}/messages`} data-me="buyer" style="gap:10px">
-        <span class="headline">Messages with {s.name}</span>
-        <div class="stack chat-log" style="gap:8px;max-height:360px;overflow:auto"></div>
-        <form class="row chat-form" style="gap:8px"><input class="input" name="text" maxlength={1000} placeholder={`Write to ${s.name}…`} autocomplete="off" style="flex:1" /><button class="btn" type="submit"><Icon n="send" /></button></form>
-        <span class="cap muted">Keep this page’s link — it’s how you get back to your order. Never pay outside the order: escrow protects your money.</span>
+      {st && st !== "Opening" ? <section class="group">
+        <span class="group-h">Contact {s.name}</span>
+        {storeContact ? <ContactList c={storeContact} /> : <div class="list"><div class="list-row"><span class="list-text"><span class="foot muted">{s.name} will contact you using the details you gave.</span></span></div></div>}
+        <span class="group-f">Questions about your order? Write to {s.name} directly. Never pay outside the order — escrow protects your money. Bookmark this page: it is how you get back to your order.</span>
       </section> : null}
       <div class="card proof" style="flex-direction:row;gap:10px;align-items:center"><Icon n="shield" c="#007A4F" /><span class="stack" style="gap:2px"><span class="foot b proof-t">Escrow on NEAR · {cfg.orders}</span><span class="cap muted">Order {o.orderId} — anyone can check it on the NEAR explorer</span></span></div>
     </Shell>

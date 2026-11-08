@@ -12,6 +12,10 @@ import { verifyMarketSignature, type HireCreated } from "./market.js";
 import { bodyHash, newWebhookSecret, secretMatches, validBotToken, verifySellerSignature, type TgUpdate } from "./telegram.js";
 import type { Service, Store } from "@nearchant/db";
 import { taskMemo } from "@nearchant/swarm";
+import { parseContact, type Contact } from "./contact.js";
+
+/** What checkout needs to know about a store item. */
+export interface ItemForSale { kind: string; sellable: boolean; ships: boolean; question?: string; optionName?: string; options: string[] }
 
 export interface Deps {
   config: GatewayConfig;
@@ -60,9 +64,10 @@ export interface Deps {
   };
   /** Store the buyer's "what to change" note for a revision (read by the write step). */
   saveRevisionNote?: (orderId: string, note: string) => Promise<void>;
-  /** Messages between the buyer and the store about one order (off-chain); the store is emailed on a new one. */
-  messages?: Pick<import("@nearchant/db").Messages, "add" | "list" | "markRead" | "recentCount">;
-  notifySeller?: (orderId: string, handle: string, text: string) => Promise<void>;
+  /** A store item at checkout (ADR 0026): can it be bought now, does it ship, what to ask the buyer. */
+  itemForSale?: (handle: string, id: string) => Promise<ItemForSale | null>;
+  /** The store's own contact, shown to the buyer once the order is paid (ADR 0026). */
+  storeContact?: (handle: string) => Promise<Contact | null>;
   /** Content stores (ADR 0018): the buyer storefront data, or null for a classic card. */
   /** nearchant.com home page (no store in the host): rendered landing; unset → redirect to the dashboard. */
   landing?: () => Promise<unknown>;
@@ -262,28 +267,6 @@ export function createApp(d: Deps) {
     return c.json({ saved: true });
   });
 
-  // Buyer ↔ store messages on the order page. The unguessable order id is the buyer's access, as for the page.
-  const msgLimit = new RateLimit(30, 600_000);
-  seller.get("/public/orders/:id/messages", async (c) => {
-    const h = c.get("handle");
-    const row = await d.store.getOrder(c.req.param("id"));
-    if (!h || !row || row.handle !== h.handle || !d.messages || row.state === "awaiting_payment") return c.json({ error: "unknown order" }, 404);
-    await d.messages.markRead(row.orderId, "buyer");
-    return c.json({ messages: await d.messages.list(row.orderId) });
-  });
-  seller.post("/public/orders/:id/messages", async (c) => {
-    const h = c.get("handle");
-    const row = await d.store.getOrder(c.req.param("id"));
-    if (!h || !row || row.handle !== h.handle || !d.messages || row.state === "awaiting_payment") return c.json({ error: "unknown order" }, 404);
-    if (!(c.req.header("content-type") ?? "").startsWith("application/json")) return c.json({ error: "JSON only" }, 415);
-    if (!msgLimit.take(ipOf(c)) || (await d.messages.recentCount(row.orderId, "buyer", 600_000)) >= 30) return c.json({ error: "too many messages — wait a few minutes" }, 429);
-    const b = (await c.req.json().catch(() => null)) as { text?: unknown } | null;
-    const text = typeof b?.text === "string" ? b.text.trim().slice(0, 1000) : "";
-    if (!text) return c.json({ error: "write a message" }, 400);
-    const m = await d.messages.add(row.orderId, h.handle, "buyer", text);
-    void d.notifySeller?.(row.orderId, h.handle, text).catch(() => {});
-    return c.json({ message: m });
-  });
 
   seller.get("/o/:id", async (c) => {
     const h = c.get("handle");
@@ -304,7 +287,9 @@ export function createApp(d: Deps) {
     };
     const base = c.req.path.startsWith("/h/") ? `/h/${h.handle}/` : "/";
     const sf = o.item && d.storefront ? await d.storefront(h.handle).catch(() => null) : null;
-    if (sf) return c.html(<ItemOrderPage s={sf} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, network: d.client.network, site: d.config.public_url }} test={d.config.token.test} o={{ orderId: o.orderId, title: o.serviceTitle, amount: o.amountDisplay, chainStatus: o.chainStatus }} />);
+    const paid = !!o.chainStatus && o.chainStatus !== "Opening";
+    const storeContact = sf && paid && d.storeContact ? await d.storeContact(h.handle).catch(() => null) : null;
+    if (sf) return c.html(<ItemOrderPage s={sf} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, network: d.client.network, site: d.config.public_url }} test={d.config.token.test} o={{ orderId: o.orderId, title: o.serviceTitle, amount: o.amountDisplay, chainStatus: o.chainStatus }} storeContact={storeContact} />);
     return c.html(<OrderPage o={o} base={base} cfg={d.client} testToken={d.config.token.test} />);
   });
 
@@ -402,19 +387,33 @@ export function createApp(d: Deps) {
     const h = c.get("handle");
     if (!h) return c.json({ error: "unknown handle" }, 404);
     if (!orderLimit.take(ipOf(c))) return c.json({ error: "too many orders from this address; try later" }, 429);
-    const body = await c.req.json().catch(() => null) as { serviceId?: unknown; brief?: unknown; buyerAccountId?: unknown } | null;
+    const body = await c.req.json().catch(() => null) as { serviceId?: unknown; brief?: unknown; buyerAccountId?: unknown; contact?: unknown; option?: unknown } | null;
     if (!body || typeof body.serviceId !== "string" || typeof body.brief !== "string") {
       return c.json({ error: "serviceId and brief are required" }, 400);
     }
-    const brief = body.brief.trim();
-    if (brief.length < 10 || brief.length > MAX_BRIEF) return c.json({ error: `brief must be 10–${MAX_BRIEF} characters` }, 400);
+    let brief = body.brief.trim();
+    let contact: Contact | null = null;
+    if (body.serviceId.startsWith("i-") && d.itemForSale) {
+      // A store item: the buyer leaves a way to reach them (email or phone + app); things that ship need an address.
+      const it = await d.itemForSale(h.handle, body.serviceId);
+      if (!it) return c.json({ error: "unknown item" }, 404);
+      if (!it.sellable) return c.json({ error: "this isn't for sale right now" }, 409);
+      const pc = parseContact(body.contact, { name: true, address: it.ships });
+      if ("error" in pc) return c.json({ error: pc.error }, 400);
+      contact = pc.contact;
+      const option = typeof body.option === "string" && it.options.includes(body.option) ? body.option : null;
+      if (it.options.length && !option) return c.json({ error: `choose ${(it.optionName || "an option").toLowerCase()}` }, 400);
+      if (it.kind === "service" && it.question && brief.length < 2) return c.json({ error: "answer the store's question" }, 400);
+      if (brief.length > 1000) return c.json({ error: "the note is too long (1000 characters max)" }, 400);
+      brief = [option ? `${it.optionName || "Option"}: ${option}` : "", brief].filter(Boolean).join("\n");
+    } else if (brief.length < 10 || brief.length > MAX_BRIEF) return c.json({ error: `brief must be 10–${MAX_BRIEF} characters` }, 400);
     const service = await d.store.getService(h.handle, body.serviceId);
     if (!service?.active) return c.json({ error: "unknown service" }, 404);
     const buyer = typeof body.buyerAccountId === "string" && /^[a-z0-9._-]{2,64}$/.test(body.buyerAccountId) ? body.buyerAccountId : null;
 
     const orderId = newOrderId();
     const now = new Date().toISOString();
-    await d.store.createOrder({ orderId, handle: h.handle, serviceId: service.id, amount: service.priceUnits, brief, buyerAccountId: buyer, state: "awaiting_payment", createdAt: now, updatedAt: now });
+    await d.store.createOrder({ orderId, handle: h.handle, serviceId: service.id, amount: service.priceUnits, brief, buyerAccountId: buyer, contact, state: "awaiting_payment", createdAt: now, updatedAt: now });
     if (d.onOrderCreated) await d.onOrderCreated(c, orderId, h.handle).catch(() => {});
     const payment = d.rail.instruction({ orderId, sellerHandle: h.handle, amount: service.priceUnits });
     const anyChainQuote = d.anyChainQuote ? await d.anyChainQuote(service.priceUnits).catch(() => null) : null;

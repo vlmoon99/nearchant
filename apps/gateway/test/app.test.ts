@@ -283,24 +283,30 @@ describe("A2A memo binds the text", () => {
   });
 });
 
-describe("order messages (buyer side)", () => {
-  it("the buyer writes to the store from the order page; unpaid or foreign orders get nothing", async () => {
-    const msgs: { author: string; text: string }[] = [], told: string[] = [];
-    const messages = {
-      add: async (orderId: string, _h: string, author: "buyer" | "seller", text: string) => { msgs.push({ author, text }); return { id: msgs.length, orderId, author, text, at: "t", read: false }; },
-      list: async () => msgs.map((m, i) => ({ id: i + 1, orderId: "o-test-1", ...m, at: "t", read: false })) as never, markRead: async () => {}, recentCount: async () => 0,
+describe("store item checkout (ADR 0026)", () => {
+  it("asks how to reach the buyer; ships → address; options and the service question; hidden or sold out can't be bought", async () => {
+    const items: Record<string, import("../src/app.js").ItemForSale> = {
+      "i-ring": { kind: "product", sellable: true, ships: true, optionName: "Gold", options: ["Yellow", "Rose"] },
+      "i-fix": { kind: "service", sellable: true, ships: false, question: "Which phone?", options: [] },
+      "i-gone": { kind: "product", sellable: false, ships: true, options: [] },
     };
-    const { app, store } = await setup({}, { messages, notifySeller: async (id) => { told.push(id); } });
-    await store.createOrder({ orderId: "o-test-1", handle: "alice", serviceId: "deck", amount: "5000000", brief: "b", buyerAccountId: null, state: "awaiting_payment", createdAt: "t", updatedAt: "t" });
-    const post = (text: string, h = "alice.nearchant.com") => app.request("http://x/public/orders/o-test-1/messages", { method: "POST", headers: { host: h, "content-type": "application/json" }, body: JSON.stringify({ text }) });
-    expect((await post("hello")).status).toBe(404);                                   // not paid yet
-    await store.transitionOrder("o-test-1", "awaiting_payment", "paid");
-    expect((await post("hello", "bob.nearchant.com")).status).toBe(404);              // another store
-    expect((await app.request("http://x/public/orders/o-test-1/messages", { method: "POST", headers: { host: "alice.nearchant.com", "content-type": "text/plain" }, body: "x" })).status).toBe(415);
-    expect((await post("   ")).status).toBe(400);
-    expect((await post("Can you ship to Austin?")).status).toBe(200);
-    expect(told).toEqual(["o-test-1"]);
-    const r = await (await app.request("http://x/public/orders/o-test-1/messages", host("alice.nearchant.com"))).json();
-    expect(r.messages).toMatchObject([{ author: "buyer", text: "Can you ship to Austin?" }]);
+    let n = 0;
+    const { app, store } = await setup({}, { itemForSale: async (_h: string, id: string) => items[id] ?? null, newOrderId: () => `o-c${++n}` });
+    for (const id of Object.keys(items)) await store.upsertService({ id, handle: "alice", title: id, description: "", priceUnits: "5000000", deliveryHours: 168, active: true });
+    const order = (b: Record<string, unknown>) => app.request("http://x/public/orders", { method: "POST", headers: { host: "alice.nearchant.com", "content-type": "application/json" }, body: JSON.stringify({ brief: "", ...b }) });
+    const jane = { name: "Jane", phone: "+1 212 555 0100", app: "whatsapp", address: "120 Spring St, New York" };
+    expect((await order({ serviceId: "i-ring", option: "Yellow", contact: { name: "Jane", address: jane.address } })).status).toBe(400);        // no phone or email
+    expect((await order({ serviceId: "i-ring", option: "Yellow", contact: { ...jane, address: "" } })).status).toBe(400);                      // ships: needs an address
+    expect((await order({ serviceId: "i-ring", contact: jane })).status).toBe(400);                                                           // choose an option
+    expect((await order({ serviceId: "i-ring", option: "Green", contact: jane })).status).toBe(400);
+    expect((await order({ serviceId: "i-gone", contact: jane })).status).toBe(409);
+    const ok = await order({ serviceId: "i-ring", option: "Rose", brief: "Engrave J", contact: jane });
+    expect(ok.status).toBe(201);
+    const row = await store.getOrder((await ok.json()).orderId);
+    expect(row).toMatchObject({ brief: "Gold: Rose\nEngrave J", contact: { name: "Jane", phone: "+12125550100", app: "whatsapp", address: jane.address } });
+    expect((await order({ serviceId: "i-fix", contact: { name: "Jane", email: "j@example.com" } })).status).toBe(400);                        // answer the question
+    const sv = await order({ serviceId: "i-fix", brief: "iPhone 16", contact: { name: "Jane", email: "J@Example.com" } });
+    expect((await store.getOrder((await sv.json()).orderId))?.contact).toEqual({ name: "Jane", email: "j@example.com" });                 // no address for a service
+    expect((await app.request("http://x/public/orders/o-x/messages", { method: "POST", headers: { host: "alice.nearchant.com", "content-type": "application/json" }, body: "{}" })).status).toBe(404);
   });
 });

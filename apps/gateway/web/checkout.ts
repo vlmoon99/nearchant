@@ -1,7 +1,7 @@
 // Buyer side of the card and order pages. Testnet: the buyer's key lives in this browser (localStorage) and the
 // gateway sponsors its implicit account with test money (ADR 0001). Mainnet uses a wallet instead.
 import { Account, JsonRpcProvider, KeyPair, KeyPairSigner, type KeyPairString } from "near-api-js";
-import { mountChats } from "./chat.js";
+import { mountUi } from "./ui-bits.js";
 
 interface PageConfig { base: string; rpcUrl: string; orders: string; network: string }
 const cfg: PageConfig = JSON.parse(document.getElementById("nc-config")!.textContent!);
@@ -52,14 +52,17 @@ interface CreatedOrder {
 
 async function pay(form: HTMLFormElement) {
   const out = form.querySelector("output")!;
-  const button = form.querySelector("button")!;
+  const button = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
   button.disabled = true;
   try {
+    const val = (n: string) => ((form.elements.namedItem(n) as HTMLInputElement | null)?.value ?? "").trim();
+    // A store item asks how to reach the buyer: check it here first, so nobody waits for a wallet to hear "add a phone".
+    const contact = form.elements.namedItem("name") ? { name: val("name"), phone: val("phone"), app: val("app"), email: val("email"), address: val("address") } : undefined;
+    if (contact && !contact.phone && !contact.email) { out.textContent = "Add a phone number or an email, so the store can reach you."; (form.elements.namedItem("phone") as HTMLInputElement).focus(); button.disabled = false; return; }
     out.textContent = "Setting up your test wallet…";
     const account = await buyerAccount();
     out.textContent = "Creating order…";
-    const brief = (form.elements.namedItem("brief") as HTMLTextAreaElement).value;
-    const order = await post<CreatedOrder>("public/orders", { serviceId: form.dataset.service, brief, buyerAccountId: account.accountId });
+    const order = await post<CreatedOrder>("public/orders", { serviceId: form.dataset.service, brief: val("brief"), option: val("option") || undefined, contact, buyerAccountId: account.accountId });
     const quote = order.anyChainQuote ? `\n(From another chain via NEAR Intents: about ${order.anyChainQuote.amountInFormatted} ${order.anyChainQuote.label}.)` : "";
     out.textContent = `Paying ${order.amountDisplay} into escrow…${quote}`;
     await account.callFunction({
@@ -246,5 +249,5 @@ if (dash) {
   try { if (localStorage.getItem(`nc:${cfg.network}:shop:${handle}`)) void load(); } catch { /* manual */ }
 }
 
-// Order page: messages with the store.
-mountChats();
+// Segmented controls and copy buttons.
+mountUi();

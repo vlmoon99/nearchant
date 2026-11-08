@@ -2,6 +2,7 @@
 // Welcome → what you sell → show your business → getting to know you → opportunities → first posts → store live.
 import type { FC } from "hono/jsx";
 import { Badge, Icon, Mark, UiPage, type UiConfig } from "./kit.js";
+import { APPS } from "../contact.js";
 
 const Dots: FC<{ step: number }> = ({ step }) => (
   <div class="spread"><span class="foot b muted">Step {step} of 5</span><span class="steps-dots">{[1, 2, 3, 4, 5].map((k) => <i class={`${k <= step ? "on" : ""} ${k === step ? "cur" : ""}`}></i>)}</span></div>
@@ -38,6 +39,13 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
       ))}
       <label class="field">Store name<input class="input" id="store-name" maxlength={60} placeholder="Nova Wear" autocomplete="organization" /></label>
       <span class="cap muted" id="store-link">Your store link: —</span>
+      <div class="group"><span class="group-h">How buyers reach you</span>
+        <div class="list">
+          <label class="list-field"><span>Phone</span><input id="contact-phone" type="tel" autocomplete="tel" placeholder="+971 50 123 4567" /></label>
+          <label class="list-field"><span>On</span><select id="contact-app">{Object.entries(APPS).map(([v, l]) => <option value={v} selected={v === "whatsapp"}>{l}</option>)}</select></label>
+          <label class="list-field"><span>Email</span><input id="contact-email" type="email" autocomplete="email" placeholder="you@example.com" /></label>
+        </div>
+        <span class="group-f">A phone or an email is enough. Buyers see it only after they pay, to ask about their order.</span></div>
       <div class="card proof" style="flex-direction:row;gap:10px;align-items:flex-start;padding:14px"><Icon n="shield" s={18} c="#007A4F" />
         <span class="foot">We create a NEAR account for your store. No seed phrase, no crypto needed — it’s yours, and you can export its key anytime in Settings.</span></div>
       <output class="foot" id="sell-out"></output>

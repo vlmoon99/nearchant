@@ -38,7 +38,7 @@ export async function runMigrations(db: Db, sql?: postgres.Sql): Promise<void> {
 
 const toOrder = (r: typeof schema.orders.$inferSelect): OrderRow => ({
   orderId: r.orderId, handle: r.handle, serviceId: r.serviceId, amount: r.amount, brief: r.brief,
-  buyerAccountId: r.buyerAccountId, state: r.state as OrderState, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
+  buyerAccountId: r.buyerAccountId, contact: (r.contact as OrderRow["contact"]) ?? null, state: r.state as OrderState, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
 });
 
 export class PgStore implements Store {

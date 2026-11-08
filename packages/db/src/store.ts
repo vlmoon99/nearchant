@@ -15,6 +15,9 @@ export interface Service {
 
 export type OrderState = "awaiting_payment" | "paid" | "in_progress" | "delivered" | "released" | "refunded" | "cancelled";
 
+/** How the seller reaches the buyer (ADR 0026). At least an email or a phone; address for things that ship. */
+export interface BuyerContact { name?: string; email?: string; phone?: string; app?: string; address?: string }
+
 export interface OrderRow {
   orderId: string;
   handle: string;
@@ -22,6 +25,7 @@ export interface OrderRow {
   amount: string;
   brief: string;
   buyerAccountId: string | null;
+  contact?: BuyerContact | null;
   state: OrderState;
   createdAt: string;
   updatedAt: string;

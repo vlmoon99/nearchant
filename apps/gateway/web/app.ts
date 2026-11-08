@@ -1,7 +1,7 @@
 // Seller app + onboarding client (ADR 0018). The store's NEAR key is made and kept in this browser (testnet);
 // the gateway sponsors the account. After one signature the session cookie carries the rest.
 import { Account, JsonRpcProvider, KeyPair, KeyPairSigner, type KeyPairString } from "near-api-js";
-import { mountChats } from "./chat.js";
+import { mountUi } from "./ui-bits.js";
 import { toUnits } from "./units.js";
 
 interface Cfg { base: string; rpcUrl: string; network: string; token: string; decimals: number; storeBase: string; page: string }
@@ -68,6 +68,9 @@ function onboarding() {
     const btn = e.currentTarget as HTMLButtonElement, out = $("#sell-out");
     const n = name.value.trim();
     if (n.length < 2) { out.textContent = "Give your store a name (2+ letters)."; return; }
+    const contact = { phone: $<HTMLInputElement>("#contact-phone").value.trim(), app: $<HTMLSelectElement>("#contact-app").value, email: $<HTMLInputElement>("#contact-email").value.trim() };
+    if (!contact.phone && !contact.email) { out.textContent = "Add a phone or an email, so buyers can reach you after they pay."; $("#contact-phone").focus(); return; }
+    if (contact.phone && !/^\+[1-9][\d\s().-]{6,20}$/.test(contact.phone)) { out.textContent = "Write the phone with the country code, like +971 50 123 4567."; $("#contact-phone").focus(); return; }
     btn.disabled = true;
     try {
       let h = slug(n);
@@ -80,6 +83,7 @@ function onboarding() {
       store.set(CUR, h); handle = h;
       await signIn(h);
       await api("/api/app/business", { name: n, kind });
+      await api("/api/app/contact", contact).catch(() => {}); // checked above; Settings shows it if it didn't save
       await api("/api/app/wallet/claim", {}).catch(() => {}); // a wallet that just found no store signs in to this one
       out.textContent = "";
       show("show");
@@ -165,7 +169,7 @@ function onboarding() {
       const r = await api<{ batchId: string; ids: string[] }>("/api/app/posts", { n: 3, opportunityIds: [...chosen] });
       show("posts");
       void watchPosts(r.batchId, r.ids);
-    } catch (err) { btn.disabled = false; alert((err as Error).message); }
+    } catch (err) { btn.disabled = false; notice("Something went wrong", (err as Error).message); }
   });
 
   // 6: first posts appear as they are written and rendered
@@ -270,16 +274,12 @@ function sellerApp() {
     } catch (err) { btn.disabled = false; $("#create-out").textContent = (err as { code?: string }).code === "quota_exceeded" ? "You used this month’s free posts. Pro gives 150 a month." : (err as Error).message; }
   });
 
-  // Home: sell an AI-found product (set a price), mark an order shipped.
-  $$("[data-add-item]").forEach((b) => b.addEventListener("click", async () => {
-    const row = b.closest<HTMLElement>("[data-suggest]")!;
-    const price = Number(row.querySelector<HTMLInputElement>("input")!.value);
-    if (!(price > 0)) { row.querySelector<HTMLInputElement>("input")!.focus(); return; }
-    try { await api("/api/app/items", { title: row.dataset.suggest, description: row.dataset.desc, price, photoMediaId: row.dataset.photo || null }); location.reload(); } catch (e) { notice("Couldn’t mark it shipped", (e as Error).message); }
-  }));
+  // Mark an order shipped / done.
   $$("[data-ship]").forEach((b) => b.addEventListener("click", async () => {
     const id = b.dataset.ship!;
-    try { await api(`/api/app/orders/${id}/ship`, { note: document.querySelector<HTMLInputElement>(`[data-ship-note="${id}"]`)?.value ?? "" }); location.reload(); } catch (e) { alert((e as Error).message); }
+    (b as HTMLButtonElement).disabled = true;
+    try { await api(`/api/app/orders/${id}/ship`, { note: document.querySelector<HTMLInputElement>(`[data-ship-note="${id}"]`)?.value ?? "" }); location.reload(); }
+    catch (e) { (b as HTMLButtonElement).disabled = false; notice("Couldn’t mark it", (e as Error).message); }
   }));
 
   // Analytics / settings / celebration.
@@ -307,7 +307,7 @@ function sellerApp() {
   });
   document.querySelector("#export-key")?.addEventListener("click", (e) => {
     e.preventDefault(); const h = store.get(CUR); const k = h ? store.get(keyOf(h)) : null;
-    if (!k) { alert("The store key is not in this browser."); return; }
+    if (!k) { notice("No key in this browser", "The store key is kept only in the browser where you made the store. Open Settings there to export it."); return; }
     const a = document.createElement("a"); a.href = `data:text/plain;charset=utf-8,${encodeURIComponent(`${h}\n${k}\n`)}`; a.download = `${h}-near-key.txt`; a.click();
   });
 
@@ -324,11 +324,12 @@ function sellerApp() {
     (b as HTMLButtonElement).disabled = true;
     try { await api(`/api/app/posts/${b.dataset.makeVideo}/video`, {}); location.reload(); } catch (err) { notice("Couldn’t start the video", (err as Error).message); (b as HTMLButtonElement).disabled = false; }
   }));
-  // Orders: decline & refund / approve or decline a refund request, and the buyer chat.
-  mountChats();
-  for (const [sel, path, done] of [["data-order-refund", "refund", "Refunding — recorded on NEAR in a few seconds."], ["data-order-decline-refund", "decline-refund", "Declined — tell the buyer why in a message."]] as const) {
+  // Orders: decline & refund / approve or decline a refund request (confirmed in a sheet).
+  mountUi();
+  shopForms();
+  for (const [sel, path, done] of [["data-order-refund", "refund", "Refunding — recorded on NEAR in a few seconds."], ["data-order-decline-refund", "decline-refund", "Declined — contact the buyer and explain why."]] as const) {
     $$(`[${sel}]`).forEach((b) => b.addEventListener("click", async () => {
-      if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
+      if (b.dataset.confirm && !(await ask(b.dataset.confirm))) return;
       const out = document.querySelector<HTMLElement>("[data-order-out]");
       (b as HTMLButtonElement).disabled = true;
       try { await api(`/api/app/orders/${b.getAttribute(sel)}/${path}`, {}); if (out) out.textContent = done; setTimeout(() => location.reload(), 6000); }
@@ -347,9 +348,97 @@ function sellerApp() {
     void busy(b, () => api(`/api/app/posts/${b.dataset.askCaption}/rewrite`, { style: "custom", instruction: ask() }));
   }));
   $$("[data-new-picture]").forEach((b) => b.addEventListener("click", () => void busy(b, () => api(`/api/app/posts/${b.dataset.newPicture}/picture`, { instruction: ask() }))));
-  $$("[data-skip]").forEach((b) => b.addEventListener("click", () => {
-    if (confirm("Skip this post? It won’t be published, and AI will write fewer posts like it.")) void busy(b, () => api(`/api/app/posts/${b.dataset.skip}/skip`, {}));
+  $$("[data-skip]").forEach((b) => b.addEventListener("click", async () => {
+    if (await ask("Skip this post?|It won’t be published, and AI will write fewer posts like it.|Skip")) void busy(b, () => api(`/api/app/posts/${b.dataset.skip}/skip`, {}));
   }));
+}
+
+/** A confirmation sheet ("Title|Message|Action"): resolves true when the owner taps the action. */
+function ask(spec: string): Promise<boolean> {
+  const [title, text = "", action = "OK"] = spec.split("|");
+  return new Promise((done) => {
+    const w = notice(title!, text, [{ label: action, primary: true, onClick: () => { w.close(); done(true); } }, { label: "Cancel", onClick: () => { w.close(); done(false); } }]);
+  });
+}
+
+// Shop (ADR 0026): the add/edit item form, hide/unhide, fix with AI; Settings: contact, Agent Market.
+function shopForms() {
+  const f = document.querySelector<HTMLFormElement>("#item-form");
+  if (f) {
+    const v = (n: string) => ((f.elements.namedItem(n) as HTMLInputElement | null)?.value ?? "").trim();
+    const kindNow = () => v("kind") || f.dataset.kind || "product";
+    const sync = () => {
+      $$("[data-for]").forEach((el) => el.classList.toggle("hidden", el.dataset.for !== kindNow()));
+      document.querySelector("[data-ship-countries]")?.classList.toggle("hidden", v("shipping") !== "countries");
+    };
+    f.addEventListener("change", sync); sync();
+    const picks = () => $$<HTMLLabelElement>(".pick");
+    f.addEventListener("click", (e) => {
+      const l = (e.target as HTMLElement).closest<HTMLLabelElement>(".pick");
+      if (l) picks().forEach((x) => x.classList.toggle("on", x === l));
+    });
+    document.querySelector<HTMLInputElement>("[data-item-upload]")?.addEventListener("change", async (e) => {
+      const input = e.target as HTMLInputElement, file = input.files?.[0], out = $("[data-item-out]");
+      if (!file) return;
+      out.textContent = "Uploading the photo…";
+      try {
+        const fd = new FormData(); fd.append("photo", new File([await shrink(file)], "photo.jpg", { type: "image/jpeg" }));
+        const { ids } = await api<{ ids: string[] }>("/api/app/photos", fd);
+        const l = document.createElement("label"); l.className = "pick on"; l.style.backgroundImage = `url(${URL.createObjectURL(file)})`;
+        const r = document.createElement("input"); r.type = "radio"; r.name = "photo"; r.value = ids[0]!; r.checked = true; r.className = "hidden";
+        l.append(r); picks().forEach((x) => x.classList.remove("on"));
+        input.closest(".pick-add")!.after(l); out.textContent = "";
+      } catch (err) { out.textContent = (err as Error).message; }
+      input.value = "";
+    });
+    f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const out = $("[data-item-out]"), btn = f.querySelector<HTMLButtonElement>("button[type=submit]")!;
+      const kind = kindNow(), photo = f.querySelector<HTMLInputElement>("input[name=photo]:checked")?.value ?? null;
+      const details = kind === "service"
+        ? { mode: v("mode"), deliveryDays: Number(v("deliveryDays")), question: v("question"), priceFrom: (f.elements.namedItem("priceFrom") as HTMLInputElement).checked }
+        : { stock: v("stock"), shipping: v("shipping"), countries: v("countries"), optionName: v("optionName") };
+      const options = kind === "product" ? v("options").split(",").map((x) => x.trim()).filter(Boolean) : [];
+      if (options.length === 1) { out.textContent = "Add at least two choices, or leave Choices empty."; return; }
+      btn.disabled = true; out.textContent = "Saving…";
+      try {
+        const r = await api<{ id: string }>("/api/app/items", { id: f.dataset.id || undefined, kind, title: v("title"), price: Number(v("price")), description: v("description"), photoMediaId: photo, options, details });
+        out.textContent = "Saved ✓ — our safety check looks at it in a few seconds.";
+        setTimeout(() => { location.href = f.dataset.id ? location.pathname : `/app/shop/${r.id}`; }, 900);
+      } catch (err) { out.textContent = (err as Error).message; btn.disabled = false; }
+    });
+  }
+  $$("[data-item-visibility]").forEach((b) => b.addEventListener("click", async () => {
+    const show = b.dataset.active === "1";
+    if (!show && !(await ask("Hide from your store?|Buyers won’t see it. Past orders keep working, and you can show it again any time.|Hide"))) return;
+    try { await api(`/api/app/items/${b.dataset.itemVisibility}/visibility`, { active: show }); location.reload(); } catch (err) { notice("Couldn’t do that", (err as Error).message); }
+  }));
+  $$("[data-item-fix]").forEach((b) => b.addEventListener("click", async () => {
+    (b as HTMLButtonElement).disabled = true;
+    const w = notice("Fixing…", "AI is rewriting the description so it passes the check.", []);
+    try {
+      await api(`/api/app/items/${b.dataset.itemFix}/fix`, {});
+      for (let i = 0; i < 40; i++) {
+        await sleep(2000);
+        const r = await api<{ items: { id: string; held: string | null }[] }>("/api/app/items");
+        const it = r.items.find((x) => x.id === b.dataset.itemFix);
+        if (it && !it.held) return w.set("Fixed ✓", "It’s back in your store. Check the new description below.", [{ label: "OK", primary: true, onClick: () => location.reload() }]);
+      }
+      w.set("Still working", "It takes a little longer this time. Refresh in a minute.", [{ label: "OK", primary: true, onClick: () => location.reload() }]);
+    } catch (err) { w.set("Couldn’t fix it", (err as Error).message, [{ label: "OK", primary: true }]); (b as HTMLButtonElement).disabled = false; }
+  }));
+  document.querySelector<HTMLFormElement>("#settings-contact")?.addEventListener("submit", async (e) => {
+    e.preventDefault(); const f2 = e.target as HTMLFormElement; const val = (n: string) => (f2.elements.namedItem(n) as HTMLInputElement).value.trim();
+    try { await api("/api/app/contact", { phone: val("phone"), app: val("app"), email: val("email") }); f2.querySelector("output")!.textContent = "Saved ✓ — buyers see it after they pay"; f2.classList.remove("warn"); }
+    catch (err) { f2.querySelector("output")!.textContent = (err as Error).message; }
+  });
+  document.querySelector<HTMLFormElement>("#settings-market")?.addEventListener("submit", async (e) => {
+    e.preventDefault(); const f3 = e.target as HTMLFormElement, out = f3.querySelector("output")!;
+    try {
+      const r = await api<{ webhookUrl: string; webhookSecret: string }>("/api/app/market", { token: (f3.elements.namedItem("token") as HTMLInputElement).value });
+      out.textContent = `Connected ✓ In the market, set the webhook URL to ${r.webhookUrl} and the secret to ${r.webhookSecret} (shown once — copy it now).`;
+    } catch (err) { out.textContent = (err as Error).message; }
+  });
 }
 
 // A small window with a title, a message and buttons (instead of alert()).

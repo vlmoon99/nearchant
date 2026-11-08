@@ -12,9 +12,13 @@ const page = await ctx.newPage();
 const errors = []; page.on("pageerror", (e) => errors.push(e.message));
 await page.goto(base); await page.screenshot({ path: `${shots}/store.png`, fullPage: true });
 await page.click("a.post"); await page.waitForSelector("form.order");
-await page.fill("form.order textarea", "Size M, Jane Doe, 120 Spring St, New York, NY 10012, +1 212 555 0100");
+// ADR 0026: the buyer leaves a way to reach them (phone + app or email) and, for things that ship, an address.
+await page.fill("form.order textarea[name=brief]", "Size M please");
+await page.fill("form.order input[name=name]", "Jane Doe");
+await page.fill("form.order input[name=phone]", "+1 212 555 0100");
+if (await page.$("form.order textarea[name=address]")) await page.fill("form.order textarea[name=address]", "120 Spring St, New York, NY 10012");
 await page.screenshot({ path: `${shots}/item.png`, fullPage: true });
-await page.click("form.order button");
+await page.click("form.order button[type=submit]");
 await page.waitForURL(/\/o\/o-/, { timeout: 180_000 });
 const orderId = page.url().match(/o-[\w-]+/)[0]; log(`paid: ${orderId}`);
 const seller = { headers: { cookie: `nc_session=${token}`, "content-type": "application/json" } };
@@ -25,6 +29,9 @@ await page.reload(); await page.waitForSelector("button[data-order-action=accept
 log("delivered on chain"); await page.screenshot({ path: `${shots}/delivered.png`, fullPage: true });
 await page.click("button[data-order-action=accept]");
 await page.waitForFunction(() => /Released|Done — thank you/.test(document.body.innerText), null, { timeout: 180_000 });
-log("accepted → Released"); await page.screenshot({ path: `${shots}/released.png`, fullPage: true });
+log("accepted → Released");
+const sellerPage = await (await fetch(`${origin}/app/orders/${orderId}`, seller)).text();
+log(`seller sees the buyer's WhatsApp: ${sellerPage.includes("https://wa.me/12125550100")}`);
+log(`buyer sees the store's contact: ${/Contact [^<]+<\/span>\s*<div class="list"><div class="list-row"><a/.test(await page.content())}`); await page.screenshot({ path: `${shots}/released.png`, fullPage: true });
 console.log("errors:", errors.length ? errors : "none");
 await browser.close();

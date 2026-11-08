@@ -1,0 +1,57 @@
+// Contact details (ADR 0026): buyers and stores talk in their own messenger or by email, not inside Nearchant.
+// The buyer gives one at checkout (only that store sees it); the store's own shows on the buyer's order page after payment.
+import { normEmail } from "./email.js";
+
+export const APPS = { whatsapp: "WhatsApp", telegram: "Telegram", signal: "Signal", viber: "Viber", imessage: "iMessage", sms: "SMS / call" } as const;
+export type ContactApp = keyof typeof APPS;
+export interface Contact { name?: string; email?: string; phone?: string; app?: string; address?: string }
+const appOf = (c: Contact): ContactApp => (c.app && c.app in APPS ? c.app : "sms") as ContactApp;
+
+const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().replace(/\s+/g, " ").slice(0, max) : "");
+
+/** "+971 50 123-45-67" → "+971501234567"; null unless it is an international number (+, 7–15 digits). */
+export function normPhone(v: string): string | null {
+  const t = v.trim().replace(/[\s().-]/g, "");
+  return /^\+[1-9]\d{6,14}$/.test(t) ? t : null;
+}
+
+/** Checks a contact from a form. Needs an email or a phone (with its app); name and address only when asked. */
+export function parseContact(raw: unknown, need: { name?: boolean; address?: boolean } = {}): { contact: Contact } | { error: string } {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const c: Contact = {};
+  const name = str(r.name, 80), address = str(r.address, 300), emailIn = str(r.email, 200), phoneIn = str(r.phone, 30);
+  if (need.name && name.length < 2) return { error: "add your name" };
+  if (name) c.name = name;
+  if (emailIn) {
+    const e = normEmail(emailIn);
+    if (!e) return { error: "that email doesn't look right" };
+    c.email = e;
+  }
+  if (phoneIn) {
+    const p = normPhone(phoneIn);
+    if (!p) return { error: "write the phone number with the country code, like +1 212 555 0100" };
+    c.phone = p;
+    c.app = (typeof r.app === "string" && r.app in APPS ? r.app : "sms") as ContactApp;
+  }
+  if (!c.email && !c.phone) return { error: "add an email or a phone number so you can be reached" };
+  if (need.address && address.length < 8) return { error: "add the delivery address" };
+  if (address) c.address = address;
+  return { contact: c };
+}
+
+/** Tap-to-open buttons for a contact: the messenger, a call, an email. */
+export function contactLinks(c: Contact): { label: string; value: string; href: string }[] {
+  const out: { label: string; value: string; href: string }[] = [];
+  if (c.phone) {
+    const d = c.phone.slice(1);
+    const app = appOf(c);
+    const href = { whatsapp: `https://wa.me/${d}`, telegram: `https://t.me/+${d}`, signal: `https://signal.me/#p/+${d}`, viber: `viber://chat?number=%2B${d}`, imessage: `sms:+${d}`, sms: `sms:+${d}` }[app];
+    out.push({ label: app === "sms" ? "Text" : APPS[app], value: c.phone, href });
+    out.push({ label: "Call", value: c.phone, href: `tel:+${d}` });
+  }
+  if (c.email) out.push({ label: "Email", value: c.email, href: `mailto:${c.email}` });
+  return out;
+}
+
+/** One line for emails: "WhatsApp +971… · jane@example.com". */
+export const contactLine = (c: Contact) => [c.phone ? `${APPS[appOf(c)]} ${c.phone}` : "", c.email ?? ""].filter(Boolean).join(" · ");
