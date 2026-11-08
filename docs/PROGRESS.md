@@ -1541,3 +1541,17 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 - The crawler: 0 broken links. Every buyer page shows a way to the feed and My orders on a phone (the remaining "hidden" links are the desktop header copies).
 - `e2e/buyer-journey.mjs` (phone, not signed in): store → Shop tab → item → paid in 11 s → My orders lists it → Account opens sign-in → Following / Liked / Shop tabs. No page errors.
 - Gateway tests: 71.
+
+## 2026-11-08 (late) — Seller actions followed across pages
+
+**Problem (owner):** after "Mark shipped", leaving the order page and coming back restarted the timer at "2 s", and nothing showed progress or the result on other pages.
+
+**Done**
+- The time counts from the tap: the order endpoint returns `action.since` (when the outbox row was created).
+- Ship, refund and decline are tracked in localStorage (`nc-actions`, 30 min). On every seller app page a bar at the bottom shows "Marking shipped "…" on NEAR… 12 s", any retries, then "Marked shipped ✓" or "didn't go through — tap to try again" (opens the order).
+- The Orders list row shows "Marking shipped…" meanwhile and refreshes after the result. Only one tab announces the result.
+- After 20 s the order page says you can leave it.
+
+**Verified**
+- `e2e/ship-leave.mjs` live on novatest33li: paid 18 s → tap ship → went to Orders at once (bar "2 s", row pill "Marking shipped…") → Home (bar "6 s", still counting) → "Marked shipped ✓" at 58 s → list shows Shipped.
+- No page errors; screenshots checked; typecheck and 71 gateway tests pass.

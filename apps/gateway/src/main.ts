@@ -462,7 +462,7 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
         const rows = (await Promise.all([`ship:${orderId}`, `refund:${orderId}`, `refund-decline:${orderId}`].map((k) => ob.latest(k)))).filter((r) => r !== null);
         const last = rows.sort((a, b) => b.id - a.id)[0];
         if (!last || last.state === "done") return null;
-        return { kind: last.kind, state: last.state, attempts: last.attempts, error: last.lastError, at: last.updatedAt.toISOString() };
+        return { kind: last.kind, state: last.state, attempts: last.attempts, error: last.lastError, at: last.updatedAt.toISOString(), since: last.createdAt.toISOString() };
       },
     },
     enqueue: async (task, payload, jobKey) => {

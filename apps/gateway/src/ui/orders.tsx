@@ -44,7 +44,7 @@ export const OrdersPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; or
         {!shown.length ? <div class="empty"><Icon n="box" s={40} c="var(--label-2)" /><span class="headline">{orders.length ? "Nothing here" : "No orders yet"}</span><span class="foot muted">When someone buys, the order shows up here with their contact and delivery details. You also get an email if you added one in Settings.</span></div>
           : <div class="list">{shown.map((o) => {
             const st = orderStage(o.state, o.chainStatus);
-            return <a class="list-row nav" href={`/app/orders/${o.orderId}`}>
+            return <a class="list-row nav" href={`/app/orders/${o.orderId}`} data-order-row={o.orderId}>
               <span class="list-text"><span class="body b clamp1">{o.title}</span><span class="foot muted clamp1">{o.contact?.name ? `${o.contact.name} · ` : ""}{when(o.createdAt)}</span></span>
               <span class="stack" style="gap:4px;align-items:flex-end"><span class="sub b">{o.amount}</span><Pill st={st} /></span>
               <Icon n="chevron" s={16} c="var(--label-3)" /></a>;
@@ -71,7 +71,7 @@ export const SellerOrderPage: FC<{ cfg: UiConfig; test: boolean; store: StoreVie
         <div class="cols post-cols">
           <div class="stack" style="gap:24px">
             <section class="group"><span class="group-h">Status</span>
-              <div class="card white" style="gap:10px" data-live-order={o.orderId} data-label={st.label} data-busy={st.busy ? "1" : "0"}><div class="spread"><span class="headline">{st.label}</span><Pill st={st} /></div><span class="sub muted">{st.note}</span>
+              <div class="card white" style="gap:10px" data-live-order={o.orderId} data-title={o.title} data-label={st.label} data-busy={st.busy ? "1" : "0"}><div class="spread"><span class="headline">{st.label}</span><Pill st={st} /></div><span class="sub muted">{st.note}</span>
                 <div class={`live ${st.busy ? "" : "hidden"}`} data-live aria-live="polite"><span class="spin"></span><span data-live-text>{st.busy ? "Checking NEAR…" : ""}</span></div>
                 {canShip ? <div class="stack" style="gap:10px"><input class="input" data-ship-note={o.orderId} placeholder={service ? "A note for the buyer (optional)" : "Tracking number or a note (optional)"} />
                   <button class="btn block" data-ship={o.orderId} data-act><Icon n="send" />{service ? "Mark done" : "Mark shipped"}</button></div> : null}

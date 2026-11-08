@@ -349,6 +349,11 @@ html, body { font-family: var(--font); }
 .live[data-tone=warn] { background: var(--warn-soft); color: var(--warn-ink); }
 .live[data-tone=bad] { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
 .live[data-tone=ok] .spin, .live[data-tone=bad] .spin { display: none; }
+/* Actions on their way to NEAR, followed on every page of the seller app */
+.actbar { position: fixed; left: 50%; transform: translateX(-50%); bottom: 24px; width: min(560px, calc(100% - 32px)); display: grid; gap: 8px; z-index: 30; }
+.actbar .live { box-shadow: 0 6px 24px rgb(0 0 0 / .14); background: color-mix(in srgb, var(--elevated) 70%, var(--accent-soft)); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); text-decoration: none; flex-wrap: nowrap; }
+.actbar .live [data-t] { min-width: 0; }
+@media (max-width: 760px) { .actbar { bottom: calc(84px + env(safe-area-inset-bottom)); } }
 .live > span:not(.spin) { flex: 1; min-width: 0; }
 .spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite; flex: none; }
 @keyframes spin { to { transform: rotate(360deg); } }

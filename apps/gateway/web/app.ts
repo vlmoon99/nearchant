@@ -263,6 +263,7 @@ function sellerApp() {
     else { r.querySelector(".spin")?.remove(); r.append(" — paused; refresh the page to check again."); try { sessionStorage.removeItem(rk); } catch { /* */ } }
   } else { try { sessionStorage.removeItem(rk); } catch { /* */ } }
   const live = liveOrder();
+  actionBar(document.querySelector<HTMLElement>("[data-live-order]")?.dataset.liveOrder ?? null);
   liveItem();
 
   // Create: upload photos, pick an opportunity, create a batch.
@@ -286,7 +287,7 @@ function sellerApp() {
   $$("[data-ship]").forEach((b) => b.addEventListener("click", async () => {
     const id = b.dataset.ship!;
     (b as HTMLButtonElement).disabled = true;
-    try { await api(`/api/app/orders/${id}/ship`, { note: document.querySelector<HTMLInputElement>(`[data-ship-note="${id}"]`)?.value ?? "" }); if (live) live.start(); else location.reload(); }
+    try { await api(`/api/app/orders/${id}/ship`, { note: document.querySelector<HTMLInputElement>(`[data-ship-note="${id}"]`)?.value ?? "" }); if (live) live.start("item.ship"); else location.reload(); }
     catch (e) { (b as HTMLButtonElement).disabled = false; notice("Couldn’t mark it", (e as Error).message); }
   }));
 
@@ -335,11 +336,11 @@ function sellerApp() {
   // Orders: decline & refund / approve or decline a refund request (confirmed in a sheet).
   mountUi();
   shopForms();
-  for (const [sel, path] of [["data-order-refund", "refund"], ["data-order-decline-refund", "decline-refund"]] as const) {
+  for (const [sel, path, kind] of [["data-order-refund", "refund", "item.refund"], ["data-order-decline-refund", "decline-refund", "item.refund_decline"]] as const) {
     $$(`[${sel}]`).forEach((b) => b.addEventListener("click", async () => {
       if (b.dataset.confirm && !(await confirmSheet(b.dataset.confirm))) return;
       (b as HTMLButtonElement).disabled = true;
-      try { await api(`/api/app/orders/${b.getAttribute(sel)}/${path}`, {}); if (live) live.start(); else location.reload(); }
+      try { await api(`/api/app/orders/${b.getAttribute(sel)}/${path}`, {}); if (live) live.start(kind); else location.reload(); }
       catch (err) { notice("Couldn’t do that", (err as Error).message); (b as HTMLButtonElement).disabled = false; }
     }));
   }
@@ -362,7 +363,7 @@ function sellerApp() {
 
 
 // ── Live state (8 Nov): after a click the page shows what is happening until the new state is there. ─────────────
-type OrderAction = { kind: string; state: string; attempts: number; error: string | null; at: string };
+type OrderAction = { kind: string; state: string; attempts: number; error: string | null; at: string; since?: string };
 type OrderLive = { state: string; chainStatus: string | null; stage: { label: string; note: string; tone: string; busy?: boolean }; action: OrderAction | null };
 const ACTION_TEXT: Record<string, string> = { "item.ship": "Recording the shipment on NEAR", "item.refund": "Sending the refund on NEAR", "item.refund_decline": "Recording your answer on NEAR" };
 const ACTION_PATH: Record<string, string> = { "item.ship": "ship", "item.refund": "refund", "item.refund_decline": "decline-refund" };
@@ -374,25 +375,82 @@ function nearSays(e: string): string {
   return e.slice(0, 140);
 }
 
+// Actions the seller started (ship, refund, decline) are followed on every page of the app until NEAR has them —
+// the seller can leave the order page; a bar at the bottom shows the progress and the result. Kept in localStorage so
+// it survives page changes and other tabs; the time counts from the tap (server time), not from the page load.
+type Tracked = { id: string; kind: string; title: string; since: number };
+const TRACK = "nc-actions";
+const tracked = {
+  all(): Tracked[] { try { return (JSON.parse(store.get(TRACK) ?? "[]") as Tracked[]).filter((t) => Date.now() - t.since < 30 * 60_000); } catch { return []; } },
+  put(t: Tracked) { const rest = tracked.all().filter((x) => x.id !== t.id); store.set(TRACK, JSON.stringify([...rest, t])); },
+  /** Removes it; false when another tab already did (so only one tab announces the result). */
+  drop(id: string): boolean { const all = tracked.all(); const left = all.filter((x) => x.id !== id); store.set(TRACK, JSON.stringify(left)); return left.length !== all.length; },
+};
+const ACTION_SHORT: Record<string, [string, string]> = { "item.ship": ["Marking shipped", "Marked shipped"], "item.refund": ["Refunding", "Refunded"], "item.refund_decline": ["Declining the refund", "Refund declined"] };
+const since = (a: OrderAction | null | undefined, fallback: number) => { const t = a?.since ? Date.parse(a.since) : NaN; return Number.isFinite(t) ? Math.min(t, Date.now()) : fallback; };
+const ago = (t: number) => { const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`; };
+
+function actionBar(here: string | null): void {
+  let bar: HTMLElement | null = null;
+  const rows = new Map<string, HTMLElement>();
+  const ensureBar = () => { if (!bar) { bar = document.createElement("div"); bar.className = "actbar"; bar.setAttribute("aria-live", "polite"); document.body.append(bar); } return bar; };
+  const row = (id: string) => {
+    let r = rows.get(id);
+    if (!r) { const a = document.createElement("a"); r = a; a.className = "live"; a.href = `/app/orders/${encodeURIComponent(id)}`; r.innerHTML = `<span class="spin"></span><span data-t></span>`; ensureBar().append(r); rows.set(id, r); }
+    return r;
+  };
+  const say = (id: string, text: string, tone = "") => { const r = row(id); r.dataset.tone = tone; r.querySelector("[data-t]")!.textContent = text; };
+  const finish = (id: string, after = 4000) => setTimeout(() => { rows.get(id)?.remove(); rows.delete(id); if (bar && !rows.size) { bar.remove(); bar = null; } }, after);
+  const listPill = (id: string, text: string | null) => {
+    const p = document.querySelector<HTMLElement>(`[data-order-row="${CSS.escape(id)}"] .pill`);
+    if (p && text) { p.dataset.was ??= p.textContent ?? ""; p.className = "pill wait"; p.textContent = text; }
+  };
+  const poll = async (t: Tracked): Promise<void> => {
+    for (;;) {
+      if (!tracked.all().some((x) => x.id === t.id)) { finish(t.id, 0); return; } // another tab finished it
+      const r = await api<OrderLive>(`/api/app/orders/${encodeURIComponent(t.id)}`).catch((e) => ((e as { status?: number }).status === 404 ? "gone" as const : null));
+      if (r === "gone") { tracked.drop(t.id); finish(t.id, 0); return; }
+      const [doing, done] = ACTION_SHORT[t.kind] ?? ["Saving", "Saved"];
+      const open = r?.action && (r.action.state === "pending" || r.action.state === "sending");
+      if (r && r.action?.state === "failed") {
+        if (tracked.drop(t.id)) say(t.id, `“${t.title}”: it didn't go through — tap to try again. ${nearSays(r.action.error ?? "")}`, "bad");
+        return;
+      }
+      if (r && !open && !r.stage.busy) {
+        if (tracked.drop(t.id)) { say(t.id, `“${t.title}” — ${done} ✓`, "ok"); listPill(t.id, null); finish(t.id); if (document.querySelector("[data-order-row]")) setTimeout(() => location.reload(), 1500); }
+        else finish(t.id, 0);
+        return;
+      }
+      const retry = r?.action?.error && r.action.attempts > 0 ? ` — NEAR didn't take it yet, trying again` : "";
+      say(t.id, `${doing} “${t.title}” on NEAR… ${ago(t.since)}${retry}`, retry ? "warn" : "");
+      listPill(t.id, `${doing}…`);
+      await sleep(2500);
+    }
+  };
+  for (const t of tracked.all()) if (t.id !== here) void poll(t);
+}
+
 /** Order page: follows the order on NEAR while an action is on its way; reloads once the new state is there. */
-function liveOrder(): { start: () => void } | null {
+function liveOrder(): { start: (kind: string) => void } | null {
   const card = document.querySelector<HTMLElement>("[data-live-order]");
   if (!card) return null;
-  const id = card.dataset.liveOrder!, label0 = card.dataset.label!;
+  const id = card.dataset.liveOrder!, label0 = card.dataset.label!, title = card.dataset.title ?? "Order";
   const box = card.querySelector<HTMLElement>("[data-live]")!, text = box.querySelector<HTMLElement>("[data-live-text]")!;
   let running = false, t0 = Date.now();
   const show = (msg: string, tone = "", title = "") => { box.classList.remove("hidden"); box.dataset.tone = tone; text.textContent = msg; text.title = title; };
   const lock = (on: boolean) => card.querySelectorAll<HTMLButtonElement>("[data-act]").forEach((b) => { b.disabled = on; });
   const tick = async (): Promise<void> => {
     const r = await api<OrderLive>(`/api/app/orders/${id}`).catch(() => null);
+    if (r?.action) { t0 = since(r.action, t0); tracked.put({ id, kind: r.action.kind, title, since: t0 }); }
     const secs = Math.round((Date.now() - t0) / 1000);
     const open = r?.action && (r.action.state === "pending" || r.action.state === "sending");
     if (r && !open && !r.stage.busy && r.stage.label !== label0) {
+      tracked.drop(id);
       show(`${r.stage.label} ✓`, "ok"); lock(true);
       setTimeout(() => location.reload(), 900); return;
     }
     if (r?.action?.state === "failed") {
-      lock(false);
+      tracked.drop(id); lock(false);
       show(`It didn't go through: ${nearSays(r.action.error ?? "")}`, "bad", r.action.error ?? "");
       const again = document.createElement("button"); again.className = "btn sm"; again.textContent = "Try again";
       again.addEventListener("click", async () => { again.remove(); t0 = Date.now(); await api(`/api/app/orders/${id}/${ACTION_PATH[r.action!.kind] ?? "ship"}`, {}).catch((e) => show((e as Error).message, "bad")); void loop(); });
@@ -401,7 +459,7 @@ function liveOrder(): { start: () => void } | null {
     if (r) {
       const what = ACTION_TEXT[r.action?.kind ?? ""] ?? r.stage.note.replace(/ — a few seconds\.$/, "");
       if (r.action?.error && r.action.attempts > 0) show(`${what}… not accepted yet, trying again (try ${r.action.attempts + 1}). ${nearSays(r.action.error)}`, "warn", r.action.error);
-      else show(`${what}… ${secs} s`);
+      else show(`${what}… ${ago(t0)}${secs > 20 ? " — you can leave this page; we'll tell you when it's done" : ""}`);
     }
     await sleep(secs > 300 ? 10_000 : 2_000);
     return tick();
@@ -420,7 +478,7 @@ function liveOrder(): { start: () => void } | null {
   if (card.dataset.busy === "1") void loop();
   else void api<OrderLive>(`/api/app/orders/${id}`).then((r) => { if (r.action && r.action.state !== "done") void loop(); }).catch(() => {});
   if (!["Refunded", "Paid out"].includes(label0)) void watch();
-  return { start: () => { t0 = Date.now(); show("Saving…"); void loop(); } };
+  return { start: (kind: string) => { t0 = Date.now(); tracked.put({ id, kind, title, since: t0 }); show("Saving…"); void loop(); } };
 }
 
 /** Item page right after saving: waits for the safety check, then shows the result. */

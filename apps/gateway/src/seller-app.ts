@@ -66,7 +66,7 @@ export interface SellerAppDeps {
 }
 
 /** A seller action on its way to NEAR (outbox): shown live on the order page, with NEAR's error while it retries. */
-export interface OrderAction { kind: string; state: string; attempts: number; error: string | null; at: string }
+export interface OrderAction { kind: string; state: string; attempts: number; error: string | null; at: string; /** when the seller tapped (elapsed time counts from here) */ since?: string }
 
 const COOKIE = "nc_session";
 const SESSION_MS = 30 * 24 * 3600_000;
