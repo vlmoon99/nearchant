@@ -116,10 +116,11 @@ export function createApp(d: Deps) {
     crossOriginOpenerPolicy: "same-origin-allow-popups",
   });
   // Media files set their own headers (sandboxed HTML); everything else gets the page policy.
-  // The buy widget (ADR 0027) is made to be shown inside other websites: any site may frame it. It holds no session
+  // The buy widget (ADR 0027) is made to be shown inside other websites: any page may frame it — no frame-ancestors
+  // at all, since "*" still refuses file:// pages (an owner trying the snippet in a local index.html). It holds no session
   // and its button only opens the store in a new tab, so framing can't make a buyer do anything unseen.
   const embedHeaders = secureHeaders({
-    contentSecurityPolicy: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", "data:", "https:"], frameAncestors: ["*"] },
+    contentSecurityPolicy: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", "data:", "https:"] },
     xFrameOptions: false, crossOriginResourcePolicy: false, crossOriginOpenerPolicy: false,
   });
   const isEmbed = (path: string) => /^(\/h\/[a-z0-9_-]+)?\/embed(\/|$)/.test(path);

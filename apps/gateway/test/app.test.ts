@@ -323,7 +323,7 @@ describe("banners and the buy widget (ADR 0027)", () => {
     expect((await app.request("http://x/h/alice/banner/i-2/square.png")).status).toBe(404);
     expect(asked).toEqual(["i-1:story", "i-2:square"]);
     const w = await app.request("http://x/h/alice/embed");
-    expect(w.headers.get("content-security-policy")).toContain("frame-ancestors *");
+    expect(w.headers.get("content-security-policy")).not.toContain("frame-ancestors");
     expect(w.headers.get("x-frame-options")).toBeNull();
     const page = await app.request("http://x/h/alice/");
     expect(page.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");

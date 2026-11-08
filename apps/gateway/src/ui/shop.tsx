@@ -157,7 +157,7 @@ export const ItemSharePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView;
             <div class="card white" style="padding:8px"><iframe class="widget-prev" src={`/h/${store.handle}/embed/i/${item.id}`} title="Widget preview" loading="lazy"></iframe></div>
             <div class="stack" style="gap:16px">
               <Code label="Paste this where it should appear" code={`<script src="${site}/embed.js" data-nearchant-store="${store.handle}" data-nearchant-item="${item.id}" async></script>`} note="Works on any site that accepts HTML: WordPress, Webflow, Wix (Embed code), Tilda, Shopify pages. It sizes itself." />
-              <Code label="Or as an iframe" code={`<iframe src="${site}/h/${store.handle}/embed/i/${item.id}" title="Buy ${item.title.replaceAll('"', "")}" style="width:100%;max-width:420px;height:560px;border:0"></iframe>`} />
+              <Code label="Or as an iframe" code={`<iframe src="${site}/h/${store.handle}/embed/i/${item.id}" title="Buy ${item.title.replaceAll('"', "")}" style="width:100%;max-width:420px;height:640px;border:0"></iframe>`} />
             </div></div></section>
         <PayMethods />
       </Shell>
