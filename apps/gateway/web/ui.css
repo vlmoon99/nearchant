@@ -224,7 +224,7 @@ svg { flex-shrink: 0; }
 .csteps-s.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; } .csteps-s.on i { background: var(--accent); color: #fff; }
 .csteps-s.done i { background: var(--ok); color: #fff; }
 .csteps-line { width: 28px; height: 2px; background: var(--track); border-radius: 1px; }
-@media (max-width: 899px) { .csteps-line { display: none; } }
+@media (max-width: 899px) { .csteps-line { display: none; } .csteps { flex-wrap: nowrap; gap: 6px; } .csteps-s:not(.on) .csteps-t { display: none; } .csteps-s:not(.on) { padding: 6px; } }
 
 /* Phone: the + in the bottom bar is the create button. */
 @media (max-width: 899px) { .hide-m { display: none !important; } }
@@ -237,7 +237,8 @@ svg { flex-shrink: 0; }
 .chk.on { background: var(--accent); border-color: var(--accent); }
 
 /* Phone: the post picture should not fill the whole screen (Figma Post ready). */
-@media (max-width: 899px) { .post-cols .post > .img { max-height: 46vh; } }
+/* Phones: a shorter picture keeps its whole frame (headline strip included) — narrower, not cropped. */
+@media (max-width: 899px) { .post-cols .post > .img { width: min(100%, 52vh * 0.8); justify-self: center; } .post-cols .post > video.img { width: min(100%, 60vh * 0.5625); } }
 
 /* Shop feed + buyers (ADR 0022) */
 .feed-search{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
@@ -423,3 +424,10 @@ html:has(body.embed) { background: transparent; }
   .buyertabs [data-buyer-label] { max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   body:has(.buyertabs) { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
+
+/* Design pass (8 Nov): phones get the grouped grey page under the seller app (white cards vanished on white). */
+@media (max-width: 899px) { .app { background: var(--page); } }
+.acct-pill.pay { white-space: nowrap; flex: none; }
+.ellip { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme=light]) .btn.near { background: #fff; color: #000; } :root:not([data-theme=light]) .btn.near svg { color: #000; } }
+.noimg, .post > .img.noimg { display: grid; place-items: center; background: var(--fill-3); }

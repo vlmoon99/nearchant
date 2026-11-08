@@ -1,6 +1,7 @@
 // The widget page: one item (a tall card) or a store's items (a grid), as a complete HTML document for an <iframe>.
 // The buttons open your item page in a new tab, where the buyer pays; nothing is paid inside the frame, so a host
 // page can't make a buyer do anything unseen. Plain strings, no JSX or framework.
+const BAG_ICON = `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>`;
 import { cssUrl, escapeHtml as e, safeUrl } from "./escape.js";
 import { WIDGET_CSS } from "./widget-css.js";
 
@@ -55,7 +56,9 @@ export function renderCards(o: Pick<RenderOptions, "items" | "store" | "buyUrl" 
       : `<a class="nw-btn" href="${url}" target="_blank" rel="noopener">${e(i.kind === "service" ? L.book : L.buy)} · ${e(i.price)}</a>`;
     const img = i.img ? ` style="background-image:url('${e(cssUrl(i.img))}')"` : "";
     return `<article class="nw-card${i.soldOut ? " sold-out" : ""}">`
-      + `<a class="nw-img" href="${url}" target="_blank" rel="noopener"${img} aria-label="${e(i.title)}"></a>`
+      // No photo: a short box with a bag icon instead of an empty 4:3 block.
+      + (i.img ? `<a class="nw-img" href="${url}" target="_blank" rel="noopener"${img} aria-label="${e(i.title)}"></a>`
+        : `<a class="nw-img nw-noimg" href="${url}" target="_blank" rel="noopener" aria-label="${e(i.title)}">${BAG_ICON}</a>`)
       + `<div class="nw-body"><span class="nw-cap nw-muted nw-clamp1">${e(o.store.name)}</span>`
       + `<span class="nw-title nw-clamp2">${e(i.title)}</span><span class="nw-price">${e(price)}</span>`
       + (facts ? `<span class="nw-cap nw-muted nw-clamp1">${e(facts)}</span>` : "")

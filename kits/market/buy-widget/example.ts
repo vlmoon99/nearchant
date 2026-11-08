@@ -31,7 +31,7 @@ const server = createServer((req, res) => {
     const a = snippets({ base: widgetOrigin, store: "ann", item: "cake" }), b = snippets({ base: widgetOrigin, store: "ann" });
     const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
     return send(200, { "content-type": "text/html; charset=utf-8" }, `<!doctype html><meta charset="utf-8"><title>Host page</title>
-<body style="font-family:system-ui;max-width:900px;margin:32px auto;padding:0 16px">
+<body style="font-family:system-ui;max-width:900px;margin:32px auto;padding:0 16px"><style>pre{white-space:pre-wrap;word-break:break-all;font-size:12px}</style>
 <h1>Someone's website</h1><p>One item, via the script snippet:</p><pre>${esc(a.script)}</pre>${a.script}
 <p>The whole store, via an iframe:</p><pre>${esc(b.iframe)}</pre>${b.iframe}</body>`);
   }

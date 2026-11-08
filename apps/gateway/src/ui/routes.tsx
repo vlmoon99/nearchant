@@ -142,7 +142,7 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
         <section class="stack" style="max-width:760px;margin:0 auto;padding:24px 16px 80px;gap:14px"><h1 class="t2" style="margin:0">My orders</h1>
           {/* Orders paid in this browser (kept by the checkout), also when not signed in — filled by buyer.ts */}
           <div class="stack s12" data-local-orders={JSON.stringify(orders.map((o) => o.orderId))}></div>
-          {!buyer ? <div class="card"><span class="headline">See your orders on every device</span><span class="foot muted">Orders you pay in this browser are listed above. Sign in to keep them with your account, on any phone or computer.</span><a class="btn" href="#" data-buyer-me>Sign in</a></div>
+          {!buyer ? <div class="card"><span class="headline">See your orders on every device</span><span class="foot muted">Orders you pay in this browser show up here. Sign in to keep them with your account, on any phone or computer.</span><a class="btn" href="#" data-buyer-me>Sign in</a></div>
             : !orders.length ? <div class="card" data-no-orders><span class="headline">No orders yet</span><span class="foot muted">Find something in the <a href="/feed">shop feed</a> — you pay into escrow on NEAR and the store is paid when you confirm.</span></div>
             : orders.map((o) => <a class="card white" href={`/h/${o.handle}/o/${o.orderId}`} style="flex-direction:row;gap:12px;align-items:center;color:inherit">
               <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="callout b">{o.title}</span><span class="foot muted">{o.store} · {o.at.slice(0, 10)}</span></span>

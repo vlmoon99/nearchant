@@ -11,6 +11,7 @@ body.nw { padding: 8px; color: var(--nw-label); font-family: var(--nw-font); -we
 .nw-card { background: var(--nw-card); border-radius: var(--nw-radius); overflow: hidden; display: flex; flex-direction: column; border: .5px solid var(--nw-sep); }
 .nw-img { display: block; aspect-ratio: 4 / 3; background: var(--nw-fill) center / cover no-repeat; }
 .nw-one .nw-img { aspect-ratio: 1; }
+.nw-img.nw-noimg { display: grid; place-items: center; aspect-ratio: 2 / 1; color: var(--nw-label-2); }
 .nw-card.sold-out .nw-img { opacity: .55; }
 .nw-body { padding: 14px; display: flex; flex-direction: column; gap: 6px; }
 .nw-title { font-size: 17px; font-weight: 600; letter-spacing: -.2px; }

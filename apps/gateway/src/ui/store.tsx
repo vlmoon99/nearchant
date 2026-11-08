@@ -119,7 +119,7 @@ export const PublicPostPage: FC<{ s: StoreData; p: StorePost; cfg: CheckoutCfg; 
       </div>
       {more.length ? <><div class="spread"><h2 class="t4">More from {s.name}</h2><a class="sub" href={`${cfg.base}posts`}>All posts ›</a></div>
         <div class="grid4">{more.map((x) => <PostTile p={x} base={cfg.base} />)}</div></> : null}
-      {similar.length ? <><div class="spread"><h2 class="t4">More like this on Nearchant</h2><a class="sub" href={`${site}/feed`}>Shop feed ›</a></div>
+      {similar.length ? <><div class="spread"><h2 class="t4">More like this on Nearchant</h2><a class="sub" style="white-space:nowrap" href={`${site}/feed`}>Shop feed ›</a></div>
         <div class="grid4">{similar.slice(0, 4).map((x) => <a class="post" href={`${site}/h/${x.handle}/p/${x.id}?ref=similar`} style="color:inherit">
           <div class="img" style={`aspect-ratio:4/5;position:relative;background-image:url('${site}${x.img}')`}>{x.video ? <span class="dot" style="position:absolute;top:10px;right:10px;width:30px;height:30px;background:rgba(0,0,0,.55)"><Icon n="play" s={14} c="#fff" /></span> : null}</div>
           <span class="foot b">{x.storeName}</span><span class="foot clamp2">{x.caption}</span></a>)}</div></> : null}
@@ -133,7 +133,8 @@ export const ItemPage: FC<{ s: StoreData; i: StoreItem; cfg: CheckoutCfg; test: 
     <Shell title={`${i.title} · ${s.name}`} s={s} cfg={cfg} test={test}>
       <a class="sub" href={cfg.base}>‹ {s.name}</a>
       <div class="cols post-cols">
-        <div class="post"><div class="img" style={i.img ? `background-image:url('${i.img}');aspect-ratio:4/5` : "aspect-ratio:4/5"}></div></div>
+        <div class="post">{i.img ? <div class="img" style={`background-image:url('${i.img}');aspect-ratio:4/5`}></div>
+          : <div class="img noimg" style="aspect-ratio:2/1"><Icon n={i.kind === "service" ? "users" : "bag"} s={44} c="var(--label-3)" /></div>}</div>
         <div class="stack">
           <div class="stack s8"><h1 class="t2">{i.title}</h1>
             <span class="t4">{d.priceFrom ? "From " : ""}{i.price}</span>

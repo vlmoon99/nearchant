@@ -82,7 +82,7 @@ export const Shell: FC<PropsWithChildren<{ active: string; store: { name: string
       </div>
       <div class="sub" style="padding:12px 0 0 6px">{store.name}</div>
     </aside>
-    <header class="topbar"><a class="logo" style="padding:0;gap:10px;min-width:0" href="/app"><Mark /><span class="stack" style="gap:0;min-width:0"><span class="callout b clamp1">{store.name}</span><span class="cap muted clamp1">{store.account}</span></span></a><a class="acct-pill pay" href="/app/wallet" style="margin-left:auto;margin-right:4px"><Icon n="wallet" s={14} />{store.balance ?? "Wallet"}</a><a class={`icon-btn ${active === "Settings" || active === "Wallet" || active === "Analytics" ? "on" : ""}`} href="/app/settings" aria-label="Settings, wallet and analytics" style="margin:0 -10px 0 0"><Icon n="sliders" s={22} /></a></header>
+    <header class="topbar"><a class="logo" style="padding:0;gap:10px;min-width:0" href="/app"><Mark /><span class="stack" style="gap:0;min-width:0"><span class="callout b clamp1">{store.name}</span><span class="cap muted ellip">{store.account}</span></span></a><a class="acct-pill pay" href="/app/wallet" style="margin-left:auto;margin-right:4px"><Icon n="wallet" s={14} />{store.balance ?? "Wallet"}</a><a class={`icon-btn ${active === "Settings" || active === "Wallet" || active === "Analytics" ? "on" : ""}`} href="/app/settings" aria-label="Settings, wallet and analytics" style="margin:0 -10px 0 0"><Icon n="sliders" s={22} /></a></header>
     <main class="main">{children}</main>
     <nav class="bottomnav">
       {(["Home", "Posts", "Create", "Shop", "Orders"] as const).map((l) => NAV.find(([, x]) => x === l)!).map(([ic, label, href]) => label === "Create"
@@ -110,7 +110,7 @@ export const PageHead: FC<PropsWithChildren<{ kicker: string; title: string }>> 
 /** Create flow steps (Figma Web · Create 1–3): Photos & idea → AI makes it → Review & publish. */
 export const CreateSteps: FC<{ step: 1 | 2 | 3 }> = ({ step }) => (
   <div class="csteps">{["Photos & idea", "AI makes it", "Review & publish"].map((t, i) => (
-    <>{i ? <span class="csteps-line"></span> : null}<span class={`csteps-s ${i + 1 === step ? "on" : i + 1 < step ? "done" : ""}`}><i>{i + 1 < step ? "✓" : i + 1}</i>{t}</span></>
+    <>{i ? <span class="csteps-line"></span> : null}<span class={`csteps-s ${i + 1 === step ? "on" : i + 1 < step ? "done" : ""}`}><i>{i + 1 < step ? "✓" : i + 1}</i><span class="csteps-t">{t}</span></span></>
   ))}</div>
 );
 

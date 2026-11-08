@@ -1,7 +1,7 @@
 // Buy widget (ADR 0027): a compact card of one item, or the shop's items, for an <iframe> on any website. The button
 // opens the item on Nearchant in a new tab, where the buyer pays into escrow; nothing is paid inside the frame.
 import type { FC } from "hono/jsx";
-import { asset } from "./kit.js";
+import { Icon, asset } from "./kit.js";
 import type { StoreData, StoreItem } from "./store.js";
 import { itemFacts, soldOut } from "../item-details.js";
 
@@ -14,7 +14,7 @@ export const EmbedPage: FC<{ s: StoreData; items: StoreItem[]; storeUrl: string 
         {items.map((i) => {
           const d = i.details ?? {}, gone = soldOut(i.kind, d), url = `${storeUrl}i/${i.id}?ref=widget`;
           return <article class="embed-card">
-            <a class="embed-img" href={url} target="_blank" rel="noopener" style={i.img ? `background-image:url('${i.img}')` : ""} aria-label={i.title}></a>
+            <a class={`embed-img${i.img ? "" : " noimg"}`} href={url} target="_blank" rel="noopener" style={i.img ? `background-image:url('${i.img}')` : "aspect-ratio:2/1"} aria-label={i.title}>{i.img ? null : <Icon n={i.kind === "service" ? "users" : "bag"} s={36} c="var(--label-3)" />}</a>
             <div class="embed-body">
               <span class="cap muted clamp1">{s.name}</span>
               <span class="headline clamp2">{i.title}</span>

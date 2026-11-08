@@ -15,14 +15,14 @@ const Page: FC<{ cfg: UiConfig; test: boolean; title: string; active: string; st
 const Bars: FC<{ days: DayRow[] }> = ({ days }) => {
   const max = Math.max(1, ...days.map((d) => d.views));
   return (
-    <div class="row" style="gap:6px;align-items:flex-end;height:160px">
-      {days.map((d) => (
-        <div class="stack" style="flex:1;gap:4px;align-items:center;justify-content:flex-end;height:100%" title={`${d.day}: ${d.views} views, ${d.sales} sales`}>
+    <div class="row" style={`gap:${days.length > 14 ? 2 : 6}px;align-items:flex-end;height:160px;min-width:0`}>
+      {days.map((d, i) => (
+        <div class="stack" style="flex:1;min-width:0;gap:4px;align-items:center;justify-content:flex-end;height:100%" title={`${d.day}: ${d.views} views, ${d.sales} sales`}>
           <div class="row" style="gap:2px;align-items:flex-end;height:130px;width:100%;justify-content:center">
             <i style={`display:block;width:45%;max-width:14px;border-radius:4px;background:var(--accent);height:${Math.max(2, (d.views / max) * 100)}%`}></i>
             <i style={`display:block;width:45%;max-width:14px;border-radius:4px;background:var(--ok);height:${d.sales ? Math.max(6, (d.sales / max) * 100) : 0}%`}></i>
           </div>
-          <span class="cap muted">{d.day.slice(8)}</span>
+          <span class="cap muted" style="white-space:nowrap">{days.length <= 14 || i % 5 === 0 || i === days.length - 1 ? d.day.slice(8) : "\u00a0"}</span>
         </div>
       ))}
     </div>
@@ -62,7 +62,7 @@ export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView;
       <div class="card"><div class="spread"><div class="row" style="align-items:center;gap:8px"><Icon n="sparkles" c="var(--purple)" /><span class="headline">What AI noticed</span></div><button class="chip" id="refresh-insights">Refresh</button></div>
         {insights ? <>
           <span class="sub b">{insights.headline}</span>
-          {insights.insights.map((i) => <div class="card white" style="gap:4px;padding:12px;border:0"><span class="foot">{i.text}</span><span class="foot b" style="color:var(--accent)">{i.action} →</span></div>)}
+          {insights.insights.map((i) => <div class="card" style="gap:4px;padding:12px;border:0;background:var(--cell-2)"><span class="foot">{i.text}</span><span class="foot b" style="color:var(--accent)">{i.action} →</span></div>)}
           {insights.best_time ? <span class="foot muted">Best time to post: <b>{insights.best_time}</b></span> : null}
         </> : <span class="foot muted" data-auto-insights>AI is reading your numbers for the first time…</span>}
         <output class="foot" id="insights-out"></output>

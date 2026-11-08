@@ -1588,3 +1588,30 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 - No real browser-wallet signing; no real checkout payment from the browser kit.
 - Mainnet is untested.
 - The checkout's default msg now targets the kit escrow (`seller`). Nearchant's deployed contract uses `seller_handle`, so set `msg` to talk to it.
+
+## 2026-11-08 (late night) — Design pass: every screen, light/dark × phone/desktop
+
+**Done**
+- `apps/gateway/e2e/all-shots.mjs` captures 34 screens, including sheets and invalid-form states, as one contact sheet per screen: phone light | phone dark | desktop light | desktop dark. It also flags pages that scroll sideways on a phone, comparing against the real screen width; mobile Chrome zooms out, which hides overflow from `innerWidth`.
+- **Fixes:**
+  - **Seller app background on phones:** it had no grouped grey page, so white cards were invisible in light mode. Affected Home, Shop, item form, Orders, Settings and Analytics.
+  - **Landing header on phones:** it was 465 px wide. The "Create your store" button is now hidden there, since the hero repeats it.
+  - **Analytics chart:** 30 days were 654 px wide. Columns are now 2 px apart with a label every 5 days.
+  - **Top-bar balance pill:** it no longer wraps, and the account name ends with an ellipsis.
+  - **Post pictures on phones:** cropped by `max-height` with `cover`, they lost the headline strip. They are now narrower and uncropped.
+  - **Create steps:** on phones only the current step keeps its label, so they fit on one line.
+  - **"Use a NEAR wallet" button in dark mode:** it was black on a dark sheet; it is now white.
+  - **"My orders" signed out:** it said orders were "listed above" when nothing was. Reworded.
+  - **"Shop feed ›" link:** it no longer wraps under its heading.
+  - **Items without a photo:** on the item page and in the widget, a short box with an icon replaces the empty 4:5 block.
+  - **AI insight boxes:** they now have a fill instead of white on a white card.
+- **Kits:** the buy-widget placeholder for items without a photo, with `widget.css` and its inlined copy kept equal, and the example page's code lines now wrap. The checkout example looked fine.
+
+**Verified**
+- Re-captured all 34 screens: no page errors, and nothing scrolls sideways.
+- Checked the fixed screens by eye in light and dark.
+- Typecheck passes; 71 gateway tests pass.
+- `check-copy` passes for buy-widget.
+
+**Not verified**
+- Real iOS Safari; screenshots are Chrome with phone emulation.
