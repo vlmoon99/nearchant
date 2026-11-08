@@ -7,7 +7,7 @@
   "description": "Control-plane API: public + admin surfaces, seller cards, CORS, webhooks (architecture.md \u00a79).",
   "scripts": {
     "build": "tsc -p tsconfig.json && pnpm build:web",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p web/tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "start": "node dist/main.js",
     "build:web": "esbuild ./web/checkout.ts --bundle --format=esm --target=es2022 --platform=browser --alias:util=./web/util-shim.js --minify --outfile=dist/web/checkout.js && esbuild ./web/app.ts --bundle --format=esm --target=es2022 --platform=browser --alias:util=./web/util-shim.js --minify --outfile=dist/web/app.js && esbuild ./web/wallet.ts --bundle --format=esm --target=es2022 --platform=browser --alias:util=./web/util-shim.js --alias:crypto=./web/crypto-shim.js --alias:http=./web/empty-shim.js --alias:https=./web/empty-shim.js --alias:near-api-js=near-api-js-v6 --define:process.env.NODE_ENV='\"production\"' --define:global=globalThis --inject:./web/process-shim.js --minify --outfile=dist/web/wallet.js --log-level=warning && esbuild ./web/buyer.ts --bundle --format=esm --target=es2022 --platform=browser --minify --outfile=dist/web/buyer.js"

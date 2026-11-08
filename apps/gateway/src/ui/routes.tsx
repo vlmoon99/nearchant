@@ -3,7 +3,7 @@ import type { Context, Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { PLAN_LIMITS, type BuyerContact, type ContentStore } from "@nearchant/db";
 import { ItemEditPage, ShopPage, type ShopItem } from "./shop.js";
-import type { ItemDetails } from "../item-details.js";
+import { checkHash, type ItemDetails } from "../item-details.js";
 import { OrdersPage, SellerOrderPage, type SellerOrder } from "./orders.js";
 import { OnboardingPage } from "./onboarding.js";
 import { CreatePage, HomePage, PostPage, PostsPage, SignInPage, checklistFor, type StoreView } from "./app-pages.js";
@@ -220,11 +220,12 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
   }));
 
   // Shop (ADR 0026): products and services — list, add, edit.
-  const shopItems = async (handle: string, img: (id: string | null) => string | null): Promise<ShopItem[]> => (await content.listItems(handle, false)).map((i) => ({
+  const shopItems = async (handle: string, img: (id: string | null) => string | null): Promise<ShopItem[]> => Promise.all((await content.listItems(handle, false)).map(async (i) => ({
+    checking: i.active && (await content.getSetting<{ hash: string }>(`itemMod:${i.id}`))?.hash !== checkHash(i),
     id: i.id, kind: i.kind === "service" ? "service" : "product", title: i.title, description: i.description, photoMediaId: i.photoMediaId, img: img(i.photoMediaId), active: i.active, held: i.held,
     priceNumber: Number(i.priceUnits) / 10 ** d.cfg.decimals, price: `${(Number(i.priceUnits) / 10 ** d.cfg.decimals).toLocaleString("en", { maximumFractionDigits: 2 })} ${d.cfg.token}`,
     options: (i.options as string[]) ?? [], details: (i.details ?? {}) as ItemDetails,
-  }));
+  })));
   const shopSuggestions = async (handle: string, items: { title: string }[]) => {
     const prof = (await content.getProfile(handle))?.data as { products?: { name: string; photo: number | null; description: string }[] } | undefined;
     const photos = (await content.listMedia(handle, "photo")).slice(0, 8);

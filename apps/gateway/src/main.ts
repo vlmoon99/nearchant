@@ -431,10 +431,18 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     } } : {}),
     orders: {
       list: (h) => store.listOrders(h, 50),
-      ship: async (h, orderId, note) => { await new Outbox(conn.db).enqueue(`ship:${orderId}`, "item.ship", { orderId, handle: h, note }); },
+      // enqueueAgain: shipping again after a revision gets a new outbox item (the first one is done).
+      ship: async (h, orderId, note) => { await new Outbox(conn.db).enqueueAgain(`ship:${orderId}`, "item.ship", { orderId, handle: h, note }); },
       status: orderOnChain,
-      refund: async (h, orderId) => { await new Outbox(conn.db).enqueue(`refund:${orderId}`, "item.refund", { orderId, handle: h }); },
-      declineRefund: async (h, orderId) => { await new Outbox(conn.db).enqueue(`refund-decline:${orderId}`, "item.refund_decline", { orderId, handle: h }); },
+      refund: async (h, orderId) => { await new Outbox(conn.db).enqueueAgain(`refund:${orderId}`, "item.refund", { orderId, handle: h }); },
+      declineRefund: async (h, orderId) => { await new Outbox(conn.db).enqueueAgain(`refund-decline:${orderId}`, "item.refund_decline", { orderId, handle: h }); },
+      action: async (orderId) => {
+        const ob = new Outbox(conn.db);
+        const rows = (await Promise.all([`ship:${orderId}`, `refund:${orderId}`, `refund-decline:${orderId}`].map((k) => ob.latest(k)))).filter((r) => r !== null);
+        const last = rows.sort((a, b) => b.id - a.id)[0];
+        if (!last || last.state === "done") return null;
+        return { kind: last.kind, state: last.state, attempts: last.attempts, error: last.lastError, at: last.updatedAt.toISOString() };
+      },
     },
     enqueue: async (task, payload, jobKey) => {
       if (!queue) throw new Error("no job queue (DATABASE_URL unset)");

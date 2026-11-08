@@ -156,7 +156,7 @@ export const ItemPage: FC<{ s: StoreData; i: StoreItem; cfg: CheckoutCfg; test: 
               </div>
               <span class="group-f">A phone or an email is enough. Only {s.name} sees it, to arrange {service ? "the details" : "delivery"} with you.</span></div>
             <button class="btn block lg" type="submit"><Icon n="lock" />Pay {i.price}</button>
-            <output class="result foot" aria-live="polite"></output>
+            <output class="result live hidden" aria-live="polite"></output>
             <span class="cap muted" style="text-align:center">Your money waits in escrow on NEAR and goes to {s.name} only when you confirm. A free test wallet is made in this browser.</span>
           </form>}
         </div>
@@ -179,7 +179,7 @@ export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; 
   return (
     <Shell title={`Order · ${s.name}`} s={s} cfg={cfg} test={test}>
       <a class="sub" href={cfg.base}>‹ {s.name}</a>
-      <section class="card" style="align-items:center;text-align:center;gap:10px" {...(st === "Held" || st === "Opening" || !st ? { "data-poll-order": o.orderId } : {})}>
+      <section class="card" style="align-items:center;text-align:center;gap:10px" {...(st !== "Released" && st !== "Refunded" ? { "data-live-buyer": o.orderId, "data-chain": st ?? "" } : {})}>
         <span class={`dot ${step >= 1 ? "ok" : "now"}`} style="width:64px;height:64px"><Icon n={step >= 1 ? "check" : "lock"} s={32} /></span>
         <h1 class="t2">{st === "Released" ? "Done — thank you!" : st === "Delivered" ? "Shipped — confirm when you get it" : st === "Held" ? "Paid — safe in escrow" : st === "Refunded" ? "Refunded — the money is back in your wallet"
           : st === "RevisionRequested" ? "The store will make it right" : st === "RefundRequested" ? "Refund requested — the store will answer" : st === "Disputed" ? "The store declined the refund — contact them below"
@@ -194,7 +194,8 @@ export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; 
           </div>))}
       </section>
       {st === "Delivered" ? <div class="stack s12"><button class="btn block" data-order-action="accept" data-order={o.orderId}><Icon n="check" />I got it — release payment</button><button class="btn secondary block" data-order-action="request_refund" data-order={o.orderId}>Problem — request a refund</button></div> : null}
-      <output id="order-msg" class="foot"></output>
+      <output id="order-msg" class="live hidden" aria-live="polite"></output>
+      {st !== "Released" && st !== "Refunded" ? <span class="cap muted" style="text-align:center">This page updates by itself when {s.name} ships or answers.</span> : null}
       {st && st !== "Opening" ? <section class="group">
         <span class="group-h">Contact {s.name}</span>
         {storeContact ? <ContactList c={storeContact} /> : <div class="list"><div class="list-row"><span class="list-text"><span class="foot muted">{s.name} will contact you using the details you gave.</span></span></div></div>}

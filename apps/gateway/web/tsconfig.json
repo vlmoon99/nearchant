@@ -1,0 +1,5 @@
+{
+  "//": "Browser scripts: esbuild bundles without type checks, so `pnpm typecheck` checks them here (wallet.ts excluded: a near-wallet-selector type mismatch inside the library).",
+  "compilerOptions": { "noEmit": true, "strict": true, "skipLibCheck": true, "target": "es2022", "lib": ["dom", "dom.iterable", "es2023"], "module": "esnext", "moduleResolution": "bundler" },
+  "files": ["app.ts", "checkout.ts", "ui-bits.ts", "buyer.ts", "units.ts"]
+}

@@ -23,9 +23,19 @@ await page.waitForURL(/\/o\/o-/, { timeout: 180_000 });
 const orderId = page.url().match(/o-[\w-]+/)[0]; log(`paid: ${orderId}`);
 const seller = { headers: { cookie: `nc_session=${token}`, "content-type": "application/json" } };
 for (let i = 0; i < 30; i++) { const o = (await (await fetch(`${origin}/api/app/orders`, seller)).json()).orders.find((x) => x.orderId === orderId); if (o?.state === "paid") break; await new Promise((r) => setTimeout(r, 3000)); }
-const ship = await fetch(`${origin}/api/app/orders/${orderId}/ship`, { method: "POST", ...seller, body: JSON.stringify({ note: "UPS 1Z999AA10123456784" }) });
-log(`ship: ${ship.status}`);
-await page.reload(); await page.waitForSelector("button[data-order-action=accept]", { timeout: 300_000 });
+// The seller clicks "Mark shipped" in the app; neither page is reloaded by this script — both must update by themselves.
+const sctx = await browser.newContext({ viewport: { width: 393, height: 852 } });
+await sctx.addCookies([{ name: "nc_session", value: token, domain: new URL(base).hostname, path: "/", secure: base.startsWith("https"), httpOnly: true }]);
+const sp = await sctx.newPage(); sp.on("pageerror", (e) => errors.push(`seller: ${e.message}`));
+await sp.goto(`${origin}/app/orders/${orderId}`);
+await sp.fill(`[data-ship-note="${orderId}"]`, "UPS 1Z999AA10123456784");
+await sp.click(`[data-ship="${orderId}"]`);
+await sp.waitForSelector("[data-live]:not(.hidden)", { timeout: 10_000 });
+log(`seller sees: "${await sp.textContent("[data-live-text]")}"`); await sp.screenshot({ path: `${shots}/seller-live.png` });
+await sp.waitForFunction(() => document.querySelector("[data-live-order]")?.getAttribute("data-label") === "Shipped", null, { timeout: 300_000 });
+log("seller page shows Shipped by itself"); await sp.screenshot({ path: `${shots}/seller-shipped.png` });
+await page.waitForSelector("button[data-order-action=accept]", { timeout: 120_000 });
+log("buyer page shows Shipped by itself");
 log("delivered on chain"); await page.screenshot({ path: `${shots}/delivered.png`, fullPage: true });
 await page.click("button[data-order-action=accept]");
 await page.waitForFunction(() => /Released|Done — thank you/.test(document.body.innerText), null, { timeout: 180_000 });

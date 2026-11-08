@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 // What a store sells (ADR 0026): the extra fields of a product or a service, kept in items.details.
 export type Stock = "in_stock" | "made_to_order" | "sold_out";
 export type Shipping = "world" | "countries" | "pickup";
@@ -42,3 +43,6 @@ export function itemFacts(kind: string, d: ItemDetails): string[] {
   if (kind === "service") return [MODE[d.mode ?? "online"], `Ready in ${d.deliveryDays ?? 7} day${(d.deliveryDays ?? 7) === 1 ? "" : "s"}`];
   return [STOCK[d.stock ?? "in_stock"], d.shipping === "pickup" ? "Pickup only" : d.shipping === "countries" ? `Ships to ${d.countries || "selected countries"}` : "Ships worldwide"];
 }
+
+/** Fingerprint of what the safety check reads (title, description, photo) — the worker keeps its verdict under it. */
+export const checkHash = (i: { title: string; description: string; photoMediaId: string | null }) => createHash("sha256").update(`${i.title}\n${i.description}\n${i.photoMediaId ?? ""}`).digest("hex");

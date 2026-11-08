@@ -5,12 +5,12 @@ import { Icon, PageHead, Segmented, Shell, UiPage, type UiConfig } from "./kit.j
 import type { StoreView } from "./app-pages.js";
 import { itemFacts, soldOut, type ItemDetails } from "../item-details.js";
 
-export interface ShopItem { id: string; kind: string; title: string; description: string; price: string; priceNumber: number; img: string | null; active: boolean; held: string | null; options: string[]; details: ItemDetails; photoMediaId: string | null }
+export interface ShopItem { checking?: boolean; id: string; kind: string; title: string; description: string; price: string; priceNumber: number; img: string | null; active: boolean; held: string | null; options: string[]; details: ItemDetails; photoMediaId: string | null }
 export interface Suggestion { title: string; description: string; photoMediaId: string | null; img: string | null }
 export interface PhotoPick { id: string; img: string }
 
 const status = (i: ShopItem): { label: string; tone: string } =>
-  i.held ? { label: "Needs a change", tone: "bad" } : !i.active ? { label: "Hidden", tone: "wait" } : soldOut(i.kind, i.details) ? { label: "Sold out", tone: "wait" } : { label: "Live", tone: "done" };
+  i.held ? { label: "Needs a change", tone: "bad" } : !i.active ? { label: "Hidden", tone: "wait" } : i.checking ? { label: "Checking…", tone: "act" } : soldOut(i.kind, i.details) ? { label: "Sold out", tone: "wait" } : { label: "Live", tone: "done" };
 
 const Thumb: FC<{ img: string | null; kind: string }> = ({ img, kind }) => (
   <span class="thumb" style={img ? `background-image:url('${img}')` : ""}>{img ? null : <Icon n={kind === "service" ? "users" : "bag"} s={22} c="#8e8e93" />}</span>
@@ -44,6 +44,7 @@ export const ShopPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; item
             <span class="list-text"><span class="body b clamp1">{sg.title}</span><span class="foot muted clamp1">{sg.description}</span></span>
             <a class="btn soft sm" href={`/app/shop/new?kind=product&suggest=${k}`}>Add</a></div>)}</div>
           <span class="group-f">AI spotted these in your photos. Add one, set a price, and it is in your store.</span></section> : null}
+        {items.some((i) => i.checking && !i.held) ? <span class="live" data-refresh="5000"><span class="spin"></span>Safety check running — this list updates by itself</span> : null}
         <span class="cap muted">Everything you add can also appear in your AI posts. <a href={`/h/${store.handle}/`} target="_blank" rel="noopener">Open your store ›</a></span>
       </Shell>
     </UiPage>
@@ -64,6 +65,7 @@ export const ItemEditPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
       <Shell active="Shop" store={store}>
         <a class="back" href={`/app/shop?k=${k}`}><Icon n="chevron" s={18} />Shop</a>
         <PageHead kicker={st ? st.label : "New"} title={item ? item.title : k === "service" ? "New service" : "New product"} />
+        {item?.checking && !item.held ? <div class="live" data-live-item={item.id} aria-live="polite"><span class="spin"></span><span data-live-text>Our safety check is looking at it — a few seconds. It is already in your store.</span></div> : null}
         {item?.held ? <div class="card warn" style="gap:10px"><span class="headline">Needs a small change</span>
           <span class="sub">Our safety check found: {item.held}</span><span class="foot muted">Buyers don't see it until it's fixed. Nothing counts against your store.</span>
           <div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn" data-item-fix={item.id}><Icon n="sparkles" />Fix with AI</button><span class="foot muted" style="align-self:center">or edit the text below and save</span></div></div> : null}

@@ -54,11 +54,12 @@ async function pay(form: HTMLFormElement) {
   const out = form.querySelector("output")!;
   const button = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
   button.disabled = true;
+  out.classList.remove("hidden"); out.dataset.tone = "";
   try {
     const val = (n: string) => ((form.elements.namedItem(n) as HTMLInputElement | null)?.value ?? "").trim();
     // A store item asks how to reach the buyer: check it here first, so nobody waits for a wallet to hear "add a phone".
     const contact = form.elements.namedItem("name") ? { name: val("name"), phone: val("phone"), app: val("app"), email: val("email"), address: val("address") } : undefined;
-    if (contact && !contact.phone && !contact.email) { out.textContent = "Add a phone number or an email, so the store can reach you."; (form.elements.namedItem("phone") as HTMLInputElement).focus(); button.disabled = false; return; }
+    if (contact && !contact.phone && !contact.email) { out.dataset.tone = "bad"; out.textContent = "Add a phone number or an email, so the store can reach you."; (form.elements.namedItem("phone") as HTMLInputElement).focus(); button.disabled = false; return; }
     out.textContent = "Setting up your test wallet…";
     const account = await buyerAccount();
     out.textContent = "Creating order…";
@@ -77,6 +78,7 @@ async function pay(form: HTMLFormElement) {
     }
     location.href = `${cfg.base}o/${order.orderId}`;
   } catch (e) {
+    out.dataset.tone = "bad";
     out.textContent = `Could not complete: ${(e as Error).message}`;
     button.disabled = false;
   }
@@ -90,21 +92,30 @@ for (const form of document.querySelectorAll<HTMLFormElement>("form.order")) {
 for (const b of document.querySelectorAll<HTMLButtonElement>("button[data-order-action]")) {
   b.addEventListener("click", async () => {
     const out = document.querySelector<HTMLElement>("#order-msg")!;
+    out.classList.remove("hidden"); out.dataset.tone = ""; out.textContent = "Preparing…";
     b.disabled = true;
     try {
       const account = await buyerAccount();
       if (b.dataset.orderAction === "request_revision") {
         const note = document.querySelector<HTMLTextAreaElement>("#revision-note")?.value.trim() ?? "";
-        if (note.length < 3) { out.textContent = "Say briefly what should change."; b.disabled = false; return; }
+        if (note.length < 3) { out.dataset.tone = "bad"; out.textContent = "Say briefly what should change."; b.disabled = false; return; }
         const r = await fetch(`${cfg.base}public/orders/${b.dataset.order}/revision-note`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ note }) });
-        if (!r.ok) { out.textContent = (await r.json()).error ?? "Could not save the note"; b.disabled = false; return; }
+        if (!r.ok) { out.dataset.tone = "bad"; out.textContent = (await r.json()).error ?? "Could not save the note"; b.disabled = false; return; }
       }
-      out.textContent = "Signing…";
+      out.classList.remove("hidden");
+      out.textContent = "Signing with your test wallet…";
+      const before = await chainOf(b.dataset.order!);
       await account.callFunction({ contractId: cfg.orders, methodName: b.dataset.orderAction!, args: { order_id: b.dataset.order }, gas: 100n * 10n ** 12n });
-      out.textContent = "Done. Refreshing…";
-      await sleep(1500);
+      // Wait until NEAR shows the new state, then show it (no blind reload).
+      for (let i = 0; i < 30; i++) {
+        out.textContent = `Recorded — waiting for NEAR to confirm… ${i * 2} s`;
+        if ((await chainOf(b.dataset.order!)) !== before) break;
+        await sleep(2000);
+      }
+      out.textContent = "Done ✓"; out.dataset.tone = "ok";
       location.reload();
     } catch (e) {
+      out.dataset.tone = "bad";
       out.textContent = `Could not complete: ${(e as Error).message}`;
       b.disabled = false;
     }
@@ -113,6 +124,27 @@ for (const b of document.querySelectorAll<HTMLButtonElement>("button[data-order-
 
 // While the agents work, refresh the order page.
 if (document.querySelector("[data-poll-order]")) setTimeout(() => location.reload(), 8000);
+
+/** The order's money state on NEAR, as the store gateway reads it. */
+async function chainOf(id: string): Promise<string | null> {
+  const r = await fetch(`${cfg.base}public/orders/${id}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+  return (r as { chainStatus?: string } | null)?.chainStatus ?? null;
+}
+// Store item order page: follow the order on NEAR (the store ships, approves a refund…) and show the new state
+// as soon as it changes — a light JSON check, the page reloads only on a change. Stops after 30 minutes.
+const liveBuyer = document.querySelector<HTMLElement>("[data-live-buyer]");
+if (liveBuyer) {
+  const id = liveBuyer.dataset.liveBuyer!, was = liveBuyer.dataset.chain ?? "";
+  const t0 = Date.now();
+  const tick = async (): Promise<void> => {
+    if (document.visibilityState === "visible") {
+      const now = await chainOf(id);
+      if (now && now !== "unknown" && now !== was && !(was === "" && now === "not_found")) { location.reload(); return; }
+    }
+    if (Date.now() - t0 < 30 * 60_000) { await sleep(Date.now() - t0 < 120_000 ? 3000 : 8000); return tick(); }
+  };
+  void tick();
+}
 
 // "Create your shop": the owner key is made here and never leaves this browser (except as the user's download).
 const shopForm = document.querySelector<HTMLFormElement>("#new-shop");

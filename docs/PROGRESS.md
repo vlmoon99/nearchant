@@ -1436,3 +1436,27 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 - Watch the contract balances: add a low-balance alert to the watchdog.
 - Escrow, billing and nusd were also nearly out of free NEAR (0.26–0.43). Topped up +3 each; the root has 5 free.
 - The watchdog now checks the contracts' free NEAR every hour. Below 1 NEAR it logs and sends a macOS notification. Tests: 15.
+
+## 2026-11-08: live state after every action (owner: "after mark as shipped the UI doesn't update")
+
+**Done**
+- Order page:
+  - after Mark shipped / Refund / Decline it shows "Recording the shipment on NEAR… 12 s";
+  - when NEAR refuses an action, it shows NEAR's answer in plain words and says it is retrying;
+  - "Try again" when it gave up;
+  - it reloads once the new state is there;
+  - open orders are checked quietly every 15 s, so the buyer's confirm or refund request shows up too.
+  - New `GET /api/app/orders/:id` (stage + the outbox action with its last error).
+- Orders and Shop lists refresh by themselves while something is being recorded or checked. Self-refreshing pages stop after 5 min and say so.
+- Item page after saving: "Checking…" until the safety check has a verdict for that exact text (`checkHash`, same as the worker), then Live or Needs a change. New `GET /api/app/items/:id`.
+- Buyer order page: a light JSON check (3 s, then 8 s) reloads the page only when the NEAR state changes. Buyer actions wait for NEAR instead of a blind 1.5 s reload. Payment steps show in a live line.
+
+**Bugs fixed**
+- Shipping again after a revision did nothing: the outbox key `ship:<id>` was already used. Fixed with `Outbox.enqueueAgain` (new key once the last one is done, no-op while one is open).
+- My `confirmSheet` was hidden by a local `ask()`: Decline & refund and Skip ran without the confirmation.
+- `web/*.ts` was never type-checked (esbuild only bundles). It is now part of `pnpm typecheck`, which also found the missing `Cfg` fields and the wallet-selector cast.
+
+**Verified**
+- Gateway tests: 68.
+- Live e2e `buy-item.mjs`: the seller clicks Mark shipped in the browser. 15 s later the seller page shows "Shipped" and the buyer page shows the confirm button, with no reloads by the script. Released at 44 s. No page errors.
+- `e2e/item-live.mjs`: a new service shows Checking… then Live after 15 s.

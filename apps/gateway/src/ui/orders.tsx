@@ -11,16 +11,17 @@ export interface SellerOrder {
 }
 
 /** The order in the seller's words: a label, what it means, and whether it waits for the seller. */
-export function orderStage(state: string, chain: string | null): { label: string; note: string; tone: "act" | "wait" | "done" | "bad" } {
+/** `busy`: something is being recorded on NEAR right now (the page follows it live). */
+export function orderStage(state: string, chain: string | null): { label: string; note: string; tone: "act" | "wait" | "done" | "bad"; busy?: boolean } {
   const s = chain ?? "";
   if (s === "Refunded" || state === "refunded") return { label: "Refunded", note: "The buyer got their money back.", tone: "done" };
   if (s === "Released" || state === "released") return { label: "Paid out", note: "The buyer confirmed. The money is in your wallet.", tone: "done" };
-  if (s === "Refunding" || s === "Releasing") return { label: s === "Refunding" ? "Refunding…" : "Paying out…", note: "Recording it on NEAR — a few seconds.", tone: "wait" };
+  if (s === "Refunding" || s === "Releasing") return { label: s === "Refunding" ? "Refunding…" : "Paying out…", note: "Recording it on NEAR — a few seconds.", tone: "wait", busy: true };
   if (s === "RefundRequested") return { label: "Refund requested", note: "The buyer asked for their money back. Approve it, or decline and contact them to sort it out.", tone: "act" };
   if (s === "Disputed") return { label: "Refund declined", note: "You declined the refund. Agree with the buyer directly — you can still refund any time.", tone: "bad" };
   if (s === "RevisionRequested") return { label: "Buyer says it isn't right", note: "The buyer asked for a fix. Contact them, ship it again or refund — the delivery window started over.", tone: "act" };
   if (s === "Delivered" || state === "delivered") return { label: "Shipped", note: "Waiting for the buyer to confirm. If they don't, it pays out automatically.", tone: "wait" };
-  if (state === "in_progress") return { label: "Marking shipped…", note: "Recording the shipment on NEAR — a few seconds.", tone: "wait" };
+  if (state === "in_progress") return { label: "Marking shipped…", note: "Recording the shipment on NEAR — a few seconds.", tone: "wait", busy: true };
   if (state === "paid" || s === "Held") return { label: "New", note: "Paid and safe in escrow. Contact the buyer if needed, then ship and mark it shipped — or decline and refund.", tone: "act" };
   return { label: state, note: "", tone: "wait" };
 }
@@ -48,6 +49,7 @@ export const OrdersPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; or
               <span class="stack" style="gap:4px;align-items:flex-end"><span class="sub b">{o.amount}</span><Pill st={st} /></span>
               <Icon n="chevron" s={16} c="#c7c7cc" /></a>;
           })}</div>}
+        {orders.some((o) => orderStage(o.state, o.chainStatus).busy) ? <span class="live" data-refresh="4000"><span class="spin"></span>Recording on NEAR — this list updates by itself</span> : null}
         <span class="cap muted">Buyers pay into escrow on NEAR. You're paid when they confirm — or automatically after the release time.</span>
       </Shell>
     </UiPage>
@@ -69,13 +71,14 @@ export const SellerOrderPage: FC<{ cfg: UiConfig; test: boolean; store: StoreVie
         <div class="cols post-cols">
           <div class="stack" style="gap:24px">
             <section class="group"><span class="group-h">Status</span>
-              <div class="card white" style="gap:10px"><div class="spread"><span class="headline">{st.label}</span><Pill st={st} /></div><span class="sub muted">{st.note}</span>
+              <div class="card white" style="gap:10px" data-live-order={o.orderId} data-label={st.label} data-busy={st.busy ? "1" : "0"}><div class="spread"><span class="headline">{st.label}</span><Pill st={st} /></div><span class="sub muted">{st.note}</span>
+                <div class={`live ${st.busy ? "" : "hidden"}`} data-live aria-live="polite"><span class="spin"></span><span data-live-text>{st.busy ? "Checking NEAR…" : ""}</span></div>
                 {canShip ? <div class="stack" style="gap:10px"><input class="input" data-ship-note={o.orderId} placeholder={service ? "A note for the buyer (optional)" : "Tracking number or a note (optional)"} />
-                  <button class="btn block" data-ship={o.orderId}><Icon n="send" />{service ? "Mark done" : "Mark shipped"}</button></div> : null}
-                {s === "RefundRequested" ? <div class="row" style="gap:10px"><button class="btn" style="flex:1" data-order-refund={o.orderId} data-confirm="Give the buyer their money back?|The full amount goes back to the buyer from escrow. This can't be undone.|Refund">Approve refund</button>
-                  <button class="btn secondary" style="flex:1" data-order-decline-refund={o.orderId} data-confirm="Decline the refund?|Then contact the buyer and explain why. You can still refund later.|Decline">Decline</button></div>
-                  : canRefund ? <button class="btn plain danger" data-order-refund={o.orderId} data-confirm={canShip ? "Decline this order?|The buyer gets the full amount back from escrow. This can't be undone.|Decline & refund" : "Refund the buyer?|The full amount goes back from escrow. This can't be undone.|Refund"}>{canShip ? "Decline & refund" : "Refund the buyer"}</button> : null}
-                <output class="foot" data-order-out></output></div></section>
+                  <button class="btn block" data-ship={o.orderId} data-act><Icon n="send" />{service ? "Mark done" : "Mark shipped"}</button></div> : null}
+                {s === "RefundRequested" ? <div class="row" style="gap:10px"><button class="btn" style="flex:1" data-act data-order-refund={o.orderId} data-confirm="Give the buyer their money back?|The full amount goes back to the buyer from escrow. This can't be undone.|Refund">Approve refund</button>
+                  <button class="btn secondary" style="flex:1" data-act data-order-decline-refund={o.orderId} data-confirm="Decline the refund?|Then contact the buyer and explain why. You can still refund later.|Decline">Decline</button></div>
+                  : canRefund ? <button class="btn plain danger" data-act data-order-refund={o.orderId} data-confirm={canShip ? "Decline this order?|The buyer gets the full amount back from escrow. This can't be undone.|Decline & refund" : "Refund the buyer?|The full amount goes back from escrow. This can't be undone.|Refund"}>{canShip ? "Decline & refund" : "Refund the buyer"}</button> : null}
+                </div></section>
             <section class="group"><span class="group-h">Buyer</span>
               {showContact ? <>
                 <div class="list">{o.contact!.name ? <div class="list-row"><span class="list-text"><span class="cap muted">Name</span><span class="body">{o.contact!.name}</span></span></div> : null}

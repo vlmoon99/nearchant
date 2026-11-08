@@ -48,7 +48,8 @@ function orderDeps(chainStatus: Record<string, string>) {
     { orderId: "o-deck", serviceId: "deck", amount: "5000000", brief: "", state: "paid", createdAt: "2026-11-08T10:00:00Z" }];
   return { calls, deps: {
     orders: { list, ship: async () => {}, status: async (id: string) => (chainStatus[id] ? { status: chainStatus[id]! } : null),
-      refund: async (_h: string, id: string) => { calls.push(`refund:${id}`); }, declineRefund: async (_h: string, id: string) => { calls.push(`decline:${id}`); } },
+      refund: async (_h: string, id: string) => { calls.push(`refund:${id}`); }, declineRefund: async (_h: string, id: string) => { calls.push(`decline:${id}`); },
+      action: async (id: string) => (id === "o-new" ? { kind: "item.ship", state: "pending", attempts: 2, error: "Account proofs lacks balance for state", at: "t" } : null) },
   } };
 }
 
@@ -376,6 +377,12 @@ describe("seller API", () => {
     expect((await app.request("http://x/api/app/orders/o-ask/refund", post({}, cookie))).status).toBe(202);            // approve the request
     expect(o.calls).toEqual(["refund:o-new", "decline:o-ask", "refund:o-ask"]);
     expect((await app.request("http://x/api/app/orders/o-new/messages", post({ text: "hi" }, cookie))).status).toBe(404); // no in-app chat (ADR 0026)
+    // Live state for the order page: NEAR's status in words + the action still on its way (with NEAR's error).
+    const live = await (await app.request("http://x/api/app/orders/o-new", { headers: { cookie } })).json();
+    expect(live).toMatchObject({ state: "paid", chainStatus: "Held", stage: { label: "New", tone: "act" }, action: { kind: "item.ship", state: "pending", attempts: 2, error: expect.stringContaining("lacks balance") } });
+    expect((await (await app.request("http://x/api/app/orders/o-sent", { headers: { cookie } })).json()).stage).toMatchObject({ label: "Shipped" });
+    expect((await app.request("http://x/api/app/orders/o-deck", { headers: { cookie } })).status).toBe(404);
+    expect((await app.request("http://x/api/app/orders/o-new")).status).toBe(401);
   });
 
   it("shop: add a product and a service, edit, hide and show again, fix with AI only when held", async () => {
@@ -411,6 +418,13 @@ describe("seller API", () => {
     expect((await fix(pid)).status).toBe(202);
     expect(jobs.at(-1)).toMatchObject({ task: "fix_item", payload: { handle: "nova", itemId: pid } });
     expect((await sv.json()).id).toBe("i-2");
+    // "Checking…" until the safety check has a verdict for exactly this text.
+    const { createHash } = await import("node:crypto");
+    expect((await (await app.request(`http://x/api/app/items/${pid}`, { headers: { cookie } })).json()).item.checking).toBe(true);
+    const it = db.items[0];
+    db.settings.set(`itemMod:${pid}`, { hash: createHash("sha256").update(`${it.title}\n${it.description}\n${it.photoMediaId ?? ""}`).digest("hex"), removed: false });
+    expect((await (await app.request(`http://x/api/app/items/${pid}`, { headers: { cookie } })).json()).item.checking).toBe(false);
+    expect((await (await app.request("http://x/api/app/items", { headers: { cookie } })).json()).items.map((x: { checking: boolean }) => x.checking)).toEqual([false, true]);
   });
 
   it("store contact: email or phone with its app; Agent Market token from Settings", async () => {

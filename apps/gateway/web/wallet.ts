@@ -20,7 +20,7 @@ export interface Signed { accountId: string; publicKey: string; signature: strin
 let selector: Promise<WalletSelector> | null = null;
 const getSelector = (network: string) => (selector ??= setupWalletSelector({
   network: network === "mainnet" ? "mainnet" : "testnet",
-  modules: [setupMeteorWallet(), setupHotWallet(), setupHereWallet(), setupIntearWallet(), setupMyNearWallet(), setupSender(), setupOKXWallet(), setupNearMobileWallet(), setupBitteWallet()],
+  modules: [setupMeteorWallet(), setupHotWallet(), setupHereWallet(), setupIntearWallet(), setupMyNearWallet(), setupSender(), setupOKXWallet(), setupNearMobileWallet(), setupBitteWallet()] as Parameters<typeof setupWalletSelector>[0]["modules"], // one module's type is narrower than the selector's
 }));
 
 const css = `.ncw-back{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:1000}

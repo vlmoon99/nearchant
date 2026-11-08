@@ -8,7 +8,8 @@ import type { Context, Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { safetyCurrent, safetyFlag } from "./post-safety.js";
 import { parseContact } from "./contact.js";
-import { parseDetails } from "./item-details.js";
+import { checkHash, parseDetails } from "./item-details.js";
+import { orderStage } from "./ui/orders.js";
 import type { ContentStore } from "@nearchant/db";
 import { QuotaExceeded } from "@nearchant/db";
 import type { HandleRecord } from "@nearchant/near";
@@ -44,6 +45,8 @@ export interface SellerAppDeps {
     /** approve_refund (decline a paid order, or accept a refund request) / decline_refund, signed by the store's key. */
     refund?: (handle: string, orderId: string) => Promise<void>;
     declineRefund?: (handle: string, orderId: string) => Promise<void>;
+    /** The newest ship / refund / decline action of an order on its way to NEAR (null when none is open). */
+    action?: (orderId: string) => Promise<OrderAction | null>;
   };
   /** NEAR AI Agent Market (ADR 0010): keep the store's market token + webhook secret (sealed). */
   marketConnect?: (handle: string, token: string, webhookSecret: string) => Promise<void>;
@@ -61,6 +64,9 @@ export interface SellerAppDeps {
   logIp?: (kind: "store", id: string, ip: string) => Promise<void>;
   now?: () => number;
 }
+
+/** A seller action on its way to NEAR (outbox): shown live on the order page, with NEAR's error while it retries. */
+export interface OrderAction { kind: string; state: string; attempts: number; error: string | null; at: string }
 
 const COOKIE = "nc_session";
 const SESSION_MS = 30 * 24 * 3600_000;
@@ -482,6 +488,14 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     return o && o.serviceId.startsWith("i-") ? o : null;
   };
   const REFUNDABLE = ["Held", "RevisionRequested", "RefundRequested", "Disputed"];
+  // Live state of one order for the order page: money state from NEAR, plus the seller's action still on its way.
+  app.get("/api/app/orders/:id", (c) => authed(c, async (handle) => {
+    const o = await itemOrder(handle, c.req.param("id"));
+    if (!o) return c.json({ error: "not found" }, 404);
+    const chain = d.orders?.status ? await d.orders.status(o.orderId).catch(() => null) : null;
+    const action = d.orders?.action ? await d.orders.action(o.orderId).catch(() => null) : null;
+    return c.json({ state: o.state, chainStatus: chain?.status ?? null, stage: orderStage(o.state, chain?.status ?? null), action });
+  }));
   app.post("/api/app/orders/:id/refund", (c) => authed(c, async (handle) => {
     const o = await itemOrder(handle, c.req.param("id"));
     if (!o || !d.orders?.refund || !d.orders.status) return c.json({ error: "not found" }, 404);
@@ -529,7 +543,13 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
   app.post("/api/app/insights", (c) => authed(c, async (handle) => { await d.enqueue("write_insights", { handle }, `insights:${handle}`); return c.json({ status: "writing" }, 202); }));
 
   // What the store sells (ADR 0026): products and services — add, edit, hide/unhide, fix with AI.
-  app.get("/api/app/items", (c) => authed(c, async (handle) => c.json({ items: await d.content.listItems(handle, false) })));
+  const withCheck = async <T extends { id: string; title: string; description: string; photoMediaId: string | null }>(i: T) =>
+    ({ ...i, checking: (await d.content.getSetting<{ hash: string }>(`itemMod:${i.id}`))?.hash !== checkHash(i) });
+  app.get("/api/app/items", (c) => authed(c, async (handle) => c.json({ items: await Promise.all((await d.content.listItems(handle, false)).map(withCheck)) })));
+  app.get("/api/app/items/:id", (c) => authed(c, async (handle) => {
+    const it = await d.content.getItem(handle, c.req.param("id"));
+    return it ? c.json({ item: await withCheck(it) }) : c.json({ error: "not found" }, 404);
+  }));
   app.post("/api/app/items", (c) => authed(c, async (handle) => {
     const b = await json(c);
     const kind = b.kind === "service" ? "service" : "product";

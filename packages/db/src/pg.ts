@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, like, lte, or } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
@@ -141,6 +141,19 @@ export class Outbox {
   async get(key: string) {
     const [r] = await this.db.select().from(schema.outbox).where(eq(schema.outbox.key, key));
     return r ?? null;
+  }
+
+  /** The newest item for an action: `base` itself or a later `base:<n>` (an action that can happen again). */
+  async latest(base: string) {
+    const [r] = await this.db.select().from(schema.outbox).where(or(eq(schema.outbox.key, base), like(schema.outbox.key, `${base}:%`))).orderBy(desc(schema.outbox.id)).limit(1);
+    return r ?? null;
+  }
+
+  /** Queues an action that may repeat (ship again after a revision): a no-op while one is still on its way. */
+  async enqueueAgain(base: string, kind: string, payload: unknown): Promise<boolean> {
+    const last = await this.latest(base);
+    if (last && (last.state === "pending" || last.state === "sending")) return false;
+    return this.enqueue(last ? `${base}:${Date.now()}` : base, kind, payload);
   }
 
   /** Sends up to `limit` due items. Returns how many were sent. */

@@ -4,7 +4,7 @@ import { Account, JsonRpcProvider, KeyPair, KeyPairSigner, type KeyPairString } 
 import { mountUi } from "./ui-bits.js";
 import { toUnits } from "./units.js";
 
-interface Cfg { base: string; rpcUrl: string; network: string; token: string; decimals: number; storeBase: string; page: string }
+interface Cfg { base: string; rpcUrl: string; network: string; token: string; decimals: number; storeBase: string; page: string; tokenContract?: string; accountSuffix?: string }
 const cfg: Cfg = JSON.parse(document.getElementById("nc-config")!.textContent!);
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 const $$ = <T extends HTMLElement = HTMLElement>(sel: string) => Array.from(document.querySelectorAll<T>(sel));
@@ -253,9 +253,17 @@ function nextSlot(k: number): Date {
 
 // ---------------- seller app pages ----------------
 function sellerApp() {
-  // Posts page: refresh while AI is still making posts.
+  // Pages that wait for AI or NEAR refresh by themselves — for up to 5 minutes, then they say so instead of looping.
   const r = document.querySelector<HTMLElement>("[data-refresh]");
-  if (r) setTimeout(() => location.reload(), Number(r.dataset.refresh) || 4000);
+  const rk = `nc-refresh:${location.pathname}${location.search}`;
+  if (r) {
+    let first = Date.now();
+    try { first = Number(sessionStorage.getItem(rk)) || Date.now(); sessionStorage.setItem(rk, String(first)); } catch { /* no storage */ }
+    if (Date.now() - first < 300_000) setTimeout(() => location.reload(), Number(r.dataset.refresh) || 4000);
+    else { r.querySelector(".spin")?.remove(); r.append(" — paused; refresh the page to check again."); try { sessionStorage.removeItem(rk); } catch { /* */ } }
+  } else { try { sessionStorage.removeItem(rk); } catch { /* */ } }
+  const live = liveOrder();
+  liveItem();
 
   // Create: upload photos, pick an opportunity, create a batch.
   const input = document.querySelector<HTMLInputElement>("#create-photos");
@@ -278,7 +286,7 @@ function sellerApp() {
   $$("[data-ship]").forEach((b) => b.addEventListener("click", async () => {
     const id = b.dataset.ship!;
     (b as HTMLButtonElement).disabled = true;
-    try { await api(`/api/app/orders/${id}/ship`, { note: document.querySelector<HTMLInputElement>(`[data-ship-note="${id}"]`)?.value ?? "" }); location.reload(); }
+    try { await api(`/api/app/orders/${id}/ship`, { note: document.querySelector<HTMLInputElement>(`[data-ship-note="${id}"]`)?.value ?? "" }); if (live) live.start(); else location.reload(); }
     catch (e) { (b as HTMLButtonElement).disabled = false; notice("Couldn’t mark it", (e as Error).message); }
   }));
 
@@ -327,12 +335,11 @@ function sellerApp() {
   // Orders: decline & refund / approve or decline a refund request (confirmed in a sheet).
   mountUi();
   shopForms();
-  for (const [sel, path, done] of [["data-order-refund", "refund", "Refunding — recorded on NEAR in a few seconds."], ["data-order-decline-refund", "decline-refund", "Declined — contact the buyer and explain why."]] as const) {
+  for (const [sel, path] of [["data-order-refund", "refund"], ["data-order-decline-refund", "decline-refund"]] as const) {
     $$(`[${sel}]`).forEach((b) => b.addEventListener("click", async () => {
-      if (b.dataset.confirm && !(await ask(b.dataset.confirm))) return;
-      const out = document.querySelector<HTMLElement>("[data-order-out]");
+      if (b.dataset.confirm && !(await confirmSheet(b.dataset.confirm))) return;
       (b as HTMLButtonElement).disabled = true;
-      try { await api(`/api/app/orders/${b.getAttribute(sel)}/${path}`, {}); if (out) out.textContent = done; setTimeout(() => location.reload(), 6000); }
+      try { await api(`/api/app/orders/${b.getAttribute(sel)}/${path}`, {}); if (live) live.start(); else location.reload(); }
       catch (err) { notice("Couldn’t do that", (err as Error).message); (b as HTMLButtonElement).disabled = false; }
     }));
   }
@@ -349,12 +356,89 @@ function sellerApp() {
   }));
   $$("[data-new-picture]").forEach((b) => b.addEventListener("click", () => void busy(b, () => api(`/api/app/posts/${b.dataset.newPicture}/picture`, { instruction: ask() }))));
   $$("[data-skip]").forEach((b) => b.addEventListener("click", async () => {
-    if (await ask("Skip this post?|It won’t be published, and AI will write fewer posts like it.|Skip")) void busy(b, () => api(`/api/app/posts/${b.dataset.skip}/skip`, {}));
+    if (await confirmSheet("Skip this post?|It won’t be published, and AI will write fewer posts like it.|Skip")) void busy(b, () => api(`/api/app/posts/${b.dataset.skip}/skip`, {}));
   }));
 }
 
+
+// ── Live state (8 Nov): after a click the page shows what is happening until the new state is there. ─────────────
+type OrderAction = { kind: string; state: string; attempts: number; error: string | null; at: string };
+type OrderLive = { state: string; chainStatus: string | null; stage: { label: string; note: string; tone: string; busy?: boolean }; action: OrderAction | null };
+const ACTION_TEXT: Record<string, string> = { "item.ship": "Recording the shipment on NEAR", "item.refund": "Sending the refund on NEAR", "item.refund_decline": "Recording your answer on NEAR" };
+const ACTION_PATH: Record<string, string> = { "item.ship": "ship", "item.refund": "refund", "item.refund_decline": "decline-refund" };
+/** NEAR's raw error in words a seller can use (the raw text stays in the title for support). */
+function nearSays(e: string): string {
+  if (/lacks balance|NotEnoughBalance|LackBalanceForState/i.test(e)) return "Nearchant's NEAR account needs a top-up. We're alerted; it retries by itself.";
+  if (/timeout|timed out|ETIMEDOUT|fetch failed|ECONN|503|502/i.test(e)) return "NEAR is slow to answer right now.";
+  if (/AccessKey|access key|Unauthorized|not allowed|Only the seller/i.test(e)) return "Your store's key on NEAR didn't sign it.";
+  return e.slice(0, 140);
+}
+
+/** Order page: follows the order on NEAR while an action is on its way; reloads once the new state is there. */
+function liveOrder(): { start: () => void } | null {
+  const card = document.querySelector<HTMLElement>("[data-live-order]");
+  if (!card) return null;
+  const id = card.dataset.liveOrder!, label0 = card.dataset.label!;
+  const box = card.querySelector<HTMLElement>("[data-live]")!, text = box.querySelector<HTMLElement>("[data-live-text]")!;
+  let running = false, t0 = Date.now();
+  const show = (msg: string, tone = "", title = "") => { box.classList.remove("hidden"); box.dataset.tone = tone; text.textContent = msg; text.title = title; };
+  const lock = (on: boolean) => card.querySelectorAll<HTMLButtonElement>("[data-act]").forEach((b) => { b.disabled = on; });
+  const tick = async (): Promise<void> => {
+    const r = await api<OrderLive>(`/api/app/orders/${id}`).catch(() => null);
+    const secs = Math.round((Date.now() - t0) / 1000);
+    const open = r?.action && (r.action.state === "pending" || r.action.state === "sending");
+    if (r && !open && !r.stage.busy && r.stage.label !== label0) {
+      show(`${r.stage.label} ✓`, "ok"); lock(true);
+      setTimeout(() => location.reload(), 900); return;
+    }
+    if (r?.action?.state === "failed") {
+      lock(false);
+      show(`It didn't go through: ${nearSays(r.action.error ?? "")}`, "bad", r.action.error ?? "");
+      const again = document.createElement("button"); again.className = "btn sm"; again.textContent = "Try again";
+      again.addEventListener("click", async () => { again.remove(); t0 = Date.now(); await api(`/api/app/orders/${id}/${ACTION_PATH[r.action!.kind] ?? "ship"}`, {}).catch((e) => show((e as Error).message, "bad")); void loop(); });
+      box.append(again); running = false; return;
+    }
+    if (r) {
+      const what = ACTION_TEXT[r.action?.kind ?? ""] ?? r.stage.note.replace(/ — a few seconds\.$/, "");
+      if (r.action?.error && r.action.attempts > 0) show(`${what}… not accepted yet, trying again (try ${r.action.attempts + 1}). ${nearSays(r.action.error)}`, "warn", r.action.error);
+      else show(`${what}… ${secs} s`);
+    }
+    await sleep(secs > 300 ? 10_000 : 2_000);
+    return tick();
+  };
+  const loop = async () => { if (running) return; running = true; lock(true); await tick(); };
+  // The buyer acts too (confirms, asks for a refund): open orders are checked quietly every 15 s for 30 minutes.
+  const watch = async () => {
+    for (const t = Date.now(); Date.now() - t < 30 * 60_000;) {
+      await sleep(15_000);
+      if (running || document.visibilityState !== "visible") continue;
+      const r = await api<OrderLive>(`/api/app/orders/${id}`).catch(() => null);
+      if (r?.action && (r.action.state === "pending" || r.action.state === "sending")) { void loop(); continue; }
+      if (r && !r.stage.busy && r.stage.label !== label0) { show(`${r.stage.label} — updating…`, "ok"); location.reload(); return; }
+    }
+  };
+  if (card.dataset.busy === "1") void loop();
+  else void api<OrderLive>(`/api/app/orders/${id}`).then((r) => { if (r.action && r.action.state !== "done") void loop(); }).catch(() => {});
+  if (!["Refunded", "Paid out"].includes(label0)) void watch();
+  return { start: () => { t0 = Date.now(); show("Saving…"); void loop(); } };
+}
+
+/** Item page right after saving: waits for the safety check, then shows the result. */
+function liveItem(): void {
+  const el = document.querySelector<HTMLElement>("[data-live-item]");
+  if (!el) return;
+  const t0 = Date.now();
+  const tick = async (): Promise<void> => {
+    const r = await api<{ item: { checking: boolean; held: string | null } }>(`/api/app/items/${el.dataset.liveItem}`).catch(() => null);
+    if (r && !r.item.checking) { el.querySelector("[data-live-text]")!.textContent = r.item.held ? "Needs a small change — see below." : "Checked ✓ — it's live in your store."; el.dataset.tone = r.item.held ? "warn" : "ok"; setTimeout(() => location.reload(), 900); return; }
+    if (Date.now() - t0 > 120_000) { el.querySelector("[data-live-text]")!.textContent = "The check is taking longer than usual. Your item is live meanwhile; this page will show the result when you open it again."; el.querySelector(".spin")?.remove(); return; }
+    await sleep(2500); return tick();
+  };
+  void tick();
+}
+
 /** A confirmation sheet ("Title|Message|Action"): resolves true when the owner taps the action. */
-function ask(spec: string): Promise<boolean> {
+function confirmSheet(spec: string): Promise<boolean> {
   const [title, text = "", action = "OK"] = spec.split("|");
   return new Promise((done) => {
     const w = notice(title!, text, [{ label: action, primary: true, onClick: () => { w.close(); done(true); } }, { label: "Cancel", onClick: () => { w.close(); done(false); } }]);
@@ -410,7 +494,7 @@ function shopForms() {
   }
   $$("[data-item-visibility]").forEach((b) => b.addEventListener("click", async () => {
     const show = b.dataset.active === "1";
-    if (!show && !(await ask("Hide from your store?|Buyers won’t see it. Past orders keep working, and you can show it again any time.|Hide"))) return;
+    if (!show && !(await confirmSheet("Hide from your store?|Buyers won’t see it. Past orders keep working, and you can show it again any time.|Hide"))) return;
     try { await api(`/api/app/items/${b.dataset.itemVisibility}/visibility`, { active: show }); location.reload(); } catch (err) { notice("Couldn’t do that", (err as Error).message); }
   }));
   $$("[data-item-fix]").forEach((b) => b.addEventListener("click", async () => {

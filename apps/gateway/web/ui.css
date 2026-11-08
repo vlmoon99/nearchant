@@ -319,3 +319,14 @@ html, body { font-family: var(--font); }
 .sheet .headline { font-size: 20px; padding-right: 28px; }
 @keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+
+/* Live status line: something is happening (AI, NEAR); the page follows it and says how it went. */
+.live { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-size: 14px; line-height: 1.35; }
+.live[data-tone=ok] { background: var(--proof-soft); color: var(--ok-text); }
+.live[data-tone=warn] { background: var(--warn-soft); color: var(--warn-ink); }
+.live[data-tone=bad] { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.live[data-tone=ok] .spin, .live[data-tone=bad] .spin { display: none; }
+.live > span:not(.spin) { flex: 1; min-width: 0; }
+.spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }
