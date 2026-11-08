@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checkout kit example</title>
+  <link rel="stylesheet" href="checkout.css">
+  <style>
+    body { font-family: var(--ncpay-font); background: var(--ncpay-surface); color: var(--ncpay-label); max-width: 420px; margin: 40px auto; padding: 0 16px; }
+    code { word-break: break-all; font-size: 12px; color: var(--ncpay-label-2); }
+  </style>
+</head>
+<body>
+  <h1>Test item</h1>
+  <p id="price"></p>
+  <p>Test wallet in this browser: <code id="account"></code><br>Balance: <b id="balance">…</b></p>
+  <button id="pay" class="ncpay-btn" style="width:100%">Pay</button>
+  <p><small>Testnet only. Build first: <code>npm run example</code>.</small></p>
+  <script type="module" src="example.js"></script>
+</body>
+</html>

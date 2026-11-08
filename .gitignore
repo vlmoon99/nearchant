@@ -20,3 +20,8 @@ docs/media/*.mp4
 
 # Private notes (e.g. the hackathon form answers) never go to GitHub
 *.local.md
+
+# kits: installed per kit when testing a copy
+kits/**/node_modules/
+kits/**/package-lock.json
+kits/**/target/

@@ -1,0 +1,23 @@
+{
+  "name": "nearkit-checkout",
+  "version": "0.1.0",
+  "description": "Escrow checkout for NEAR in the browser: testnet wallet, ft_transfer_call with steps, payment sheet.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "example": "esbuild example.ts --bundle --format=esm --alias:util=./shims/util.js --outfile=example.js"
+  },
+  "dependencies": {
+    "near-api-js": "7.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "esbuild": "^0.28.2",
+    "happy-dom": "^21.0.4",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

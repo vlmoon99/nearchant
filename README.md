@@ -14,6 +14,17 @@ and a public proof log.
 > Privacy & Private AI, AI Security & Defense ([how it fits each](docs/hackathon-tracks.md)). Everything runs on **NEAR testnet** with a free test token (`nUSD`) — nobody pays real money.
 > Live: **https://nearchant.com/start** · 109-second recorded walkthrough: recorded with `apps/gateway/e2e/walkthrough.mjs` (not in git)
 
+## Build your own: [kits/](kits/)
+
+Nearchant's working parts are also **16 copy-paste kits**: copy one folder into your project, install its few
+packages, import it. Each is checked by copying it alone into an empty folder, installing and running its tests.
+- **Markets:** escrow contract + client, checkout, buy widget, NEAR wallet login, reliable NEAR transactions,
+  buyer contacts, banners.
+- **Content:** store profile from photos, post writer, caption honesty check, sales ideas, product pictures,
+  headline strip, shorts, moderation, proof log on NEAR.
+
+→ [kits/README.md](kits/README.md)
+
 ## The story (try it at nearchant.com/start)
 
 1. **Onboarding (2 minutes, phone-first).** Say what you sell, add a few product photos. A NEAR account

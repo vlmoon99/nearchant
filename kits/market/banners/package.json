@@ -1,0 +1,25 @@
+{
+  "name": "banners",
+  "version": "0.1.0",
+  "description": "Product banners for social posts and websites: photo, title, price, store and a QR code to buy, in 5 sizes, as PNG.",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "example": "tsx example.ts"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/qrcode": "^1.5.6",
+    "jsqr": "^1.4.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

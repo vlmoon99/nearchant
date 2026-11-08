@@ -1,0 +1,21 @@
+{
+  "name": "@kits/image-headline",
+  "version": "0.1.0",
+  "description": "Headline strip in the brand colour burned onto a picture with ffmpeg + ASS (libass)",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "example": "tsx example.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

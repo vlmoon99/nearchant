@@ -1555,3 +1555,36 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 **Verified**
 - `e2e/ship-leave.mjs` live on novatest33li: paid 18 s → tap ship → went to Orders at once (bar "2 s", row pill "Marking shipped…") → Home (bar "6 s", still counting) → "Marked shipped ✓" at 58 s → list shows Shipped.
 - No page errors; screenshots checked; typecheck and 71 gateway tests pass.
+
+## 2026-11-08 (night) — Kits: market and content parts as copy-paste folders (ADR 0028)
+
+**Done**
+- `kits/` holds 16 self-contained kits, with rules in `kits/CONVENTIONS.md` and the index in `kits/README.md`.
+  - **market:** escrow (standalone contract + client), checkout, buy-widget, wallet-login, near-outbox, buyer-contacts, banners.
+  - **content:** store-profile, post-writer, caption-check, sales-ideas, product-images, image-headline, shorts, moderation, proof-log (contract + client).
+- Each kit imports only its own files, `node:` built-ins and its listed npm packages, and reads no environment variables inside `src/`.
+- AI kits take an `ask` / `see` function and include an OpenAI-compatible adapter.
+- The escrow and proof-log contracts were generalized:
+  - the registry and proof log are optional;
+  - the fee is fixed per order when it's paid;
+  - proof-log storage is now paid by the writer.
+
+  See each README's "Came from" for the differences from Nearchant.
+- The Nearchant app is unchanged.
+- CI runs a new `kits` job (`check-copy.mjs`) and both kit contracts' sandbox tests.
+
+**Verified**
+- `node kits/scripts/check-copy.mjs`: 16/16 kits work when copied alone. Each is copied into an empty temp folder, installed from its own package.json, then typechecked and tested.
+- Contracts: escrow 13 and proof-log 4 sandbox tests pass.
+- Unit tests total about 440, with fakes and no network.
+- ffmpeg render tests passed in Docker; the Mac's Homebrew ffmpeg has no libass, so they skip there.
+- **Live on testnet:**
+  - Deployed `kitescrow-317528989.testnet`, accepting `nusd.nearchant.testnet` with a 1% fee.
+  - Ran `market/escrow/example.ts` from a copy outside the repo: paid → delivered → accepted → Released. The seller got 990000 and the fee account 10000.
+- Read-only testnet checks of checkout and wallet-login (env-gated live tests) pass.
+
+**Not verified**
+- No live AI runs: models, ComfyUI and TTS are covered by fakes only.
+- No real browser-wallet signing; no real checkout payment from the browser kit.
+- Mainnet is untested.
+- The checkout's default msg now targets the kit escrow (`seller`). Nearchant's deployed contract uses `seller_handle`, so set `msg` to talk to it.

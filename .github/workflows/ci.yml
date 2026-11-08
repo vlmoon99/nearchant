@@ -8,9 +8,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with: { targets: wasm32-unknown-unknown }
       - uses: Swatinem/rust-cache@v2
-        with: { workspaces: contracts }
+        with: { workspaces: "contracts\n kits/market/escrow/contract\n kits/content/proof-log/contract" }
       - run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-installer.sh | sh
       - run: make test-contracts
+      - run: cd kits/market/escrow/contract && cargo near build non-reproducible-wasm && cargo test
+      - run: cd kits/content/proof-log/contract && cargo near build non-reproducible-wasm && cargo test
 
   typescript:
     runs-on: ubuntu-latest
@@ -27,6 +29,16 @@ jobs:
       - run: corepack enable && pnpm install --frozen-lockfile
       - run: pnpm -r --filter "./packages/*" build && pnpm --filter @nearchant/gateway --filter @nearchant/worker build
       - run: pnpm test
+
+  kits:
+    # Every kit must work when copied alone: empty folder, its own npm install, typecheck, tests.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: node kits/scripts/check-copy.mjs
 
   demo:
     runs-on: ubuntu-latest

@@ -1,0 +1,21 @@
+{
+  "name": "@kits/shorts",
+  "version": "0.1.0",
+  "description": "8–12 s vertical shorts: a clip from the picture, a voice with word-timed captions, a hook and an end-card, put together with ffmpeg",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "example": "tsx example.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

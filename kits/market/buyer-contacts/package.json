@@ -1,0 +1,20 @@
+{
+  "name": "buyer-contacts",
+  "version": "0.1.0",
+  "description": "Buyer contact details instead of an in-app chat: parse a phone/messenger or email, make tap-to-open links, hide them 90 days after the order closes.",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "example": "tsx example.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "near-outbox",
+  "version": "0.1.0",
+  "description": "Send NEAR transactions (or any side effect) exactly once per key: queue, worker with backoff, live status for the UI.",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "example": "tsx example.ts"
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/pg": "^8.15.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

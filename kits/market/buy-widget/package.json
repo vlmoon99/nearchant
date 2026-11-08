@@ -1,0 +1,21 @@
+{
+  "name": "nearkit-buy-widget",
+  "version": "0.1.0",
+  "description": "Embeddable buy widget (script + iframe, auto height) rendered as plain HTML strings by your server.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "example": "tsx example.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "happy-dom": "^21.0.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

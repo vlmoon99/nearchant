@@ -32,3 +32,4 @@ Changing a default from `CLAUDE.md` or `architecture.md` needs a new ADR here.
 | [0025](0025-orders-page-refunds-messages.md) | Orders page; seller can decline & refund a paid order (contract upgrade); buyer ↔ store messages |
 | [0026](0026-shop-contacts-no-chat.md) | Shop (products & services: add, edit, hide, fix with AI); contacts instead of in-app chat; Apple HIG layer + dark mode |
 | [0027](0027-banners-and-buy-widget.md) | Banners (5 formats with QR) for social posts and websites; embeddable buy widget (script/iframe); card/Apple Pay/Google Pay planned |
+| [0028](0028-kits-copy-paste.md) | Kits: the market and content parts as self-contained folders anyone can copy into their project (`kits/`), each proven by a copy-alone check |

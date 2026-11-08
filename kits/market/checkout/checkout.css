@@ -1,0 +1,96 @@
+/* nearkit checkout — payment sheet, steps, buttons, invalid fields. Apple system colours (HIG), light and dark.
+   Theme it by overriding the --ncpay-* variables on :root or on any ancestor. */
+:root {
+  --ncpay-accent: #007aff;
+  --ncpay-on-accent: #fff;
+  --ncpay-ok: #34c759;
+  --ncpay-warn: #ff9500;
+  --ncpay-bad-text: #d70015;
+  --ncpay-label: #000;
+  --ncpay-label-2: rgba(60, 60, 67, .6);
+  --ncpay-label-3: rgba(60, 60, 67, .3);
+  --ncpay-surface: #fff;
+  --ncpay-fill: rgba(118, 118, 128, .12);
+  --ncpay-tint: color-mix(in srgb, var(--ncpay-accent) 12%, transparent);
+  --ncpay-bad-tint: color-mix(in srgb, #ff3b30 12%, transparent);
+  --ncpay-overlay: rgba(0, 0, 0, .4);
+  --ncpay-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+  --ncpay-radius: 20px;
+  --ncpay-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ncpay-accent: #0a84ff;
+    --ncpay-ok: #30d158;
+    --ncpay-warn: #ff9f0a;
+    --ncpay-bad-text: #ff6961;
+    --ncpay-label: #fff;
+    --ncpay-label-2: rgba(235, 235, 245, .6);
+    --ncpay-label-3: rgba(235, 235, 245, .3);
+    --ncpay-surface: #1c1c1e;
+    --ncpay-fill: rgba(118, 118, 128, .24);
+    --ncpay-tint: color-mix(in srgb, var(--ncpay-accent) 22%, transparent);
+    --ncpay-bad-tint: color-mix(in srgb, #ff453a 22%, transparent);
+    --ncpay-overlay: rgba(0, 0, 0, .6);
+    --ncpay-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+  }
+}
+
+.ncpay-back { position: fixed; inset: 0; background: var(--ncpay-overlay); display: flex; align-items: flex-end; justify-content: center; z-index: 900; font-family: var(--ncpay-font); }
+@media (min-width: 640px) { .ncpay-back { align-items: center; } }
+.ncpay-sheet {
+  width: 100%; max-width: 440px; max-height: 88vh; overflow: auto; position: relative; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 14px; padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  border-radius: var(--ncpay-radius) var(--ncpay-radius) 0 0; background: var(--ncpay-surface); color: var(--ncpay-label);
+  box-shadow: var(--ncpay-shadow); animation: ncpay-in .22s ease-out;
+}
+@media (min-width: 640px) { .ncpay-sheet { border-radius: var(--ncpay-radius); } }
+@keyframes ncpay-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.ncpay-x { position: absolute; right: 12px; top: 8px; border: 0; background: none; font-size: 24px; color: var(--ncpay-label-2); cursor: pointer; }
+.ncpay-x[hidden] { display: none; }
+.ncpay-title { font-size: 20px; font-weight: 600; letter-spacing: -.2px; text-align: center; padding: 0 28px; }
+.ncpay-text { font-size: 15px; line-height: 1.35; color: var(--ncpay-label-2); text-align: center; white-space: pre-line; overflow-wrap: anywhere; }
+.ncpay-text:empty { display: none; }
+
+.ncpay-ic { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; align-self: center; font-size: 28px; font-weight: 700; color: #fff; }
+.ncpay-ic:empty { display: none; }
+.ncpay-ic.ok { background: var(--ncpay-ok); }
+.ncpay-ic.bad { background: var(--ncpay-warn); }
+.ncpay-ic.busy { background: var(--ncpay-tint); color: var(--ncpay-accent); }
+.ncpay-spin { width: 26px; height: 26px; border-radius: 50%; border: 3px solid currentColor; border-right-color: transparent; animation: ncpay-spin .8s linear infinite; box-sizing: border-box; }
+@keyframes ncpay-spin { to { transform: rotate(360deg); } }
+
+.ncpay-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ncpay-steps:empty { display: none; }
+.ncpay-steps li { display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--ncpay-label-3); }
+.ncpay-steps li::before { content: ""; width: 20px; height: 20px; border-radius: 50%; flex: none; box-sizing: border-box; background: var(--ncpay-fill); display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; }
+.ncpay-steps li.done { color: var(--ncpay-label); }
+.ncpay-steps li.done::before { content: "✓"; background: var(--ncpay-ok); }
+.ncpay-steps li.now { color: var(--ncpay-label); font-weight: 600; }
+.ncpay-steps li.now::before { border: 2px solid var(--ncpay-accent); border-right-color: transparent; background: none; animation: ncpay-spin .8s linear infinite; }
+.ncpay-steps li.bad { color: var(--ncpay-bad-text); }
+.ncpay-steps li.bad::before { content: "!"; background: var(--ncpay-warn); }
+
+.ncpay-buttons { display: flex; flex-direction: column; gap: 8px; }
+.ncpay-buttons:empty { display: none; }
+.ncpay-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 50px; padding: 11px 20px;
+  border: 0; border-radius: 14px; background: var(--ncpay-accent); color: var(--ncpay-on-accent);
+  font: 600 17px var(--ncpay-font); text-decoration: none; cursor: pointer; white-space: nowrap; box-sizing: border-box;
+}
+.ncpay-btn.secondary { background: var(--ncpay-fill); color: var(--ncpay-accent); }
+.ncpay-btn:disabled { opacity: .5; cursor: default; }
+.ncpay-btn:focus-visible, .ncpay-x:focus-visible { outline: 3px solid color-mix(in srgb, var(--ncpay-accent) 50%, transparent); outline-offset: 2px; }
+
+/* Status line under a form (checkForm's `out`), and fields checkForm marks. */
+.ncpay-live { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--ncpay-tint); color: var(--ncpay-accent); font: 14px/1.35 var(--ncpay-font); }
+.ncpay-live[data-tone=bad] { background: var(--ncpay-bad-tint); color: var(--ncpay-bad-text); }
+.ncpay-live[hidden] { display: none; }
+.ncpay-invalid { background: var(--ncpay-bad-tint); border-radius: 10px; }
+.ncpay-invalid, .ncpay-invalid > label, .ncpay-invalid > span:first-child { color: var(--ncpay-bad-text); }
+input.ncpay-invalid, textarea.ncpay-invalid, select.ncpay-invalid { outline: 2px solid var(--ncpay-bad-text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ncpay-sheet { animation: none; }
+  .ncpay-spin, .ncpay-steps li.now::before { animation-duration: 2.4s; }
+}
