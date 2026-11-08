@@ -77,6 +77,41 @@ def http_ok(url: str, timeout: float = 5) -> bool:
         return False
 
 
+# Contract accounts pay for their own storage: below this much free NEAR, writes fail with "lacks balance for state"
+# (8 Nov: proofs ran out, so "mark shipped" and post proofs failed silently). The owner gets a notification.
+NEAR_RPC = CFG.get("NEAR_RPC", "https://rpc.testnet.near.org")
+WATCH_ACCOUNTS = [a for a in CFG.get("WATCH_ACCOUNTS", "nearchant.testnet,proofs.nearchant.testnet,orders.nearchant.testnet,escrow.nearchant.testnet,billing.nearchant.testnet,nusd.nearchant.testnet").split(",") if a]
+LOW_FREE_NEAR = float(CFG.get("LOW_FREE_NEAR", "1"))
+BALANCE_EVERY_S = 3600
+
+
+def free_near(amount_yocto: int, storage_bytes: int) -> float:
+    """NEAR an account can still spend on storage and gas (1 byte of state locks 10^19 yocto)."""
+    return (amount_yocto - storage_bytes * 10**19) / 1e24
+
+
+def low_accounts(free: dict, limit: float = LOW_FREE_NEAR) -> list:
+    return sorted(a for a, v in free.items() if v is not None and v < limit)
+
+
+def check_balances() -> None:
+    free = {}
+    for a in WATCH_ACCOUNTS:
+        try:
+            body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "query", "params": {"request_type": "view_account", "finality": "final", "account_id": a}}).encode()
+            req = urllib.request.Request(NEAR_RPC, data=body, headers={"content-type": "application/json", "User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                v = json.load(r)["result"]
+            free[a] = round(free_near(int(v["amount"]), int(v["storage_usage"])), 2)
+        except Exception:
+            free[a] = None
+    status["near_free"] = free
+    low = low_accounts(free)
+    if low:
+        log(f"low NEAR balance: {', '.join(f'{a} {free[a]}' for a in low)} — top up from the root account")
+        notify(f"Low NEAR: {', '.join(low)}")
+
+
 def run(*cmd: str, timeout: float = 600, **kw) -> subprocess.CompletedProcess:
     return subprocess.run(list(cmd), capture_output=True, text=True, timeout=timeout, **kw)
 
@@ -218,6 +253,7 @@ def main() -> None:
     last_ok, last_sync = time.time(), 0.0
     public_ok_at, last_tunnel_try = time.time(), 0.0
     last_restart_try, last_backup = 0.0, time.time() - BACKUP_EVERY_S + 600  # first backup 10 min after start
+    last_balance = 0.0
     if role() == "primary":
         restart_site("watchdog start while primary")  # after a Mac restart (waits for Docker Desktop)
         last_restart_try = time.time()
@@ -253,6 +289,9 @@ def main() -> None:
                                            time.time() - public_ok_at, time.time() - last_tunnel_try):
                     last_tunnel_try = time.time()
                     restart_tunnel()
+                if time.time() - last_balance >= BALANCE_EVERY_S:
+                    last_balance = time.time()
+                    check_balances()
                 if time.time() - last_backup >= BACKUP_EVERY_S:
                     last_backup = time.time()
                     backup_db()

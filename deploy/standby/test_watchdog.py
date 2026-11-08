@@ -3,7 +3,7 @@ import sys, threading, unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from watchdog import RESTART_EVERY_S, TAKEOVER_AFTER_S, TUNNEL_AFTER_S, UA, http_ok, should_restart, should_restart_tunnel, should_take_over
+from watchdog import free_near, low_accounts, RESTART_EVERY_S, TAKEOVER_AFTER_S, TUNNEL_AFTER_S, UA, http_ok, should_restart, should_restart_tunnel, should_take_over
 
 
 class TakeoverRule(unittest.TestCase):
@@ -65,3 +65,11 @@ class HealthCheck(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Balances(unittest.TestCase):
+    def test_free_near_subtracts_storage(self):  # 8 Nov: 1.697 NEAR with 169552 bytes left ~0 to spend
+        self.assertAlmostEqual(free_near(1_696_820_454_011_299_700_000_000, 169_552), 0.0013, places=3)
+
+    def test_low_accounts_ignores_unreachable_ones(self):
+        self.assertEqual(low_accounts({"proofs": 0.2, "orders": 5.0, "escrow": None}, 1.0), ["proofs"])

@@ -1434,3 +1434,5 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 
 **Next**
 - Watch the contract balances: add a low-balance alert to the watchdog.
+- Escrow, billing and nusd were also nearly out of free NEAR (0.26–0.43). Topped up +3 each; the root has 5 free.
+- The watchdog now checks the contracts' free NEAR every hour. Below 1 NEAR it logs and sends a macOS notification. Tests: 15.
