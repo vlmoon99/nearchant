@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Hono, type Context } from "hono";
 import { ItemOrderPage, ItemPage, StorePage, PostsPage, PublicPostPage } from "./ui/store.js";
+import { EMBED_FRAME_JS, EMBED_LOADER_JS, EmbedMissing, EmbedPage } from "./ui/embed.js";
 import { secureHeaders } from "hono/secure-headers";
 import { handleFromHost, type HandleRecord, type PaymentRail, type DryQuote } from "@nearchant/near";
 import { formatUnits, type GatewayConfig } from "./config.js";
@@ -66,6 +67,8 @@ export interface Deps {
   saveRevisionNote?: (orderId: string, note: string) => Promise<void>;
   /** A store item at checkout (ADR 0026): can it be bought now, does it ship, what to ask the buyer. */
   itemForSale?: (handle: string, id: string) => Promise<ItemForSale | null>;
+  /** A banner image of a store item (ADR 0027), or null when there is no such item for sale. */
+  banner?: (handle: string, itemId: string, format: string) => Promise<Buffer | null>;
   /** The store's own contact, shown to the buyer once the order is paid (ADR 0026). */
   storeContact?: (handle: string) => Promise<Contact | null>;
   /** Content stores (ADR 0018): the buyer storefront data, or null for a classic card. */
@@ -113,7 +116,14 @@ export function createApp(d: Deps) {
     crossOriginOpenerPolicy: "same-origin-allow-popups",
   });
   // Media files set their own headers (sandboxed HTML); everything else gets the page policy.
-  app.use("*", (c, next) => (c.req.path.startsWith("/media/") ? next() : pageHeaders(c, next)));
+  // The buy widget (ADR 0027) is made to be shown inside other websites: any site may frame it. It holds no session
+  // and its button only opens the store in a new tab, so framing can't make a buyer do anything unseen.
+  const embedHeaders = secureHeaders({
+    contentSecurityPolicy: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", "data:", "https:"], frameAncestors: ["*"] },
+    xFrameOptions: false, crossOriginResourcePolicy: false, crossOriginOpenerPolicy: false,
+  });
+  const isEmbed = (path: string) => /^(\/h\/[a-z0-9_-]+)?\/embed(\/|$)/.test(path);
+  app.use("*", (c, next) => (c.req.path.startsWith("/media/") ? next() : isEmbed(c.req.path) ? embedHeaders(c, next) : pageHeaders(c, next)));
 
   // Deliverables. M0: an unguessable order id is the capability; files exist only after delivery.
   app.get("/media/:order/:file", async (c) => {
@@ -141,6 +151,8 @@ export function createApp(d: Deps) {
   const FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#121916"/><text x="16" y="22.5" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#00ec97">N</text></svg>`;
   for (const path of ["/favicon.ico", "/favicon.svg"]) app.get(path, (c) => c.body(FAVICON, 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=86400" }));
   app.get("/assets/site.css", (c) => c.body(SITE_CSS, 200, { "content-type": "text/css; charset=utf-8", "cache-control": "public, max-age=300" }));
+  app.get("/embed.js", (c) => c.body(EMBED_LOADER_JS, 200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=3600", "access-control-allow-origin": "*" }));
+  app.get("/assets/embed-frame.js", (c) => c.body(EMBED_FRAME_JS, 200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=3600" }));
   app.get("/assets/checkout.js", (c) => d.checkoutJs ? c.body(d.checkoutJs, 200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=300" }) : c.notFound());
 
   // Seller resolution: `<handle>.<base domain>` or `/h/<handle>/…` (local dev and tunnels without a wildcard).
@@ -205,6 +217,32 @@ export function createApp(d: Deps) {
     return c.html(<PublicPostPage s={sf} p={p} cfg={cfgOf(c, h.handle)} test={d.config.token.test} url={url} similar={similar.filter((x) => x.handle !== h.handle)} site={d.config.public_url}
       verifyUrl={p.proofId ? `${d.config.public_url}/verify/${p.proofId}` : null}
       og={{ title: `${sf.name} on Nearchant`, description: p.caption.slice(0, 200), url, image: abs(p.img?.replace(/\?w=\d+/, "?w=1024") ?? null) }} />);
+  });
+
+  // Banners (ADR 0027): /banner/<item>/<format>.png — public like the item; ?download=1 saves it.
+  seller.get("/banner/:id/:file", async (c) => {
+    const h = c.get("handle");
+    const m = /^(square|story|wide|rect|leader)\.png$/.exec(c.req.param("file"));
+    if (!h || !d.banner || !m) return c.notFound();
+    const png = await d.banner(h.handle, c.req.param("id"), m[1]!).catch(() => null);
+    if (!png) return c.notFound();
+    const headers: Record<string, string> = { "content-type": "image/png", "cache-control": "public, max-age=600", "access-control-allow-origin": "*" };
+    if (c.req.query("download")) headers["content-disposition"] = `attachment; filename="${h.handle}-${m[1]}.png"`;
+    return c.body(new Uint8Array(png), 200, headers);
+  });
+  // Buy widget (ADR 0027): one item or the whole shop, compact, for an <iframe> on another website.
+  seller.get("/embed/i/:id", async (c) => {
+    const h = c.get("handle");
+    const sf = h && d.storefront ? await d.storefront(h.handle, { source: "widget", itemId: c.req.param("id") }).catch(() => null) : null;
+    const item = sf?.items.find((i) => i.id === c.req.param("id"));
+    if (!h || !sf || !item) return c.html(<EmbedMissing />, 404);
+    return c.html(<EmbedPage s={sf} items={[item]} storeUrl={`${d.config.public_url}/h/${h.handle}/`} />);
+  });
+  seller.get("/embed", async (c) => {
+    const h = c.get("handle");
+    const sf = h && d.storefront ? await d.storefront(h.handle, { source: "widget" }).catch(() => null) : null;
+    if (!h || !sf) return c.html(<EmbedMissing />, 404);
+    return c.html(<EmbedPage s={sf} items={sf.items} storeUrl={`${d.config.public_url}/h/${h.handle}/`} />);
   });
 
   seller.get("/i/:id", async (c) => {

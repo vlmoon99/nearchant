@@ -2,7 +2,7 @@
 import type { Context, Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { PLAN_LIMITS, type BuyerContact, type ContentStore } from "@nearchant/db";
-import { ItemEditPage, ShopPage, type ShopItem } from "./shop.js";
+import { ItemEditPage, ItemSharePage, ShopPage, ShopSharePage, type ShopItem } from "./shop.js";
 import { checkHash, type ItemDetails } from "../item-details.js";
 import { OrdersPage, SellerOrderPage, type SellerOrder } from "./orders.js";
 import { OnboardingPage } from "./onboarding.js";
@@ -248,6 +248,14 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const n = Number(c.req.query("suggest"));
     const prefill = Number.isInteger(n) && n >= 0 ? (await shopSuggestions(s.handle, items))[n] ?? null : null;
     return c.html(<ItemEditPage cfg={d.cfg} test={d.test} store={s} item={null} kind={c.req.query("kind") === "service" ? "service" : "product"} photos={await photoPicks(s.handle)} prefill={prefill} />);
+  }));
+  // Share & sell anywhere (ADR 0027): banners, links and the buy widget.
+  const site = d.cfg.storeBase ? `https://${d.cfg.storeBase}` : "";
+  app.get("/app/shop/share", (c) => withStore(c, async (s, img) => c.html(<ShopSharePage cfg={d.cfg} test={d.test} store={s} items={await shopItems(s.handle, img)} site={site || new URL(c.req.url).origin} />)));
+  app.get("/app/shop/:id/share", (c) => withStore(c, async (s, img) => {
+    const item = (await shopItems(s.handle, img)).find((i) => i.id === c.req.param("id"));
+    if (!item) return c.redirect("/app/shop");
+    return c.html(<ItemSharePage cfg={d.cfg} test={d.test} store={s} item={item} site={site || new URL(c.req.url).origin} />);
   }));
   app.get("/app/shop/:id", (c) => withStore(c, async (s, img) => {
     const item = (await shopItems(s.handle, img)).find((i) => i.id === c.req.param("id"));

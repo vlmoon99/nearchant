@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { Hono } from "hono";
 // Gateway entry. env: DATABASE_URL (else in-memory), NEAR_RELAYER_KEY (buyer sponsorship), MEDIA_DIR, PUBLIC_URL, PORT.
 import { existsSync, readFileSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { makeWorkerUtils, type WorkerUtils } from "graphile-worker";
@@ -15,7 +16,8 @@ import { Router } from "@nearchant/providers";
 import { answerShopper, loadAgentEnv, makeAsker, planSearch, type AgentEnv } from "@nearchant/swarm";
 import { Chain, HandleCache, TestnetDirectRail, loadAccounts, oneClickDryQuote } from "@nearchant/near";
 import { contactLine, type Contact } from "./contact.js";
-import { ships, soldOut, type ItemDetails } from "./item-details.js";
+import { itemFacts, ships, soldOut, type ItemDetails } from "./item-details.js";
+import { isBannerFormat, renderBanner } from "./banners.js";
 import { createApp } from "./app.js";
 import { mountSellerApp, readSession } from "./seller-app.js";
 import { getCookie } from "hono/cookie";
@@ -282,6 +284,25 @@ const app = createApp({
     storeContact: async (handle: string) => {
       const cs = new ContentStore(conn!.db);
       return (await cs.getSetting<Contact>(`contactOf:${handle}`)) ?? null;
+    },
+    // Banners (ADR 0027): rendered once per (item text, photo, price, format) and kept with the store's public files.
+    banner: async (handle: string, itemId: string, format: string) => {
+      if (!isBannerFormat(format)) return null;
+      const cs = new ContentStore(conn!.db);
+      const [i, b] = await Promise.all([cs.getItem(handle, itemId), cs.getBusiness(handle)]);
+      if (!i || !b || !i.active || i.held || b.suspendedAt) return null;
+      const det = (i.details ?? {}) as ItemDetails;
+      const price = `${det.priceFrom ? "From " : ""}${formatUnits(i.priceUnits, config.token.decimals)} ${config.token.symbol}`;
+      const input = { title: i.title, price, store: b.name, facts: soldOut(i.kind, det) ? "Sold out" : itemFacts(i.kind, det).join(" · "), url: `${config.public_url}/h/${handle}/i/${i.id}?ref=banner`, kind: i.kind };
+      const key = createHash("sha256").update(JSON.stringify({ v: 1, format, input, photo: i.photoMediaId })).digest("hex").slice(0, 16);
+      const file = join(mediaDir, handle, "public", "banners", `${i.id}-${format}-${key}.png`);
+      const cached = await readFile(file).catch(() => null);
+      if (cached) return cached;
+      const photo = i.photoMediaId ? await readFile(join(mediaDir, handle, "public", `item-${i.id}.jpg`)).catch(() => null) : null;
+      const png = await renderBanner(format, { ...input, photo });
+      await mkdir(join(mediaDir, handle, "public", "banners"), { recursive: true });
+      await writeFile(file, png);
+      return png;
     },
   } : {}),
   saveRevisionNote: artifacts ? async (orderId: string, note: string) => {

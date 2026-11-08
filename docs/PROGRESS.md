@@ -1497,3 +1497,20 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
   - released at 54 s;
   - no page errors.
 - `shop-shots.mjs`: 11 pages × desktop/phone × light/dark, no page errors; screenshots checked.
+
+## 2026-11-08: banners and the buy widget (ADR 0027)
+
+**Done**
+- `src/banners.ts`: 5 formats with the photo, name, price, store, Buy/Book button and a QR to buy (`?ref=banner`). Cached by content hash; `fonts-inter` added to the image.
+- Public routes: `/h/<store>/banner/<item>/<f>.png`, `/h/<store>/embed[/i/<item>]` (framable by any site), `/embed.js` loader + `/assets/embed-frame.js` (auto height).
+- Seller pages: Shop → Share; Item → Banners, link & buy widget; a "How buyers pay" card where card / Apple Pay / Google Pay are marked "Coming".
+
+**Verified**
+- Gateway tests: 71.
+  - New: banner route and formats; framing headers on the widget vs other pages; every format rendered at its exact size; text wrapping.
+- Live: the 5 banners for vipelectronicsinc returned 200 in 0.2–0.9 s.
+- `e2e/embed-check.mjs`: a foreign page (localhost) pastes two script tags. Both widgets appear and size themselves; Buy opens the item in a new tab with `?ref=widget`; no page errors.
+- Share pages screenshot-checked.
+
+**Not done**
+- Card / Apple Pay / Google Pay: needs a provider and mainnet.

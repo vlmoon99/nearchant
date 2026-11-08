@@ -24,7 +24,7 @@ export const ShopPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; item
     <UiPage title="Shop · Nearchant" cfg={cfg} page="app" test={test}>
       <Shell active="Shop" store={store}>
         <PageHead kicker={held ? `${held} need${held === 1 ? "s" : ""} a small change` : `${items.filter((i) => i.active && !i.held).length} live in your store`} title="Shop">
-          <a class="btn" href={`/app/shop/new?kind=${tab}`}><Icon n="plus" />Add {noun}</a>
+          <a class="btn secondary" href="/app/shop/share"><Icon n="send" />Share</a><a class="btn" href={`/app/shop/new?kind=${tab}`}><Icon n="plus" />Add {noun}</a>
         </PageHead>
         <Segmented items={[{ label: `Products (${items.filter((i) => i.kind === "product").length})`, href: "/app/shop?k=product", on: tab === "product" }, { label: `Services (${items.filter((i) => i.kind === "service").length})`, href: "/app/shop?k=service", on: tab === "service" }]} />
         {list.length ? <div class="list">{list.map((i) => {
@@ -106,6 +106,7 @@ export const ItemEditPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
           <output class="foot" data-item-out aria-live="polite"></output>
           {item ? <div class="list">
             <button class="list-row btn-row" type="button" data-item-visibility={item.id} data-active={item.active ? "0" : "1"}><Icon n={item.active ? "eyeoff" : "eye"} s={18} />{item.active ? "Hide from store" : "Show in store again"}</button>
+            <a class="list-row btn-row" href={`/app/shop/${item.id}/share`}><Icon n="send" s={18} />Banners, link & buy widget</a>
             <a class="list-row btn-row" href={`/h/${store.handle}/i/${item.id}`} target="_blank" rel="noopener"><Icon n="arrow" s={18} />View in store</a></div> : null}
           {item ? <span class="cap muted">Hidden items stay in past orders. You can show them again any time.</span> : null}
         </form>
@@ -113,3 +114,70 @@ export const ItemEditPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
     </UiPage>
   );
 };
+
+const BANNER_LIST = [["square", "Instagram & Facebook post", "1080 × 1080"], ["story", "Stories, Reels, TikTok", "1080 × 1920"], ["wide", "Link post: X, Facebook, LinkedIn, Telegram", "1200 × 630"],
+  ["rect", "Ad on a website", "300 × 250"], ["leader", "Banner on a website", "728 × 90"]] as const;
+
+const Code: FC<{ label: string; code: string; note?: string }> = ({ label, code, note }) => (
+  <div class="group"><span class="group-h">{label}</span>
+    <div class="list"><div class="list-row"><code class="code">{code}</code><button class="icon-btn" type="button" data-copy={code} aria-label={`Copy: ${label}`}><Icon n="copy" s={18} /></button></div></div>
+    {note ? <span class="group-f">{note}</span> : null}</div>
+);
+
+const PayMethods: FC = () => (
+  <section class="group"><span class="group-h">How buyers pay</span>
+    <div class="list">
+      <div class="list-row"><span class="list-ic" style="background:#121916"><Icon n="lock" s={16} c="#00ec97" /></span><span class="list-text"><span class="body">nUSD on NEAR</span><span class="foot muted">Escrow: you're paid when the buyer confirms</span></span><span class="pill done">Live</span></div>
+      <div class="list-row"><span class="list-ic" style="background:var(--indigo)"><Icon n="wallet" s={16} c="#fff" /></span><span class="list-text"><span class="body">Card, Apple Pay, Google Pay</span><span class="foot muted">The buyer pays by card; the money still goes through escrow</span></span><span class="pill wait">Coming</span></div>
+    </div></section>
+);
+
+/** One item anywhere (ADR 0027): its link, banners for social posts and websites, and the buy widget code. */
+export const ItemSharePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; item: ShopItem; site: string }> = ({ cfg, test, store, item, site }) => {
+  const url = `${site}/h/${store.handle}/i/${item.id}`;
+  const live = item.active && !item.held;
+  return (
+    <UiPage title={`Share · ${item.title}`} cfg={cfg} page="app" test={test}>
+      <Shell active="Shop" store={store}>
+        <a class="back" href={`/app/shop/${item.id}`}><Icon n="chevron" s={18} />{item.title}</a>
+        <PageHead kicker="Share & sell anywhere" title={item.title} />
+        {!live ? <div class="card notice"><span class="headline">{item.held ? "Fix it first" : "It's hidden"}</span><span class="foot">{item.held ? "Banners and the widget work once the safety check is happy with this item." : "Show it in your store again to use banners and the widget."}</span></div> : null}
+        <Code label="Link to buy" code={`${url}?ref=link`} note="For your bio, messages and stories. It opens this item with the Buy button." />
+        <section class="group"><span class="group-h">Banners</span>
+          <div class="banner-grid">{BANNER_LIST.map(([f, label, size]) => {
+            const src = `/h/${store.handle}/banner/${item.id}/${f}.png`;
+            return <div class="card white banner-card">
+              <a href={src} target="_blank" rel="noopener" class={`banner-prev ${f}`} style={live ? `background-image:url('${src}')` : ""} aria-label={`Open the ${label} banner`}></a>
+              <span class="stack" style="gap:2px;min-width:0"><span class="callout b">{label}</span><span class="cap muted">{size}</span></span>
+              <a class="btn sm secondary" href={`${src}?download=1`} download><Icon n="download" s={16} />Save image</a></div>;
+          })}</div>
+          <span class="group-f">Each banner has the name, price and your store, and a QR code that opens this item to buy. Post the square or story on Instagram, Facebook or TikTok; use the website sizes on your blog or partner sites.</span></section>
+        <section class="group"><span class="group-h">Buy widget for your website</span>
+          <div class="cols post-cols" style="gap:16px">
+            <div class="card white" style="padding:8px"><iframe class="widget-prev" src={`/h/${store.handle}/embed/i/${item.id}`} title="Widget preview" loading="lazy"></iframe></div>
+            <div class="stack" style="gap:16px">
+              <Code label="Paste this where it should appear" code={`<script src="${site}/embed.js" data-nearchant-store="${store.handle}" data-nearchant-item="${item.id}" async></script>`} note="Works on any site that accepts HTML: WordPress, Webflow, Wix (Embed code), Tilda, Shopify pages. It sizes itself." />
+              <Code label="Or as an iframe" code={`<iframe src="${site}/h/${store.handle}/embed/i/${item.id}" title="Buy ${item.title.replaceAll('"', "")}" style="width:100%;max-width:420px;height:560px;border:0"></iframe>`} />
+            </div></div></section>
+        <PayMethods />
+      </Shell>
+    </UiPage>
+  );
+};
+
+/** The whole shop anywhere: the store link and a widget with every item. */
+export const ShopSharePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; items: ShopItem[]; site: string }> = ({ cfg, test, store, items, site }) => (
+  <UiPage title="Share your shop" cfg={cfg} page="app" test={test}>
+    <Shell active="Shop" store={store}>
+      <a class="back" href="/app/shop"><Icon n="chevron" s={18} />Shop</a>
+      <PageHead kicker="Share & sell anywhere" title="Your whole shop" />
+      <Code label="Store link" code={`${site}/h/${store.handle}/?ref=link`} note="For your Instagram bio, Linktree, Telegram channel or business card." />
+      <section class="group"><span class="group-h">Shop widget for your website</span>
+        <div class="card white" style="padding:8px"><iframe class="widget-prev wide" src={`/h/${store.handle}/embed`} title="Shop widget preview" loading="lazy"></iframe></div>
+        <Code label="Paste this where your shop should appear" code={`<script src="${site}/embed.js" data-nearchant-store="${store.handle}" async></script>`} note="Shows every item that is live in your store, with Buy buttons. New items appear by themselves." /></section>
+      <section class="group"><span class="group-h">Banners for one item</span>
+        <div class="list">{items.filter((i) => i.active && !i.held).map((i) => <a class="list-row nav" href={`/app/shop/${i.id}/share`}><span class="thumb" style={i.img ? `background-image:url('${i.img}')` : ""}></span><span class="list-text"><span class="body b clamp1">{i.title}</span><span class="foot muted">{i.price} · 5 banners + widget</span></span><Icon n="chevron" s={16} c="var(--label-3)" /></a>)}</div></section>
+      <PayMethods />
+    </Shell>
+  </UiPage>
+);

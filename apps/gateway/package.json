@@ -4,7 +4,7 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "description": "Control-plane API: public + admin surfaces, seller cards, CORS, webhooks (architecture.md \u00a79).",
+  "description": "Control-plane API: public + admin surfaces, seller cards, CORS, webhooks (architecture.md §9).",
   "scripts": {
     "build": "tsc -p tsconfig.json && pnpm build:web",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p web/tsconfig.json",
@@ -23,6 +23,7 @@
     "graphile-worker": "0.18.0",
     "hono": "4.13.14",
     "near-api-js": "7.4.0",
+    "qrcode": "1.5.4",
     "sharp": "0.34.5",
     "yaml": "^2.9.1"
   },
@@ -39,6 +40,7 @@
     "@near-wallet-selector/okx-wallet": "10.1.4",
     "@near-wallet-selector/sender": "10.1.4",
     "@types/node": "^24.19.2",
+    "@types/qrcode": "^1.5.6",
     "buffer": "6.0.3",
     "esbuild": "^0.28.2",
     "near-api-js-v6": "npm:near-api-js@6",

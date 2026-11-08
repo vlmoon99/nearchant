@@ -11,7 +11,8 @@ RUN pnpm -r --filter "./packages/*" build && pnpm --filter @nearchant/gateway bu
 
 FROM node:24-bookworm-slim
 # ffmpeg (with libass) puts the post videos together: clip + voice + burned captions.
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+# fonts-inter: the text on banners (ADR 0027).
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fonts-inter && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app /app

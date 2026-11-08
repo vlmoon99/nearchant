@@ -310,3 +310,24 @@ describe("store item checkout (ADR 0026)", () => {
     expect((await app.request("http://x/public/orders/o-x/messages", { method: "POST", headers: { host: "alice.nearchant.com", "content-type": "application/json" }, body: "{}" })).status).toBe(404);
   });
 });
+
+describe("banners and the buy widget (ADR 0027)", () => {
+  it("serves a banner PNG per format; the widget may be framed by any site, other pages by none", async () => {
+    const asked: string[] = [];
+    const { app } = await setup({}, { banner: async (_h: string, id: string, f: string) => { asked.push(`${id}:${f}`); return id === "i-1" ? Buffer.from([137, 80, 78, 71]) : null; } });
+    const r = await app.request("http://x/h/alice/banner/i-1/story.png?download=1");
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toBe("image/png");
+    expect(r.headers.get("content-disposition")).toContain("alice-story.png");
+    expect((await app.request("http://x/h/alice/banner/i-1/huge.png")).status).toBe(404);
+    expect((await app.request("http://x/h/alice/banner/i-2/square.png")).status).toBe(404);
+    expect(asked).toEqual(["i-1:story", "i-2:square"]);
+    const w = await app.request("http://x/h/alice/embed");
+    expect(w.headers.get("content-security-policy")).toContain("frame-ancestors *");
+    expect(w.headers.get("x-frame-options")).toBeNull();
+    const page = await app.request("http://x/h/alice/");
+    expect(page.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    const js = await app.request("http://x/embed.js");
+    expect(await js.text()).toContain("data-nearchant-store");
+  });
+});
