@@ -1,9 +1,9 @@
 // Buyer side of the card and order pages. Testnet: the buyer's key lives in this browser (localStorage) and the
 // gateway sponsors its implicit account with test money (ADR 0001). Mainnet uses a wallet instead.
 import { Account, JsonRpcProvider, KeyPair, KeyPairSigner, type KeyPairString } from "near-api-js";
-import { mountUi } from "./ui-bits.js";
+import { fmtUnits, mountUi, sheet, tokenBalance, type Step } from "./ui-bits.js";
 
-interface PageConfig { base: string; rpcUrl: string; orders: string; network: string }
+interface PageConfig { base: string; rpcUrl: string; orders: string; network: string; token?: { contract: string; symbol: string; decimals: number } }
 const cfg: PageConfig = JSON.parse(document.getElementById("nc-config")!.textContent!);
 const KEY = `nc:${cfg.network}:buyer-key`;
 
@@ -45,6 +45,7 @@ function signAs(key: KeyPair, action: string, handle: string, hash?: string): { 
 
 interface CreatedOrder {
   orderId: string;
+  amount: string;
   amountDisplay: string;
   payment: { receiverId: string; methodName: string; args: Record<string, unknown>; depositYocto: string; gasTgas: number };
   anyChainQuote?: { amountInFormatted: string; label: string } | null;
@@ -84,8 +85,113 @@ async function pay(form: HTMLFormElement) {
   }
 }
 
+
+// ── Store item checkout (ADR 0026, 8 Nov): check the form here, then a sheet walks through the payment step by step
+// and ends with a clear "Paid ✓" (or what went wrong and that the money stayed in the wallet). ─────────────────
+const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+/** The test wallet of this browser, only if one was already made (a page view never creates one). */
+function existingWallet(): string | null {
+  try { const s = localStorage.getItem(KEY); return s ? hex(KeyPair.fromString(s as KeyPairString).getPublicKey().data) : null; } catch { return null; }
+}
+async function showBalance(accountId: string | null): Promise<bigint | null> {
+  const pill = document.querySelector<HTMLElement>("[data-pay-wallet]");
+  if (!pill || !accountId || !cfg.token) return null;
+  const b = await tokenBalance(cfg.rpcUrl, cfg.token.contract, accountId);
+  if (b === null) return null;
+  pill.querySelector("[data-pay-balance]")!.textContent = `${fmtUnits(b, cfg.token.decimals)} ${cfg.token.symbol}`;
+  pill.title = `Test wallet ${accountId.slice(0, 6)}…${accountId.slice(-4)} in this browser — it pays at checkout`;
+  pill.classList.remove("hidden");
+  return b;
+}
+void showBalance(existingWallet());
+
+/** Marks what is missing right at the field and says it in one line; true when the form can go. */
+function checkForm(form: HTMLFormElement, out: HTMLElement): boolean {
+  form.querySelectorAll(".invalid").forEach((x) => x.classList.remove("invalid"));
+  const field = (n: string) => form.elements.namedItem(n) as HTMLInputElement | HTMLTextAreaElement | null;
+  const val = (n: string) => (field(n)?.value ?? "").trim();
+  const problems: [string, string][] = [];
+  const brief = field("brief");
+  if (brief?.required && val("brief").length < 2) problems.push(["brief", "Answer the store's question"]);
+  if (val("name").length < 2) problems.push(["name", "Add your name"]);
+  const phone = val("phone").replace(/[\s().-]/g, "");
+  if (!phone && !val("email")) problems.push(["phone", "Add a phone number or an email"]);
+  else {
+    if (phone && !/^\+[1-9]\d{6,14}$/.test(phone)) problems.push(["phone", "Write the phone with the country code, like +1 212 555 0100"]);
+    if (val("email") && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val("email"))) problems.push(["email", "Check the email"]);
+  }
+  if (field("address") && val("address").length < 8) problems.push(["address", "Add the delivery address"]);
+  if (!problems.length) { out.classList.add("hidden"); return true; }
+  for (const [n] of problems) field(n)?.closest(".list-field")?.classList.add("invalid");
+  out.classList.remove("hidden"); out.dataset.tone = "bad";
+  out.textContent = problems.map(([, m]) => m).join(" · ");
+  const first = field(problems[0]![0]);
+  first?.focus(); first?.scrollIntoView({ block: "center", behavior: "smooth" });
+  return false;
+}
+
+/** NEAR / network errors in words a buyer can act on. */
+function payError(e: unknown): string {
+  const m = (e as Error).message ?? String(e);
+  if (/NotEnoughBalance|not enough balance|exceeds balance|insufficient/i.test(m)) return "Your test wallet doesn't have enough nUSD for this.";
+  if (/fetch|network|Failed to fetch|timeout|ETIMEDOUT|503|502/i.test(m)) return "Couldn't reach NEAR just now. Check your connection and try again.";
+  if (/too many/i.test(m)) return m;
+  return m.length > 160 ? `${m.slice(0, 160)}…` : m;
+}
+
+async function payItem(form: HTMLFormElement): Promise<void> {
+  const out = form.querySelector("output")!;
+  if (!checkForm(form, out)) return;
+  const val = (n: string) => ((form.elements.namedItem(n) as HTMLInputElement | null)?.value ?? "").trim();
+  const contact = { name: val("name"), phone: val("phone"), app: val("app"), email: val("email"), address: val("address") };
+  const price = form.dataset.price ?? "", store = form.dataset.store ?? "The store";
+  const names = ["Getting your test wallet ready", "Creating your order", `Paying ${price} into escrow on NEAR`, "NEAR confirms the payment"];
+  let at = 0, paidTx = false;
+  const steps = (bad = false): Step[] => names.map((label, i) => ({ label, state: i < at ? "done" : i === at ? (bad ? "bad" : "now") : "todo" }));
+  const w = sheet("Paying…", `${price} to ${store}. Keep this window open.`);
+  const draw = (sub: string) => w.set("Paying…", sub, { steps: steps(), icon: "busy" });
+  const button = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
+  button.disabled = true;
+  try {
+    draw(`${price} to ${store}. Keep this window open.`);
+    const account = await buyerAccount();
+    const bal = await showBalance(account.accountId);
+    at = 1; draw(bal !== null && cfg.token ? `From your test wallet · balance ${fmtUnits(bal, cfg.token.decimals)} ${cfg.token.symbol}` : `${price} to ${store}.`);
+    const order = await post<CreatedOrder>("public/orders", { serviceId: form.dataset.service, brief: val("brief"), option: val("option") || undefined, contact, buyerAccountId: account.accountId });
+    if (bal !== null && BigInt(order.amount) > bal) throw new Error("NotEnoughBalance");
+    at = 2; draw(`${order.amountDisplay} goes into escrow, not to the store yet.`);
+    await account.callFunction({
+      contractId: order.payment.receiverId, methodName: order.payment.methodName, args: order.payment.args,
+      deposit: BigInt(order.payment.depositYocto), gas: BigInt(order.payment.gasTgas) * 10n ** 12n,
+    });
+    paidTx = true;
+    at = 3; draw("Almost done — NEAR is recording it.");
+    let confirmed = false;
+    for (let i = 0; i < 30 && !confirmed; i++) {
+      const s = await fetch(`${cfg.base}public/orders/${order.orderId}`).then((r) => r.json()).catch(() => null) as { state?: string } | null;
+      confirmed = !!s && s.state !== "awaiting_payment";
+      if (!confirmed) await sleep(2000);
+    }
+    void showBalance(account.accountId);
+    const reach = contact.phone ? `${contact.app === "sms" ? "by text" : `on ${form.querySelector<HTMLSelectElement>("select[name=app] option:checked")?.textContent ?? contact.app}`} ${contact.phone}` : `at ${contact.email}`;
+    const orderUrl = `${cfg.base}o/${order.orderId}`;
+    if (confirmed) {
+      at = 4;
+      w.set("Paid ✓", `${order.amountDisplay} is safe in escrow on NEAR. ${store} gets it only when you confirm you received your order.\n\n${store} will contact you ${reach}.`, { steps: steps(), icon: "ok", buttons: [{ label: "Open my order", primary: true, href: orderUrl }, { label: "Back to the store", onClick: () => location.reload() }] });
+    } else {
+      w.set("Payment sent", "NEAR is taking longer than usual to confirm it. Your order page updates by itself.", { steps: steps(), icon: "busy", buttons: [{ label: "Open my order", primary: true, href: orderUrl }] });
+    }
+  } catch (e) {
+    w.set("Payment didn't go through", `${payError(e)}${paidTx ? "" : "\n\nNo money left your wallet."}`, { steps: steps(true), icon: "bad", buttons: [{ label: "Try again", primary: true, onClick: () => { w.close(); void payItem(form); } }, { label: "Close" }] });
+  } finally {
+    button.disabled = false;
+  }
+}
+
 for (const form of document.querySelectorAll<HTMLFormElement>("form.order")) {
-  form.addEventListener("submit", (e) => { e.preventDefault(); void pay(form); });
+  // Store items (they ask for a contact) get the sheet; the classic deck card keeps its inline status line.
+  form.addEventListener("submit", (e) => { e.preventDefault(); void (form.elements.namedItem("name") ? payItem(form) : pay(form)); });
+  form.addEventListener("input", (e) => (e.target as HTMLElement).closest(".list-field")?.classList.remove("invalid"));
 }
 
 // Order page: Accept / Request revision / Request refund, signed by the buyer key that paid.

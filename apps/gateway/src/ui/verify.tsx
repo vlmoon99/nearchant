@@ -17,7 +17,7 @@ export interface VerifyView {
 
 const Row: FC<{ ok: boolean | null | undefined; title: string; detail: string }> = ({ ok, title, detail }) => (
   <div class="row" style="gap:12px;align-items:flex-start">
-    <span class={`dot ${ok ? "ok" : ok === false ? "" : "todo"}`} style={`width:26px;height:26px;flex:none;${ok === false ? "background:#ff3b30;color:#fff" : ""}`}>{ok ? <Icon n="check" s={14} /> : ok === false ? "✕" : "?"}</span>
+    <span class={`dot ${ok ? "ok" : ok === false ? "" : "todo"}`} style={`width:26px;height:26px;flex:none;${ok === false ? "background:var(--red);color:#fff" : ""}`}>{ok ? <Icon n="check" s={14} /> : ok === false ? "✕" : "?"}</span>
     <span class="stack" style="gap:2px;min-width:0"><span class="callout b">{title}</span><span class="foot muted" style="word-break:break-all">{detail}</span></span>
   </div>
 );
@@ -34,12 +34,12 @@ export const VerifyPage: FC<{ cfg: UiConfig; test: boolean; v: VerifyView | null
           <button class="btn" type="submit"><Icon n="shield" />Check</button>
         </form>
         {v && !v.found ? <div class="card"><span class="headline">No proof #{v.proofId} on NEAR</span><span class="foot muted">The number may be wrong — proofs are numbered from 1.</span></div> : null}
-        {v?.found && v.foreign ? <div class="card" style="background:#fff3c4"><span class="headline">Proof #{v.proofId} is not from a Nearchant store</span><span class="foot">It points at a post, but it was recorded by {v.author}, not by that store's account — so it says nothing about the post.</span></div> : null}
+        {v?.found && v.foreign ? <div class="card notice"><span class="headline">Proof #{v.proofId} is not from a Nearchant store</span><span class="foot">It points at a post, but it was recorded by {v.author}, not by that store's account — so it says nothing about the post.</span></div> : null}
         {v?.found && !v.foreign ? <>
           <div class="card proof" style="gap:14px">
             <div class="spread"><span class="headline proof-t">Proof #{v.proofId} on NEAR</span>{v.match ? <Badge label="Verified · unchanged" /> : null}</div>
             {v.post ? <div class="row" style="gap:14px;align-items:center">
-              {v.post.img ? <span style={`width:96px;height:120px;border-radius:12px;flex:none;background:#eee center/cover url('${v.post.img}')`}></span> : null}
+              {v.post.img ? <span style={`width:96px;height:120px;border-radius:12px;flex:none;background:var(--fill-3) center/cover url('${v.post.img}')`}></span> : null}
               <span class="stack" style="gap:6px;min-width:0"><a class="headline" href={v.post.href}>{v.post.store}</a><span class="foot clamp3">{v.post.caption}</span></span>
             </div> : null}
           </div>

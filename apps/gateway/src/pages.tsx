@@ -57,7 +57,7 @@ export const CardPage: FC<{ handle: HandleRecord; services: Service[]; price: (u
   </Layout>
 );
 
-export interface ClientConfig { rpcUrl: string; orders: string; network: string }
+export interface ClientConfig { rpcUrl: string; orders: string; network: string; /** The payment token (nUSD), for balances shown in the browser. */ token?: { contract: string; symbol: string; decimals: number } }
 
 /** JSON config for /assets/checkout.js (a data block, not a script: CSP-safe). */
 const PageConfig: FC<{ base: string; cfg: ClientConfig }> = ({ base, cfg }) => (

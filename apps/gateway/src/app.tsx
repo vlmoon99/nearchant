@@ -173,7 +173,7 @@ export function createApp(d: Deps) {
     const ref = (c.req.query("ref") ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20) || null;
     if (d.suspended && (await d.suspended(h.handle).catch(() => false))) return c.html(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Store paused · Nearchant</title><link rel="stylesheet" href="/assets/ui.css"></head><body><section class="onb" style="max-width:460px;margin:60px auto;padding:0 16px;text-align:center"><h1 class="t2">This store is paused</h1><p class="sub muted">Nearchant's moderation paused it after posts that broke the platform rules. Orders already paid stay protected by escrow on NEAR.</p><a class="btn" href="/feed">Browse other stores</a></section></body></html>`, 410);
     const sf = d.storefront ? await d.storefront(h.handle, { source: ref }).catch(() => null) : null;
-    if (sf) return c.html(<StorePage s={sf} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, network: d.client.network, site: d.config.public_url }} test={d.config.token.test} />);
+    if (sf) return c.html(<StorePage s={sf} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, token: d.client.token, network: d.client.network, site: d.config.public_url }} test={d.config.token.test} />);
     const services = await d.store.listServices(h.handle);
     return c.html(<CardPage handle={h} services={services} price={price} testToken={d.config.token.test} base={base} cfg={d.client} />);
   });
@@ -181,7 +181,7 @@ export function createApp(d: Deps) {
   const refOf = (c: Context) => (c.req.query("ref") ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20) || null;
   /** Absolute address of a store's pages (path stores on the main host, or the store's own subdomain). */
   const storeOrigin = (c: Context, handle: string) => (c.req.path.startsWith("/h/") ? `${d.config.public_url}/h/${handle}/` : `https://${handle}.${d.config.base_domains[0]}/`);
-  const cfgOf = (c: Context, handle: string) => ({ base: c.req.path.startsWith("/h/") ? `/h/${handle}/` : "/", rpcUrl: d.client.rpcUrl, orders: d.client.orders, network: d.client.network, site: d.config.public_url });
+  const cfgOf = (c: Context, handle: string) => ({ base: c.req.path.startsWith("/h/") ? `/h/${handle}/` : "/", rpcUrl: d.client.rpcUrl, orders: d.client.orders, token: d.client.token, network: d.client.network, site: d.config.public_url });
 
   // The store's own feed: buyers follow it here; Instagram/Telegram links bring people in.
   seller.get("/posts", async (c) => {
@@ -214,7 +214,7 @@ export function createApp(d: Deps) {
     const item = sf?.items.find((i) => i.id === c.req.param("id"));
     if (!sf || !item) return c.html(<NotFoundPage testToken={d.config.token.test} />, 404);
     const base = c.req.path.startsWith("/h/") ? `/h/${h.handle}/` : "/";
-    return c.html(<ItemPage s={sf} i={item} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, network: d.client.network, site: d.config.public_url }} test={d.config.token.test} />);
+    return c.html(<ItemPage s={sf} i={item} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, token: d.client.token, network: d.client.network, site: d.config.public_url }} test={d.config.token.test} />);
   });
 
   // "Ask the store": the store's own AI answers shoppers (public store data only), 20 questions an hour per address.
@@ -289,7 +289,7 @@ export function createApp(d: Deps) {
     const sf = o.item && d.storefront ? await d.storefront(h.handle).catch(() => null) : null;
     const paid = !!o.chainStatus && o.chainStatus !== "Opening";
     const storeContact = sf && paid && d.storeContact ? await d.storeContact(h.handle).catch(() => null) : null;
-    if (sf) return c.html(<ItemOrderPage s={sf} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, network: d.client.network, site: d.config.public_url }} test={d.config.token.test} o={{ orderId: o.orderId, title: o.serviceTitle, amount: o.amountDisplay, chainStatus: o.chainStatus }} storeContact={storeContact} />);
+    if (sf) return c.html(<ItemOrderPage s={sf} cfg={{ base, rpcUrl: d.client.rpcUrl, orders: d.client.orders, token: d.client.token, network: d.client.network, site: d.config.public_url }} test={d.config.token.test} o={{ orderId: o.orderId, title: o.serviceTitle, amount: o.amountDisplay, chainStatus: o.chainStatus }} storeContact={storeContact} />);
     return c.html(<OrderPage o={o} base={base} cfg={d.client} testToken={d.config.token.test} />);
   });
 

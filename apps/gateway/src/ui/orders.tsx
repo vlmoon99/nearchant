@@ -41,13 +41,13 @@ export const OrdersPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; or
       <Shell active="Orders" store={store}>
         <PageHead kicker={act.length ? `${act.length} need${act.length === 1 ? "s" : ""} you` : "All caught up"} title="Orders" />
         <Segmented items={[{ label: `Open${open.length ? ` (${open.length})` : ""}`, href: "/app/orders", on: filter === "open" }, { label: "Done", href: "/app/orders?f=done", on: filter === "done" }, { label: "All", href: "/app/orders?f=all", on: filter === "all" }]} />
-        {!shown.length ? <div class="empty"><Icon n="box" s={40} c="#8e8e93" /><span class="headline">{orders.length ? "Nothing here" : "No orders yet"}</span><span class="foot muted">When someone buys, the order shows up here with their contact and delivery details. You also get an email if you added one in Settings.</span></div>
+        {!shown.length ? <div class="empty"><Icon n="box" s={40} c="var(--label-2)" /><span class="headline">{orders.length ? "Nothing here" : "No orders yet"}</span><span class="foot muted">When someone buys, the order shows up here with their contact and delivery details. You also get an email if you added one in Settings.</span></div>
           : <div class="list">{shown.map((o) => {
             const st = orderStage(o.state, o.chainStatus);
             return <a class="list-row nav" href={`/app/orders/${o.orderId}`}>
               <span class="list-text"><span class="body b clamp1">{o.title}</span><span class="foot muted clamp1">{o.contact?.name ? `${o.contact.name} · ` : ""}{when(o.createdAt)}</span></span>
               <span class="stack" style="gap:4px;align-items:flex-end"><span class="sub b">{o.amount}</span><Pill st={st} /></span>
-              <Icon n="chevron" s={16} c="#c7c7cc" /></a>;
+              <Icon n="chevron" s={16} c="var(--label-3)" /></a>;
           })}</div>}
         {orders.some((o) => orderStage(o.state, o.chainStatus).busy) ? <span class="live" data-refresh="4000"><span class="spin"></span>Recording on NEAR — this list updates by itself</span> : null}
         <span class="cap muted">Buyers pay into escrow on NEAR. You're paid when they confirm — or automatically after the release time.</span>

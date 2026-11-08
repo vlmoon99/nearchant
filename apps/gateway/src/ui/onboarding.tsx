@@ -23,8 +23,8 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
         </div>
       </div>
       <h1 class="tl" style="font-size:36px">Sell more.<br />Work less.<br />Get paid on NEAR.</h1>
-      {[["sparkles", "#007AFF", "AI makes your posts from a few photos"], ["chart", "#AF52DE", "AI shows what sells, to whom and when"], ["shield", "#00A86B", "Buyers pay you directly — safe escrow on NEAR"]].map(([ic, c, t]) => (
-        <div class="row" style="align-items:center;gap:12px"><span class="dot" style="background:var(--bg-2);border-radius:10px;width:34px;height:34px"><Icon n={ic!} c={c} /></span><span class="sub">{t}</span></div>
+      {[["sparkles", "var(--blue)", "AI makes your posts from a few photos"], ["chart", "var(--purple)", "AI shows what sells, to whom and when"], ["shield", "var(--green)", "Buyers pay you directly — safe escrow on NEAR"]].map(([ic, c, t]) => (
+        <div class="row" style="align-items:center;gap:12px"><span class="dot" style="background:var(--fill-3);border-radius:10px;width:34px;height:34px"><Icon n={ic!} c={c} /></span><span class="sub">{t}</span></div>
       ))}
       <div class="onb-bottom"><button class="btn" data-go="sell">Start free — 2 minutes</button><a class="sub" href="/app">I already have a store · Sign in</a></div>
     </section>
@@ -46,7 +46,7 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
           <label class="list-field"><span>Email</span><input id="contact-email" type="email" autocomplete="email" placeholder="you@example.com" /></label>
         </div>
         <span class="group-f">A phone or an email is enough. Buyers see it only after they pay, to ask about their order.</span></div>
-      <div class="card proof" style="flex-direction:row;gap:10px;align-items:flex-start;padding:14px"><Icon n="shield" s={18} c="#007A4F" />
+      <div class="card proof" style="flex-direction:row;gap:10px;align-items:flex-start;padding:14px"><Icon n="shield" s={18} c="var(--proof)" />
         <span class="foot">We create a NEAR account for your store. No seed phrase, no crypto needed — it’s yours, and you can export its key anytime in Settings.</span></div>
       <output class="foot" id="sell-out"></output>
       <div class="onb-bottom"><button class="btn" id="create-store">Continue</button></div>
@@ -60,8 +60,8 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
       <label class="field">In one sentence, what do you sell?<textarea class="input" id="biz-desc" maxlength={500} placeholder="Relaxed everyday clothes designed in New York — denim, knitwear and linen."></textarea></label>
       <label class="field">Instagram, Telegram channel or website (optional)<input class="input" id="biz-link" placeholder="instagram.com/yourstore" /></label>
       <span class="foot b">Product photos (2–8 work best)</span>
-      <div class="thumbs" id="thumbs"><label class="th" style="display:grid;place-items:center;cursor:pointer;background:var(--bg-2)"><Icon n="plus" s={22} c="#6E6E73" /><input type="file" id="photo-input" accept="image/*" multiple class="hidden" /></label></div>
-      <div class="card" style="flex-direction:row;gap:10px;padding:14px"><Icon n="lock" s={16} c="#6E6E73" /><span class="foot muted">We never post anything without your OK. Your photos stay private until you publish.</span></div>
+      <div class="thumbs" id="thumbs"><label class="th" style="display:grid;place-items:center;cursor:pointer;background:var(--fill-3)"><Icon n="plus" s={22} c="var(--label-2)" /><input type="file" id="photo-input" accept="image/*" multiple class="hidden" /></label></div>
+      <div class="card" style="flex-direction:row;gap:10px;padding:14px"><Icon n="lock" s={16} c="var(--label-2)" /><span class="foot muted">We never post anything without your OK. Your photos stay private until you publish.</span></div>
       <output class="foot" id="show-out"></output>
       <div class="onb-bottom"><button class="btn" id="analyze"><Icon n="sparkles" />Analyze my business</button></div>
     </section>
@@ -79,7 +79,7 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
     <section class="onb hidden" data-step="opps">
       <Dots step={4} />
       <h1 class="t2">We found <span id="opp-count">a few</span> ways to sell more</h1>
-      <div class="card proof" style="flex-direction:row;align-items:center;gap:8px;padding:10px 14px"><Icon n="trend" c="#007A4F" /><span class="callout b proof-t" id="opp-total">≈ +0 USDC a month together</span></div>
+      <div class="card proof" style="flex-direction:row;align-items:center;gap:8px;padding:10px 14px"><Icon n="trend" c="var(--proof)" /><span class="callout b proof-t" id="opp-total">≈ +0 USDC a month together</span></div>
       <div class="stack s12" id="opps"></div>
       <p class="cap faint">Estimates from your products and public market data — not promises.</p>
       <div class="onb-bottom"><button class="btn" id="make-posts"><Icon n="sparkles" />Use these — make my posts</button></div>
@@ -91,7 +91,7 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
       <h1 class="t2" id="posts-title">Making your first posts…</h1>
       <p class="sub muted" style="margin:0">Made from the opportunities you picked. Change anything later, or schedule them all.</p>
       <div class="stack s12" id="first-posts"></div>
-      <div class="card proof" style="flex-direction:row;gap:10px;padding:12px"><Icon n="shield" c="#007A4F" /><span class="foot">Each post gets a proof on NEAR when it goes live — buyers see it’s really yours.</span></div>
+      <div class="card proof" style="flex-direction:row;gap:10px;padding:12px"><Icon n="shield" c="var(--proof)" /><span class="foot">Each post gets a proof on NEAR when it goes live — buyers see it’s really yours.</span></div>
       <div class="onb-bottom"><button class="btn" id="schedule-all" disabled><Icon n="send" />Post the first, schedule the rest</button><a class="sub" id="edit-first" href="/app/posts">Edit first</a></div>
     </section>
 
@@ -100,7 +100,7 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
       <span class="dot ok" style="width:64px;height:64px"><Icon n="check" s={32} /></span>
       <h1 class="t2">Your store is live! 🎉</h1>
       <p class="sub muted" style="margin:0">Share the link — the first visitors are what get the first sale.</p>
-      <div class="card soft" style="flex-direction:row;gap:10px;align-items:center;padding:14px"><Icon n="sparkles" s={18} c="#007AFF" />
+      <div class="card soft" style="flex-direction:row;gap:10px;align-items:center;padding:14px"><Icon n="sparkles" s={18} c="var(--blue)" />
         <span class="foot">AI is also making a short video of your first post — hook, captions and voice, about 8 seconds. It appears on that post in a couple of minutes.</span></div>
       <div class="card" style="flex-direction:row;align-items:center"><div class="stack" style="gap:2px;flex:1"><span class="cap muted">Your store</span><a class="headline" id="store-url" href="#">—</a></div><button class="chip" id="copy-link"><Icon n="copy" s={14} />Copy</button></div>
       <div class="row" style="gap:10px"><a class="btn secondary" style="flex:1" id="share-tg" target="_blank" rel="noopener"><Icon n="send" />Telegram</a><a class="btn secondary" style="flex:1" id="share-wa" target="_blank" rel="noopener"><Icon n="msg" />WhatsApp</a></div>

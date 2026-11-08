@@ -198,7 +198,7 @@ const app = createApp({
   anyChainQuote,
   mediaDir,
   checkoutJs: checkoutJs,
-  client: { rpcUrl: config.rpc_urls[0]!, orders: accounts.orders, network: config.network },
+  client: { rpcUrl: config.rpc_urls[0]!, orders: accounts.orders, network: config.network, token: { contract: accounts.nusd, symbol: config.token.symbol, decimals: config.token.decimals } },
   ...(relayerKey && config.network === "testnet" ? { sponsorBuyer: (pk: string, allowNew: () => boolean) => sponsorBuyer({ chain, accounts }, pk, allowNew) } : {}),
   isAvailable: (h: string) => chain.view<boolean>(accounts.root, "is_available", { name: h }),
   stats: async (accountId: string, handle: string) => {

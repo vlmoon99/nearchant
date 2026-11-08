@@ -13,7 +13,7 @@ const status = (i: ShopItem): { label: string; tone: string } =>
   i.held ? { label: "Needs a change", tone: "bad" } : !i.active ? { label: "Hidden", tone: "wait" } : i.checking ? { label: "Checking…", tone: "act" } : soldOut(i.kind, i.details) ? { label: "Sold out", tone: "wait" } : { label: "Live", tone: "done" };
 
 const Thumb: FC<{ img: string | null; kind: string }> = ({ img, kind }) => (
-  <span class="thumb" style={img ? `background-image:url('${img}')` : ""}>{img ? null : <Icon n={kind === "service" ? "users" : "bag"} s={22} c="#8e8e93" />}</span>
+  <span class="thumb" style={img ? `background-image:url('${img}')` : ""}>{img ? null : <Icon n={kind === "service" ? "users" : "bag"} s={22} c="var(--label-2)" />}</span>
 );
 
 export const ShopPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; items: ShopItem[]; suggestions: Suggestion[]; tab: "product" | "service" }> = ({ cfg, test, store, items, suggestions, tab }) => {
@@ -33,9 +33,9 @@ export const ShopPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; item
             <Thumb img={i.img} kind={i.kind} />
             <span class="list-text"><span class="body b clamp1">{i.title}</span><span class="foot muted clamp1">{i.details.priceFrom ? "from " : ""}{i.price} · {itemFacts(i.kind, i.details).join(" · ")}</span></span>
             <span class={`pill ${st.tone}`}>{st.label}</span>
-            <Icon n="chevron" s={16} c="#c7c7cc" /></a>;
+            <Icon n="chevron" s={16} c="var(--label-3)" /></a>;
         })}</div>
-          : <div class="empty"><Icon n={tab === "service" ? "users" : "bag"} s={40} c="#8e8e93" /><span class="headline">No {noun}s yet</span>
+          : <div class="empty"><Icon n={tab === "service" ? "users" : "bag"} s={40} c="var(--label-2)" /><span class="headline">No {noun}s yet</span>
             <span class="foot muted">{tab === "service" ? "Add what you do — a repair, a fitting, a custom order. Buyers book and pay through escrow." : "Add what you sell with a photo and a price. Buyers pay through escrow on NEAR."}</span>
             <a class="btn" href={`/app/shop/new?kind=${tab}`}><Icon n="plus" />Add {noun}</a></div>}
         {tab === "product" && suggestions.length ? <section class="group"><span class="group-h">Suggested from your photos</span>

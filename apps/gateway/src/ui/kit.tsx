@@ -33,7 +33,8 @@ const P: Record<string, string> = {
 };
 
 export const Icon: FC<{ n: string; s?: number; c?: string }> = ({ n, s = 18, c }) =>
-  raw(`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c ?? "currentColor"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] ?? ""}</svg>`);
+  // The colour goes through `style` so theme tokens work (an SVG stroke attribute can't read var(--…)).
+  raw(`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor"${c ? ` style="color:${c}"` : ""} stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] ?? ""}</svg>`);
 
 /** Content fingerprints of the served assets: a deploy changes the URL, so Cloudflare's edge cache can't serve old
  *  CSS/JS with new pages. Set once at startup (routes.tsx / main.ts). */
@@ -57,7 +58,7 @@ export const UiPage: FC<PropsWithChildren<{ title: string; cfg: UiConfig; page: 
       {buyer ? <BuyerScripts network={cfg.network} /> : null}
     </head>
     <body>
-      {test ? <div class="cap" style="text-align:center;padding:4px;background:#fff3c4;color:#5c4a00">TEST network — payments use free test tokens</div> : null}
+      {test ? <div class="cap testbar">TEST network — payments use free test tokens</div> : null}
       {children}
     </body>
   </html>
@@ -81,7 +82,7 @@ export const Shell: FC<PropsWithChildren<{ active: string; store: { name: string
       </div>
       <div class="sub" style="padding:12px 0 0 6px">{store.name}</div>
     </aside>
-    <header class="topbar"><a class="logo" style="padding:0" href="/app"><Mark />Nearchant</a><a class={`icon-btn ${active === "Settings" || active === "Wallet" || active === "Analytics" ? "on" : ""}`} href="/app/settings" aria-label="Settings, wallet and analytics" style="margin:0 -10px 0 0"><Icon n="sliders" s={22} /></a></header>
+    <header class="topbar"><a class="logo" style="padding:0;gap:10px;min-width:0" href="/app"><Mark /><span class="stack" style="gap:0;min-width:0"><span class="callout b clamp1">{store.name}</span><span class="cap muted clamp1">{store.account}</span></span></a><a class="acct-pill pay" href="/app/wallet" style="margin-left:auto;margin-right:4px"><Icon n="wallet" s={14} />{store.balance ?? "Wallet"}</a><a class={`icon-btn ${active === "Settings" || active === "Wallet" || active === "Analytics" ? "on" : ""}`} href="/app/settings" aria-label="Settings, wallet and analytics" style="margin:0 -10px 0 0"><Icon n="sliders" s={22} /></a></header>
     <main class="main">{children}</main>
     <nav class="bottomnav">
       {(["Home", "Posts", "Create", "Shop", "Orders"] as const).map((l) => NAV.find(([, x]) => x === l)!).map(([ic, label, href]) => label === "Create"
@@ -126,7 +127,7 @@ export const ContactList: FC<{ c: Contact }> = ({ c }) => (
   <div class="list">{contactLinks(c).map((l) => (
     <div class="list-row">
       <a class="list-main" href={l.href} {...(l.href.startsWith("http") ? { target: "_blank", rel: "noopener" } : {})}>
-        <span class="list-ic" style={`background:${l.label === "Email" ? "#007aff" : l.label === "Call" ? "#34c759" : l.label === "WhatsApp" ? "#25d366" : l.label === "Telegram" ? "#2aabee" : "#5e5ce6"}`}><Icon n={l.label === "Email" ? "mail" : l.label === "Call" ? "phone" : "msg"} s={16} c="#fff" /></span>
+        <span class="list-ic" style={`background:${l.label === "Email" ? "var(--blue)" : l.label === "Call" ? "var(--green)" : l.label === "WhatsApp" ? "#25d366" : l.label === "Telegram" ? "#2aabee" : "var(--indigo)"}`}><Icon n={l.label === "Email" ? "mail" : l.label === "Call" ? "phone" : "msg"} s={16} c="#fff" /></span>
         <span class="list-text"><span class="body">{l.label}</span><span class="foot muted">{l.value}</span></span>
       </a>
       <button class="icon-btn" type="button" data-copy={l.value} aria-label={`Copy ${l.value}`}><Icon n="copy" s={18} /></button>

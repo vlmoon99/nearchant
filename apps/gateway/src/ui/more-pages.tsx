@@ -37,7 +37,7 @@ const Heat: FC<{ heat: number[][] }> = ({ heat }) => {
   let best = [0, 0]; heat.forEach((r, d) => r.forEach((n, s) => { if (n > heat[best[0]!]![best[1]!]!) best = [d, s]; }));
   return (<div class="stack" style="gap:6px">
     {heat.map((r, d) => <div class="row" style="gap:4px;align-items:center"><span class="cap muted" style="width:30px">{HEAT_DAYS[d]}</span>
-      {r.map((n) => <span style={`flex:1;height:18px;border-radius:5px;background:rgba(0,122,255,${0.08 + 0.85 * (n / max)})`} title={`${n} visits`}></span>)}</div>)}
+      {r.map((n) => <span style={`flex:1;height:18px;border-radius:5px;background:color-mix(in srgb, var(--blue) ${Math.round(8 + 85 * (n / max))}%, var(--fill-4))`} title={`${n} visits`}></span>)}</div>)}
     <div class="row" style="gap:4px"><span style="width:30px"></span>{HEAT_SLOTS.map((h) => <span class="cap muted" style="flex:1;text-align:center">{h}</span>)}</div>
     <span class="foot">{heat.flat().some((n) => n) ? <>Best: <b>{HEAT_DAYS[best[0]!]} {HEAT_SLOTS[best[1]!]! - 3}:00–{HEAT_SLOTS[best[1]!]}:00</b> (New York time, from your store visits)</> : "No visits yet — the map fills in as people open your store."}</span>
   </div>);
@@ -59,7 +59,7 @@ export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView;
         {days.some((d) => d.views || d.sales) ? <Bars days={days} /> : <p class="sub muted">No visits yet. Share your store link — the first visitors start the chart.</p>}
         {sources.length ? <div class="row" style="gap:8px;flex-wrap:wrap">{sources.map(([s, n]) => <span class="tag">{s} · {n}</span>)}</div> : null}
       </div>
-      <div class="card"><div class="spread"><div class="row" style="align-items:center;gap:8px"><Icon n="sparkles" c="#AF52DE" /><span class="headline">What AI noticed</span></div><button class="chip" id="refresh-insights">Refresh</button></div>
+      <div class="card"><div class="spread"><div class="row" style="align-items:center;gap:8px"><Icon n="sparkles" c="var(--purple)" /><span class="headline">What AI noticed</span></div><button class="chip" id="refresh-insights">Refresh</button></div>
         {insights ? <>
           <span class="sub b">{insights.headline}</span>
           {insights.insights.map((i) => <div class="card white" style="gap:4px;padding:12px;border:0"><span class="foot">{i.text}</span><span class="foot b" style="color:var(--accent)">{i.action} →</span></div>)}
@@ -86,7 +86,7 @@ export const AnalyticsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView;
     </div>
     <div class="card" style="gap:10px"><span class="headline">Questions shoppers asked</span>
       <span class="foot muted">Your store's AI answers them on your store page from your items and posts. {questions.some((x) => x.owner) ? "The ones marked “for you” it could not answer — add that info to your items." : ""}</span>
-      {questions.length ? questions.slice(0, 6).map((x) => <div class="stack" style="gap:2px;border-top:1px solid var(--sep);padding-top:8px"><span class="foot b">“{x.q}”{x.owner ? <span class="tag" style="margin-left:6px;color:#b25000"> for you</span> : null}</span><span class="foot muted">{x.a}</span></div>)
+      {questions.length ? questions.slice(0, 6).map((x) => <div class="stack" style="gap:2px;border-top:1px solid var(--sep);padding-top:8px"><span class="foot b">“{x.q}”{x.owner ? <span class="tag" style="margin-left:6px;color:var(--orange-text)"> for you</span> : null}</span><span class="foot muted">{x.a}</span></div>)
         : <span class="foot muted">No questions yet.</span>}
     </div>
   </Page>
@@ -115,7 +115,7 @@ export const WalletPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; ba
         {rows.length ? rows.map((r) => <div class="spread card white" style="padding:10px 12px;border:0;flex-direction:row"><span class="stack" style="gap:2px"><span class="foot b">{r.what}</span><span class="cap proof-t">{r.when} · {r.state} · on NEAR</span></span><span class={`sub b ${r.sign === "+" ? "okt" : ""}`} style="white-space:nowrap">{r.sign}{r.amount}</span></div>) : <span class="foot muted">No payments yet.</span>}
       </div>
       <div class="card"><span class="headline">How you get paid</span>
-        {[["lock", "Buyer pays in USDC on NEAR", "Money goes into escrow, not to a middleman."], ["check", "You ship, the buyer confirms", "Or it confirms itself after the timeout."], ["wallet", "Released to you automatically", `Straight to ${store.account}.`]].map(([ic, t, d]) => <div class="row" style="gap:12px"><span class="dot" style="background:var(--bg);border-radius:10px;width:32px;height:32px"><Icon n={ic!} s={16} c="#007AFF" /></span><span class="stack" style="gap:2px"><span class="foot b">{t}</span><span class="foot muted">{d}</span></span></div>)}
+        {[["lock", "Buyer pays in USDC on NEAR", "Money goes into escrow, not to a middleman."], ["check", "You ship, the buyer confirms", "Or it confirms itself after the timeout."], ["wallet", "Released to you automatically", `Straight to ${store.account}.`]].map(([ic, t, d]) => <div class="row" style="gap:12px"><span class="dot" style="background:var(--cell-2);border-radius:10px;width:32px;height:32px"><Icon n={ic!} s={16} c="var(--blue)" /></span><span class="stack" style="gap:2px"><span class="foot b">{t}</span><span class="foot muted">{d}</span></span></div>)}
       </div>
     </div>
   </Page>
@@ -124,8 +124,8 @@ export const WalletPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; ba
 export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; b: { name: string; kind: string; description: string; links: string[]; city?: string | null; country?: string | null; ships?: string | null; placeBy?: string | null }; tone: string; colors: string[]; wishes: string; usage: { posts: number; limit: number }; wallet?: string | null; plan: string; created: string; telegramBot?: string | null; email?: string | null; emailOn?: boolean; contact?: { email?: string; phone?: string; app?: string } | null; market?: { on: boolean } | null }> = ({ cfg, test, store, b, tone, colors, wishes, usage, wallet, plan, created, telegramBot, email, emailOn, contact, market }) => (
   <Page cfg={cfg} test={test} title="Settings" active="Settings" store={store}>
     <PageHead kicker={store.name} title="Settings" />
-    <div class="list only-m"><a class="list-row nav" href="/app/wallet"><span class="list-ic" style="background:#121916"><Icon n="wallet" s={16} c="#00ec97" /></span><span class="list-text"><span class="body">Wallet</span><span class="foot muted">{store.balance ?? "Balance, withdraw"}</span></span><Icon n="chevron" s={16} c="#c7c7cc" /></a>
-      <a class="list-row nav" href="/app/analytics"><span class="list-ic" style="background:#af52de"><Icon n="chart" s={16} c="#fff" /></span><span class="list-text"><span class="body">Analytics</span></span><Icon n="chevron" s={16} c="#c7c7cc" /></a></div>
+    <div class="list only-m"><a class="list-row nav" href="/app/wallet"><span class="list-ic" style="background:#121916"><Icon n="wallet" s={16} c="#00ec97" /></span><span class="list-text"><span class="body">Wallet</span><span class="foot muted">{store.balance ?? "Balance, withdraw"}</span></span><Icon n="chevron" s={16} c="var(--label-3)" /></a>
+      <a class="list-row nav" href="/app/analytics"><span class="list-ic" style="background:var(--purple)"><Icon n="chart" s={16} c="#fff" /></span><span class="list-text"><span class="body">Analytics</span></span><Icon n="chevron" s={16} c="var(--label-3)" /></a></div>
     <div class="cols">
       <div class="stack">
         <form class={`card ${contact ? "" : "warn"}`} id="settings-contact"><span class="headline">How buyers reach you</span>
@@ -162,12 +162,12 @@ export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
             ["send", "Telegram bot", telegramBot ? `Connected · @${telegramBot} · takes orders in chat` : "Not connected — your own bot takes orders in chat", !!telegramBot, telegramBot ? "Settings" : "Connect", `/h/${store.handle}/manage`],
             ["camera", "Instagram", "Copy a ready post with its picture from the post page", false, "Posts", "/app/posts"]].map(([ic, t, d, on, act, href]) =>
             <div class="card white" style="flex-direction:row;gap:12px;align-items:center;padding:12px 14px">
-              <span class="dot" style="background:var(--bg);border-radius:10px;width:36px;height:36px;flex:none"><Icon n={ic as string} s={18} c="#1d1d1f" /></span>
-              <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="callout b">{t}</span><span class="foot" style={on ? "color:#248a3d" : "color:var(--label2)"}>{d}</span></span>
-              <a class="sub" style="color:#007AFF" href={href as string}>{act}</a>
+              <span class="dot" style="background:var(--cell-2);border-radius:10px;width:36px;height:36px;flex:none"><Icon n={ic as string} s={18} c="var(--label)" /></span>
+              <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="callout b">{t}</span><span class="foot" style={on ? "color:var(--green-text)" : "color:var(--label-2)"}>{d}</span></span>
+              <a class="sub" style="color:var(--blue)" href={href as string}>{act}</a>
             </div>)}
         </div>
-        {market ? <form class="card" id="settings-market"><div class="row" style="align-items:center;gap:8px"><Icon n="users" s={18} c="#007aff" /><span class="headline">NEAR AI Agent Market</span>{market.on ? <span class="pill done">Connected</span> : null}</div>
+        {market ? <form class="card" id="settings-market"><div class="row" style="align-items:center;gap:8px"><Icon n="users" s={18} c="var(--blue)" /><span class="headline">NEAR AI Agent Market</span>{market.on ? <span class="pill done">Connected</span> : null}</div>
           <span class="foot muted">Let other AI agents hire your store on market.near.ai. Jobs paid there show up in your Orders.</span>
           <ol class="foot steps-list"><li>Open <a href="https://market.near.ai" target="_blank" rel="noopener">market.near.ai</a>, sign in and create an agent for your store.</li><li>Copy its API token (starts with <code>aat_</code>) and paste it here.</li><li>Paste the webhook address and secret we show into the market.</li></ol>
           <input class="input" name="token" required placeholder="aat_…" autocomplete="off" />
@@ -194,7 +194,7 @@ export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
           <div class="progress"><i style={`width:${Math.min(100, (usage.posts / usage.limit) * 100)}%`}></i></div>
           <span class="foot muted">{plan === "pro" ? "You are on Pro." : "Pro — 150 posts a month, paid from your balance on NEAR (coming soon)."}</span></div>
         <div class="card" style="gap:10px"><span class="headline">Your data</span>
-          <a class="spread sub" href="/api/app/export" download style="color:inherit">Download all my data<Icon n="download" s={18} c="#007AFF" /></a>
+          <a class="spread sub" href="/api/app/export" download style="color:inherit">Download all my data<Icon n="download" s={18} c="var(--blue)" /></a>
           <span class="cap muted">Records already on NEAR stay public (they hold hashes, not your photos or texts).</span></div>
       </div>
     </div>
@@ -206,15 +206,15 @@ export const ReportPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; ea
     <PageHead kicker="Weekly report · last 7 days" title={sales ? "Great week 👏" : "Your week"} />
     <div class="card dark" style="gap:6px"><span class="foot">You earned</span><span class="t1" style="color:var(--near)">{earned}</span><span class="foot">{sales} sale{sales === 1 ? "" : "s"} · all paid on NEAR</span></div>
     <div class="grid3"><Stat label="Store views" value={String(views)} /><Stat label="Posts published" value={String(posts)} /><Stat label="Sales" value={String(sales)} /></div>
-    <div class="card"><span class="headline">Badges</span><div class="row" style="gap:10px;flex-wrap:wrap">{badges.map(([ic, l, on]) => <span class="card white" style={`gap:6px;padding:12px 16px;align-items:center;${on ? "" : "opacity:.45"}`}><Icon n={ic} s={22} c={on ? "#FF9500" : "#8E8E93"} /><span class="cap b">{l}</span></span>)}</div></div>
-    <div class="card soft"><div class="row" style="align-items:center;gap:8px"><Icon n="sparkles" c="#AF52DE" /><span class="headline">For next week</span></div>{next.map((n) => <span class="foot">• {n}</span>)}<a class="btn" href="/app/create">Plan next week’s posts</a></div>
+    <div class="card"><span class="headline">Badges</span><div class="row" style="gap:10px;flex-wrap:wrap">{badges.map(([ic, l, on]) => <span class="card white" style={`gap:6px;padding:12px 16px;align-items:center;${on ? "" : "opacity:.45"}`}><Icon n={ic} s={22} c={on ? "var(--orange)" : "var(--label-2)"} /><span class="cap b">{l}</span></span>)}</div></div>
+    <div class="card soft"><div class="row" style="align-items:center;gap:8px"><Icon n="sparkles" c="var(--purple)" /><span class="headline">For next week</span></div>{next.map((n) => <span class="foot">• {n}</span>)}<a class="btn" href="/app/create">Plan next week’s posts</a></div>
   </Page>
 );
 
 /** First-sale celebration on Home (Figma onboarding 9): shown once, dismissed by the owner. */
 export const Celebration: FC<{ amount: string; item: string; store: StoreView }> = ({ amount, item, store }) => (
-  <div class="card" id="celebration" style="align-items:center;text-align:center;gap:10px;background:linear-gradient(135deg,#e6f1ff,#e3faf0)">
-    <div class="confetti" style="width:100%">{Array.from({ length: 18 }, (_, k) => <i style={`left:${(k * 53) % 96}%;top:${(k * 37) % 70}px;transform:rotate(${(k * 47) % 90 - 45}deg);background:${["#007AFF", "#FF9500", "#34C759", "#FF2D55", "#AF52DE", "#00EC97"][k % 6]}`}></i>)}</div>
+  <div class="card celebrate" id="celebration" style="align-items:center;text-align:center;gap:10px">
+    <div class="confetti" style="width:100%">{Array.from({ length: 18 }, (_, k) => <i style={`left:${(k * 53) % 96}%;top:${(k * 37) % 70}px;transform:rotate(${(k * 47) % 90 - 45}deg);background:${["var(--blue)", "var(--orange)", "var(--green)", "var(--pink)", "var(--purple)", "#00EC97"][k % 6]}`}></i>)}</div>
     <h2 class="tl">Your first sale! 🎉</h2>
     <span class="sub muted">Someone bought <b>{item}</b>.</span>
     <span class="t1 okt" style="font-size:40px">+{amount}</span>

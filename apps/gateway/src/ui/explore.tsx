@@ -36,7 +36,7 @@ export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: st
         <span class="row" style="gap:14px;align-items:center"><a class="sub" href="#" data-buyer-me>Sign in</a><a class="btn" href="/start">Sell here</a></span></nav>
       <section class="stack" style="max-width:1200px;margin:0 auto;padding:24px 16px 80px;gap:18px">
         <form class="feed-search" action="/feed" method="get">
-          <span class="feed-q"><Icon n="sparkles" s={18} c="#AF52DE" /><input class="input" name="q" value={q} maxlength={200} placeholder="What are you looking for? e.g. protein and creatine, a denim jacket" autocomplete="off" /></span>
+          <span class="feed-q"><Icon n="sparkles" s={18} c="var(--purple)" /><input class="input" name="q" value={q} maxlength={200} placeholder="What are you looking for? e.g. protein and creatine, a denim jacket" autocomplete="off" /></span>
           <input class="input feed-city" id="feed-city" name="city" value={city} maxlength={60} placeholder="City (optional)" />
           <button class="btn" type="submit">Search</button>
         </form>
@@ -48,7 +48,7 @@ export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: st
         {q && !posts.length ? <div class="card"><span class="headline">No stores sell that here yet</span><span class="foot muted">Try other words, another city — or <a href="/start">open the first store for it</a>.</span></div> : null}
         {stores.length ? <div class="stack" style="gap:10px"><span class="headline">Stores that sell {stores[0]!.goods.length > 1 ? "it" : stores[0]!.goods[0]!.name}</span>
           <div class="store-row">{stores.map((st) => <a class="card white store-card" href={`/h/${st.handle}/?ref=feed`} style="color:inherit">
-            <div class="row" style="gap:10px;align-items:center"><span style={`width:44px;height:44px;border-radius:12px;flex:none;background:#eee center/cover ${st.img ? `url('${st.img}')` : ""}`}></span>
+            <div class="row" style="gap:10px;align-items:center"><span style={`width:44px;height:44px;border-radius:12px;flex:none;background:var(--fill-3) center/cover ${st.img ? `url('${st.img}')` : ""}`}></span>
               <span class="stack" style="gap:0;min-width:0"><span class="callout b clamp1">{st.name}</span><span class="cap muted">{[st.place, st.followers ? `${st.followers} follower${st.followers === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ") || "Nearchant store"}</span></span></div>
             {st.goods.length > 1 ? <div class="row" style="gap:6px;flex-wrap:wrap">{st.goods.map((g) => <span class={`chip ${g.match ? "on" : ""}`} style={`padding:3px 9px;font-size:12px;${g.match ? "" : "opacity:.5"}`}>{g.match ? "✓ " : ""}{g.name}</span>)}</div> : null}
             {st.goods.length > 1 ? <span class="cap muted">Sells {st.matched} of {st.goods.length}</span> : null}

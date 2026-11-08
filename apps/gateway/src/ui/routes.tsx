@@ -144,7 +144,7 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
             : !orders.length ? <div class="card"><span class="headline">No orders yet</span><span class="foot muted">Find something in the <a href="/feed">shop feed</a> — you pay into escrow on NEAR and the store is paid when you confirm.</span></div>
             : orders.map((o) => <a class="card white" href={`/h/${o.handle}/o/${o.orderId}`} style="flex-direction:row;gap:12px;align-items:center;color:inherit">
               <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="callout b">{o.title}</span><span class="foot muted">{o.store} · {o.at.slice(0, 10)}</span></span>
-              <span class="stack" style="gap:2px;align-items:flex-end"><span class="sub b">{o.amount}</span><span class="cap" style={o.state === "delivered" ? "color:#b25000" : "color:var(--label2)"}>{label[o.state] ?? o.state}</span></span></a>)}
+              <span class="stack" style="gap:2px;align-items:flex-end"><span class="sub b">{o.amount}</span><span class="cap" style={o.state === "delivered" ? "color:var(--orange-text)" : "color:var(--label-2)"}>{label[o.state] ?? o.state}</span></span></a>)}
           <span class="cap muted">Money waits in escrow on NEAR until you confirm you got your order. Not delivered in time? You get it back automatically.</span>
         </section></div></UiPage>);
   });

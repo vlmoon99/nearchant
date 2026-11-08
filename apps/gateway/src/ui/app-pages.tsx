@@ -17,8 +17,8 @@ export const PostCard: FC<{ p: Post; img: Img }> = ({ p, img }) => (
     <div class="img" style={img(p.imageMediaId) ? `background-image:url('${img(p.imageMediaId)}')` : ""}></div>
     <span class="sub b">{clip(p.caption ?? (p.idea as { angle?: string })?.angle ?? "New post", 70)}</span>
     <span class="foot muted">{p.status === "skipped" ? "Skipped" : when(p)}</span>
-    {p.removedAt ? <span class="cap" style="color:#a15c00">Hidden from buyers — {clip((p.removedReason ?? "").replace(/^[a-z]+: /, ""), 60)}</span>
-      : ["ready", "scheduled"].includes(p.status) && safetyFlag(p) ? <span class="cap b" style="color:#a15c00">Needs a small change — open to fix with AI</span>
+    {p.removedAt ? <span class="cap" style="color:var(--orange-text)">Hidden from buyers — {clip((p.removedReason ?? "").replace(/^[a-z]+: /, ""), 60)}</span>
+      : ["ready", "scheduled"].includes(p.status) && safetyFlag(p) ? <span class="cap b" style="color:var(--orange-text)">Needs a small change — open to fix with AI</span>
       : p.proof ? <Badge /> : null}
   </a>
 );
@@ -37,7 +37,7 @@ export const HomePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; post
       <a class="btn hide-m" href="/app/create"><Icon n="plus" />Create post</a></PageHead>
     {(top as never) ?? null}
     <a class="dropzone banner" href="/app/create">
-      <span class="dot" style="width:56px;height:56px;background:var(--bg)"><Icon n="image" s={26} c="#007AFF" /></span>
+      <span class="dot" style="width:56px;height:56px;background:var(--cell-2)"><Icon n="image" s={26} c="var(--blue)" /></span>
       <span class="stack s8"><span class="t4">New post from photos</span><span class="sub muted">Pick photos of your item. AI writes the caption, designs the post and picks the best time — every post gets a proof on NEAR.</span></span>
       <span class="btn">Choose photos</span>
     </a>
@@ -54,12 +54,12 @@ export const HomePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; post
         {posts.length ? <div class="grid3">{posts.slice(0, 6).map((p) => <PostCard p={p} img={img} />)}</div> : <p class="sub muted">No posts yet — <a href="/app/create">make your first ones</a>.</p>}
       </div>
       <div class="stack">
-        <div class="card"><div class="row" style="align-items:center;gap:8px"><Icon n="sparkles" c="#AF52DE" /><span class="headline">Ways to sell more</span></div>
+        <div class="card"><div class="row" style="align-items:center;gap:8px"><Icon n="sparkles" c="var(--purple)" /><span class="headline">Ways to sell more</span></div>
           {opps.length ? opps.slice(0, 3).map((o) => <div class="card white" style="gap:4px;padding:12px;border:0"><span class="foot b">{o.title}</span><span class="foot muted">{o.why}</span><span class="foot b okt">≈ +{money(cfg, o.estimateUnits)}/mo</span></div>) : <span class="foot muted">AI looks for opportunities after it learns your store.</span>}
           <a class="foot b" href="/app/create">Make a post for one →</a>
         </div>
         {orders.length ? <section class="group"><div class="spread"><span class="group-h">Orders to handle</span><a class="foot" href="/app/orders">All orders</a></div>
-          <div class="list">{orders.map((o) => <a class="list-row nav" href={`/app/orders/${o.orderId}`}><span class="list-text"><span class="body b clamp1">{o.title}</span><span class="foot muted clamp1">{o.state === "paid" ? "New — paid, ready to ship" : o.state === "delivered" ? "Shipped · waiting for the buyer" : "Recording on NEAR…"}</span></span><span class="sub b">{o.amount}</span><Icon n="chevron" s={16} c="#c7c7cc" /></a>)}</div></section> : null}
+          <div class="list">{orders.map((o) => <a class="list-row nav" href={`/app/orders/${o.orderId}`}><span class="list-text"><span class="body b clamp1">{o.title}</span><span class="foot muted clamp1">{o.state === "paid" ? "New — paid, ready to ship" : o.state === "delivered" ? "Shipped · waiting for the buyer" : "Recording on NEAR…"}</span></span><span class="sub b">{o.amount}</span><Icon n="chevron" s={16} c="var(--label-3)" /></a>)}</div></section> : null}
         <div class="card"><div class="spread"><span class="headline">Payments</span><a class="foot" href="/app/wallet">View all</a></div>
           {payments.length ? payments.map((o) => <div class="spread"><span class="stack" style="gap:2px;min-width:0"><span class="foot b">{o.title}</span><span class="cap proof-t">{o.when} · {o.state}</span></span><span class="sub b okt">+{o.amount}</span></div>)
             : <span class="foot muted">No payments yet. Buyers pay into escrow on NEAR; it shows up here.</span>}
@@ -85,16 +85,16 @@ export const CreatePage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; ph
     <CreateSteps step={1} />
     <div class="cols">
       <div class="stack">
-        <label class="dropzone"><span class="dot" style="width:52px;height:52px;background:var(--bg)"><Icon n="upload" s={24} c="#007AFF" /></span><span class="t4">Add photos of your item</span><span class="foot muted">JPG or PNG · we never post them without your OK</span><input type="file" id="create-photos" accept="image/*" multiple class="hidden" /></label>
+        <label class="dropzone"><span class="dot" style="width:52px;height:52px;background:var(--cell-2)"><Icon n="upload" s={24} c="var(--blue)" /></span><span class="t4">Add photos of your item</span><span class="foot muted">JPG or PNG · we never post them without your OK</span><input type="file" id="create-photos" accept="image/*" multiple class="hidden" /></label>
         <div class="thumbs" id="create-thumbs">{photos.map((m) => <div class="th" style={`background-image:url('/files/${m.key}')`}></div>)}</div>
-        <div class="row" style="align-items:center;gap:8px"><Icon n="sparkles" c="#AF52DE" /><span class="headline">Pick an idea — AI suggested these</span></div>
+        <div class="row" style="align-items:center;gap:8px"><Icon n="sparkles" c="var(--purple)" /><span class="headline">Pick an idea — AI suggested these</span></div>
         {opps.map((o, i) => <label class={`option ${i === 0 ? "on" : ""}`} data-opp-pick={o.id}><span class="stack" style="gap:2px"><span class="callout b">{o.title}</span><span class="foot muted">{o.why}</span></span></label>)}
         <label class="field">Or write your own idea<input class="input" id="create-about" placeholder="e.g. restock of the black jacket, size M" maxlength={300} /></label>
       </div>
       <div class="stack">
         <div class="card"><span class="headline">Your posts</span>
           {[["Options", "3 to choose from"], ["Picture", "AI restyles your photo"], ["Best time", "picked by AI"], ["This month", `${usage.posts} of ${usage.limit} posts`]].map(([k, v]) => <div class="spread"><span class="foot muted">{k}</span><span class="foot b">{v}</span></div>)}
-          <div class="row" style="gap:10px"><Icon n="shield" c="#007A4F" /><span class="foot proof-t">After you publish, the post is recorded on NEAR — anyone can check it’s yours and unchanged.</span></div>
+          <div class="row" style="gap:10px"><Icon n="shield" c="var(--proof)" /><span class="foot proof-t">After you publish, the post is recorded on NEAR — anyone can check it’s yours and unchanged.</span></div>
         </div>
         <button class="btn block" id="create-go"><Icon n="sparkles" />Create posts</button>
         <output class="foot" id="create-out"></output>
@@ -145,9 +145,9 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
   return (
     <Page cfg={cfg} test={test} title="Post" active="Posts" store={store}>
       <a class="sub" href="/app/posts">‹ Posts</a>
-      {p.removedAt ? <div class="card" style="background:#fff3c4;gap:4px"><span class="callout b">Hidden from buyers</span>
+      {p.removedAt ? <div class="card notice" style="gap:4px"><span class="callout b">Hidden from buyers</span>
         <span class="foot">Our safety check found: {(p.removedReason ?? "").replace(/^[a-z]+: /, "")} If you think this is a mistake, reply to the email we sent — a person will look at it.</span></div> : null}
-      {editable && needsChange ? <div class="card" style="background:#fff3c4;gap:8px"><span class="callout b">Needs a small change before it can go live</span>
+      {editable && needsChange ? <div class="card notice" style="gap:8px"><span class="callout b">Needs a small change before it can go live</span>
         <span class="foot">Our safety check found: {needsChange} Nothing is published until you change it.</span>
         <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" data-rewrite="fix" data-post={p.id}><Icon n="sparkles" />Fix with AI</button><span class="foot muted" style="align-self:center">or edit the caption below</span></div></div> : null}
       <PageHead kicker={clip(p.caption ?? "Post", 60)} title={p.status === "published" ? "Posted" : p.status === "scheduled" ? "Scheduled" : p.status === "ready" ? "Your post is ready" : "Post details"} />
@@ -155,15 +155,15 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
         <div class="stack s12">
           <div class="post"><div class="img" style={img(p.imageMediaId) ? `background-image:url('${img(p.imageMediaId)}');aspect-ratio:4/5` : "aspect-ratio:4/5"}></div></div>
           {video?.status === "ready" && video.key ? <video src={`/files/${video.key}?v=${(video.mediaId ?? "").slice(-8)}`} controls playsinline preload="metadata" style="width:100%;max-width:260px;align-self:center;aspect-ratio:9/16;border-radius:16px;background:#000"></video> : null}
-          {check?.flagged ? <div class="card" style="background:#fff3c4;gap:4px"><span class="callout b">Check this caption before it goes live</span>
+          {check?.flagged ? <div class="card notice" style="gap:4px"><span class="callout b">Check this caption before it goes live</span>
             <span class="foot">Our AI check (Levanto Sage on NEAR AI) thinks it may promise something your store doesn’t say — a discount, free delivery, a gift, a deadline or a different price ({Math.round(check.invented_offer * 100)}% sure). Edit it, or post it if the offer is real.</span></div> : null}
           <textarea class="input" id="caption" data-post={p.id} rows={6}>{p.caption ?? ""}</textarea>
           <span class="sub accent">{((p.hashtags as string[]) ?? []).map((h) => `#${h}`).join(" ")}</span>
           <div class="row" style="gap:8px"><button class="btn secondary" id="save-caption" data-post={p.id}>Save caption</button><output class="foot" id="post-out"></output></div>
           {editable ? <div class="card" style="gap:10px" {...refresh}><span class="headline">Edit with AI</span>
             {rewriting ? <span class="sub">AI is rewriting the caption…</span> : repainting ? <span class="sub">AI is making a new picture — about a minute. This page refreshes by itself.</span> : <>
-              {picture?.status === "failed" ? <span class="foot" style="color:#c0392b">New picture: {picture.error ?? "failed"}</span> : null}
-              {rewrite?.status === "failed" ? <span class="foot" style="color:#c0392b">Rewrite: {(rewrite as { error?: string }).error ?? "failed"}</span> : null}
+              {picture?.status === "failed" ? <span class="foot" style="color:var(--red-text)">New picture: {picture.error ?? "failed"}</span> : null}
+              {rewrite?.status === "failed" ? <span class="foot" style="color:var(--red-text)">Rewrite: {(rewrite as { error?: string }).error ?? "failed"}</span> : null}
               <div class="row" style="gap:8px;flex-wrap:wrap">{([["shorter", "Shorter"], ["playful", "Playful"], ["bolder", "Bolder"]] as const).map(([k, l]) => <button class="chip" data-rewrite={k} data-post={p.id}><Icon n="sparkles" s={14} />{l}</button>)}</div>
               <textarea class="input" id="ai-ask" rows={2} maxlength={300} placeholder="Tell AI what to change, e.g. “mention free engraving” or “darker background, show it on black velvet”"></textarea>
               <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn secondary" data-ask-caption={p.id}><Icon n="sparkles" />Rewrite caption</button>
@@ -180,7 +180,7 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
           {["ready", "scheduled", "published"].includes(p.status) ? <div class="card" {...(making ? { "data-refresh": "6000" } : {})}><span class="headline">Video</span>
             {making ? <span class="sub">AI is making a 15-second video with an English voiceover and captions — about 3 minutes. This page refreshes by itself.</span>
               : video?.status === "ready" ? <span class="sub">Ready{video.script?.hook ? ` · “${video.script.hook}”` : ""}. It goes on your store with the post.</span>
-              : <>{video?.status === "failed" ? <span class="foot" style="color:#c0392b">The last try failed: {video.error ?? "unknown error"}</span> : null}
+              : <>{video?.status === "failed" ? <span class="foot" style="color:var(--red-text)">The last try failed: {video.error ?? "unknown error"}</span> : null}
                 <span class="sub muted">Turn this post into a 10–15 s vertical video: the picture comes alive, a voice tells the story, captions on screen. Uses 3 picture credits.</span>
                 <button class="btn secondary" data-make-video={p.id}><Icon n="sparkle" />Make a video</button></>}
           </div> : null}
@@ -189,7 +189,7 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
             <div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn secondary" href={`/h/${store.handle}/p/${p.id}`} target="_blank" rel="noopener"><Icon n="globe" />View</a>
               <a class="btn" href={`/h/${store.handle}/p/${p.id}?ref=share`} data-share-proof={`/h/${store.handle}/p/${p.id}?ref=share`} data-share-title={store.name}><Icon n="link" />Share post link</a></div></div> : null}
           <div class="card proof">
-            <div class="spread"><div class="row" style="align-items:center;gap:8px"><Icon n="shield" c="#007A4F" s={20} /><span class="headline proof-t">Proof on NEAR</span></div>{proof?.proofId ? <Badge label="Verified · unchanged" /> : null}</div>
+            <div class="spread"><div class="row" style="align-items:center;gap:8px"><Icon n="shield" c="var(--proof)" s={20} /><span class="headline proof-t">Proof on NEAR</span></div>{proof?.proofId ? <Badge label="Verified · unchanged" /> : null}</div>
             {check && !proof?.proofId ? <span class="foot muted">AI check: {check.flagged ? "may promise an offer you didn’t state" : "no invented offers found"} — recorded in the proof when it goes live.</span> : null}
             {proof?.proofId ? <>
               {[["Proof", `#${proof.proofId}`], ["Fingerprint (SHA-256)", `${proof.outputHash?.slice(0, 10)}…${proof.outputHash?.slice(-8)}`], ["Made by", madeBy(p)], ["Owner", store.account], ["Contract", proof.contract ?? ""]].map(([k, v]) => <div class="spread"><span class="foot muted">{k}</span><span class="foot b">{v}</span></div>)}

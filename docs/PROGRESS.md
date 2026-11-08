@@ -1460,3 +1460,40 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 - Gateway tests: 68.
 - Live e2e `buy-item.mjs`: the seller clicks Mark shipped in the browser. 15 s later the seller page shows "Shipped" and the buyer page shows the confirm button, with no reloads by the script. Released at 44 s. No page errors.
 - `e2e/item-live.mjs`: a new service shows Checking… then Live after 15 s.
+
+## 2026-11-08: Apple system colours (light/dark), payment window, balances in the header
+
+**Colours**
+- `ui.css` tokens are now Apple's system colours (HIG → Color), light and dark: labels (4 levels), backgrounds, fills (4), separators, tints, and accessible text versions of the tints.
+- Two background stacks:
+  - plain for store pages and the landing (white page, grey cards);
+  - grouped for the seller app and onboarding (grey page, white cards, like iOS Settings).
+- Roles are declared again inside the grouped scope, because a custom property inherits its computed value.
+- About 120 raw colours in the pages moved to tokens.
+  - Icons take theme colours through `style`, since an SVG `stroke` attribute can't read `var()`.
+  - New classes: `.testbar`, `.notice`, `.hero`, `.celebrate`.
+  - Fixed: the store header was a fixed light gradient with white text in dark mode, so the store name was invisible.
+- Raw colours left on purpose: brand logos (NEAR, WhatsApp, Telegram), the avatar gradient, black behind video, white on coloured tiles, the landing's sample pictures. The legacy M0 card (`pages.tsx`) has its own CSS and was not touched.
+
+**Checkout of store items**
+- The form uses `novalidate` with our own check: the missing fields are tinted red and named in one line.
+  - Before, an empty required field showed only the browser's small tooltip. The owner saw "nothing happen".
+- The payment sheet shows 4 steps (wallet → order → escrow → NEAR confirms) and ends on "Paid ✓" with who will contact you and how, or "didn't go through" with the reason and "No money left your wallet".
+- No auto-redirect: the buyer chooses "Open my order".
+
+**Balances**
+- Store pages show the test wallet's nUSD balance in the header (read from NEAR in the browser, only when this browser already has a wallet).
+- The seller app's phone top bar shows store name, account and balance.
+
+**Bugs fixed**
+- On store subdomains, any button in the order form (the S/M/L picker) sent the buyer to the main site.
+- The balance check read `final` state just after the faucet and saw 0; it now reads `optimistic`.
+
+**Verified**
+- `buy-item.mjs` live:
+  - an empty form names 3 missing fields;
+  - the sheet reaches "Paid ✓" in 10 s;
+  - shipped in 25 s, both pages updating by themselves;
+  - released at 54 s;
+  - no page errors.
+- `shop-shots.mjs`: 11 pages × desktop/phone × light/dark, no page errors; screenshots checked.

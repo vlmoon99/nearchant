@@ -10,7 +10,7 @@ export interface StorePost { id: string; itemId?: string | null; publishedAt: st
 /** A post of another store shown under "More like this". */
 export interface SimilarPost { id: string; handle: string; storeName: string; caption: string; img: string; video: boolean }
 export interface StoreData { handle: string; name: string; account: string; summary: string; items: StoreItem[]; posts: StorePost[]; orders: number }
-export interface CheckoutCfg { base: string; rpcUrl: string; orders: string; network: string; /** The main site (buyer accounts live there; store subdomains send buyers to it). */ site?: string }
+export interface CheckoutCfg { base: string; rpcUrl: string; orders: string; network: string; token?: { contract: string; symbol: string; decimals: number } | undefined; /** The main site (buyer accounts live there; store subdomains send buyers to it). */ site?: string }
 
 /** Link preview (Open Graph) for shared store, post and item links. */
 export interface OgMeta { title: string; description: string; url: string; image?: string | null }
@@ -24,10 +24,11 @@ const Shell: FC<PropsWithChildren<{ title: string; s: StoreData; cfg: CheckoutCf
     <script type="application/json" id="nc-config" dangerouslySetInnerHTML={{ __html: JSON.stringify(cfg).replaceAll("<", "\\u003c") }}></script>
     <script type="module" src={asset("/assets/checkout.js", "checkout")}></script><BuyerScripts network={cfg.network} main={cfg.site} mainPath={`/h/${s.handle}`} /></head>
     <body>
-      {test ? <div class="cap" style="text-align:center;padding:4px;background:#fff3c4;color:#5c4a00">TEST network — payments use free test tokens</div> : null}
+      {test ? <div class="cap testbar">TEST network — payments use free test tokens</div> : null}
       <header class="spread" style="padding:14px 20px;border-bottom:1px solid var(--sep)">
         <a class="row" href={cfg.base} style="align-items:center;gap:10px;color:inherit"><span class="dot" style="width:28px;height:28px;background:linear-gradient(135deg,#ff9966,#b052de)"></span><span class="headline">{s.name}</span></a>
-        <span class="row" style="gap:14px;align-items:center"><a class="foot" href="/feed">Shop feed</a><a class="foot" href="#" data-buyer-me>Sign in</a></span>
+        <span class="row" style="gap:12px;align-items:center"><a class="foot hide-m" href="/feed">Shop feed</a><a class="foot clamp1" style="max-width:180px" href="#" data-buyer-me>Sign in</a>
+          <span class="acct-pill pay hidden" data-pay-wallet title="Your test wallet in this browser — it pays at checkout"><Icon n="wallet" s={14} /><span data-pay-balance>…</span></span></span>
       </header>
       <main class="stack" style="max-width:1200px;margin:0 auto;padding:24px 20px 80px;gap:24px">{children}</main>
     </body></html>
@@ -35,7 +36,7 @@ const Shell: FC<PropsWithChildren<{ title: string; s: StoreData; cfg: CheckoutCf
 
 export const StorePage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean }> = ({ s, cfg, test }) => (
   <Shell title={`${s.name} · shop`} s={s} cfg={cfg} test={test}>
-    <section class="card" style="background:linear-gradient(135deg,#e6edff,#fbeee2);align-items:center;text-align:center;gap:10px;padding:28px">
+    <section class="card hero">
       <span class="dot" style="width:72px;height:72px;background:linear-gradient(135deg,#ff9966,#b052de)"></span>
       <h1 class="tl">{s.name}</h1>
       {s.summary ? <p class="sub muted" style="margin:0">{s.summary}</p> : null}
@@ -53,7 +54,7 @@ export const StorePage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean }> = 
     <AskStore s={s} cfg={cfg} />
     {s.posts.length ? <><div class="spread"><h2 class="t4">Posts</h2>{s.posts.length > 8 ? <a class="sub" href={`${cfg.base}posts`}>All {s.posts.length} posts ›</a> : null}</div>
       <div class="grid4">{s.posts.slice(0, 8).map((p) => <PostTile p={p} base={cfg.base} />)}</div></> : null}
-    <div class="card proof" style="flex-direction:row;gap:14px;align-items:center"><Icon n="shield" s={24} c="#007A4F" />
+    <div class="card proof" style="flex-direction:row;gap:14px;align-items:center"><Icon n="shield" s={24} c="var(--proof)" />
       <span class="stack s8" style="gap:4px;flex:1;min-width:0"><span class="headline proof-t">Safe to buy</span><span class="foot">Pay in test USDC (nUSD). Your money waits in escrow on NEAR and goes to {s.name} only when you confirm you got your order. Not delivered in time? You get it back automatically.</span></span></div>
     <span class="cap muted" style="text-align:center">Something wrong with this store? <a href="#" data-report-store={s.handle}>Report it</a></span>
   </Shell>
@@ -97,11 +98,11 @@ export const PublicPostPage: FC<{ s: StoreData; p: StorePost; cfg: CheckoutCfg; 
           <div class="row" style="align-items:center;gap:10px"><span class="dot" style="width:36px;height:36px;background:linear-gradient(135deg,#ff9966,#b052de)"></span>
             <span class="stack" style="gap:0"><a class="headline" href={cfg.base} style="color:inherit">{s.name}</a><span class="cap muted">{when(p.publishedAt)}</span></span></div>
           <p class="body" style="margin:0;white-space:pre-line">{p.caption}</p>
-          {p.hashtags?.length ? <span class="foot" style="color:#007AFF">{p.hashtags.map((h) => `#${h.replace(/^#/, "")}`).join(" ")}</span> : null}
-          {p.proofId ? <a class="card proof" href={verifyUrl ?? "#"} style="flex-direction:row;gap:12px;align-items:center;color:inherit"><Icon n="shield" s={22} c="#007A4F" />
+          {p.hashtags?.length ? <span class="foot" style="color:var(--blue)">{p.hashtags.map((h) => `#${h.replace(/^#/, "")}`).join(" ")}</span> : null}
+          {p.proofId ? <a class="card proof" href={verifyUrl ?? "#"} style="flex-direction:row;gap:12px;align-items:center;color:inherit"><Icon n="shield" s={22} c="var(--proof)" />
             <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="callout b proof-t">Proof #{p.proofId} on NEAR</span><span class="cap muted">Who published it, when, and that it was not changed — check it</span></span><Icon n="chevron" s={16} /></a> : null}
           {item ? <a class="card white" href={`${cfg.base}i/${item.id}`} style="flex-direction:row;gap:12px;align-items:center;color:inherit;padding:12px">
-            <span style={`width:56px;height:70px;border-radius:10px;flex:none;background:#eee center/cover ${item.img ? `url('${item.img}')` : ""}`}></span>
+            <span style={`width:56px;height:70px;border-radius:10px;flex:none;background:var(--fill-3) center/cover ${item.img ? `url('${item.img}')` : ""}`}></span>
             <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="callout b">{item.title}</span><span class="foot muted">{item.price} · paid safely through escrow on NEAR</span></span>
             <span class="btn">Buy</span></a>
             : s.items.length ? <a class="btn" href={cfg.base}>Shop {s.name}</a> : null}
@@ -138,7 +139,7 @@ export const ItemPage: FC<{ s: StoreData; i: StoreItem; cfg: CheckoutCfg; test: 
             <span class="foot muted">{gone ? "Sold out" : itemFacts(i.kind, d).join(" · ")}</span></div>
           {i.description ? <p class="body" style="margin:0;white-space:pre-line">{i.description}</p> : null}
           {gone ? <div class="card"><span class="headline">Sold out</span><span class="foot muted">Follow {s.name} to see when it is back.</span></div> :
-          <form class="order stack" data-service={i.id} style="gap:20px">
+          <form class="order stack" data-service={i.id} data-price={i.price} data-store={s.name} novalidate style="gap:20px">
             {i.options.length ? <div class="group"><span class="group-h">{d.optionName || "Choose"}</span>
               <div class="seg" data-seg="option">{i.options.map((o, k) => <button type="button" data-value={o} class={k === 0 ? "on" : ""} aria-selected={k === 0 ? "true" : "false"}>{o}</button>)}</div>
               <input type="hidden" name="option" value={i.options[0]} /></div> : null}
@@ -201,7 +202,7 @@ export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; 
         {storeContact ? <ContactList c={storeContact} /> : <div class="list"><div class="list-row"><span class="list-text"><span class="foot muted">{s.name} will contact you using the details you gave.</span></span></div></div>}
         <span class="group-f">Questions about your order? Write to {s.name} directly. Never pay outside the order — escrow protects your money. Bookmark this page: it is how you get back to your order.</span>
       </section> : null}
-      <div class="card proof" style="flex-direction:row;gap:10px;align-items:center"><Icon n="shield" c="#007A4F" /><span class="stack" style="gap:2px"><span class="foot b proof-t">Escrow on NEAR · {cfg.orders}</span><span class="cap muted">Order {o.orderId} — anyone can check it on the NEAR explorer</span></span></div>
+      <div class="card proof" style="flex-direction:row;gap:10px;align-items:center"><Icon n="shield" c="var(--proof)" /><span class="stack" style="gap:2px"><span class="foot b proof-t">Escrow on NEAR · {cfg.orders}</span><span class="cap muted">Order {o.orderId} — anyone can check it on the NEAR explorer</span></span></div>
     </Shell>
   );
 };
@@ -209,7 +210,7 @@ export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; 
 /** "Ask the store" box (ADR 0022): the store's AI assistant answers from the store's own public information. */
 export const AskStore: FC<{ s: StoreData; cfg: CheckoutCfg; placeholder?: string }> = ({ s, cfg, placeholder }) => (
   <form class="card ask" data-ask action={`${cfg.base}public/ask`} style="gap:8px">
-    <div class="row" style="gap:8px;align-items:center"><Icon n="sparkles" s={18} c="#AF52DE" /><span class="headline">Ask {s.name}</span></div>
+    <div class="row" style="gap:8px;align-items:center"><Icon n="sparkles" s={18} c="var(--purple)" /><span class="headline">Ask {s.name}</span></div>
     <div class="row" style="gap:8px"><input class="input" name="question" required minlength={3} maxlength={500} placeholder={placeholder ?? "Sizes, delivery, what's it made of…"} style="flex:1" /><button class="btn" type="submit">Ask</button></div>
     <output class="sub" aria-live="polite"></output>
     <span class="cap muted">Answered by the store's AI from its public info. To buy, use “Pay into escrow” on the item.</span>

@@ -12,6 +12,10 @@ const page = await ctx.newPage();
 const errors = []; page.on("pageerror", (e) => errors.push(e.message));
 await page.goto(base); await page.screenshot({ path: `${shots}/store.png`, fullPage: true });
 await page.click("a.post"); await page.waitForSelector("form.order");
+// Pay with nothing filled in: the missing fields are marked and named, no payment starts.
+await page.click("form.order button[type=submit]");
+await page.waitForSelector(".list-field.invalid", { timeout: 5000 });
+log(`empty form says: "${await page.textContent("form.order output")}"`); await page.screenshot({ path: `${shots}/item-invalid.png`, fullPage: true });
 // ADR 0026: the buyer leaves a way to reach them (phone + app or email) and, for things that ship, an address.
 await page.fill("form.order textarea[name=brief]", "Size M please");
 await page.fill("form.order input[name=name]", "Jane Doe");
@@ -19,7 +23,13 @@ await page.fill("form.order input[name=phone]", "+1 212 555 0100");
 if (await page.$("form.order textarea[name=address]")) await page.fill("form.order textarea[name=address]", "120 Spring St, New York, NY 10012");
 await page.screenshot({ path: `${shots}/item.png`, fullPage: true });
 await page.click("form.order button[type=submit]");
-await page.waitForURL(/\/o\/o-/, { timeout: 180_000 });
+await page.waitForSelector(".sheet .steps li.now", { timeout: 15_000 });
+log(`sheet: "${await page.textContent(".sheet [data-t]")}" — ${await page.textContent(".sheet .steps li.now")}`); await page.screenshot({ path: `${shots}/paying.png` });
+await page.waitForFunction(() => /Paid ✓|didn't go through|Payment sent/.test(document.querySelector(".sheet [data-t]")?.textContent ?? ""), null, { timeout: 180_000 });
+log(`sheet: "${await page.textContent(".sheet [data-t]")}" — ${(await page.textContent(".sheet [data-m]")).replace(/\s+/g, " ")}`); await page.screenshot({ path: `${shots}/paid.png` });
+log(`balance pill: ${await page.textContent("[data-pay-balance]").catch(() => "none")}`);
+await page.click(".sheet a.btn");
+await page.waitForURL(/\/o\/o-/, { timeout: 30_000 });
 const orderId = page.url().match(/o-[\w-]+/)[0]; log(`paid: ${orderId}`);
 const seller = { headers: { cookie: `nc_session=${token}`, "content-type": "application/json" } };
 for (let i = 0; i < 30; i++) { const o = (await (await fetch(`${origin}/api/app/orders`, seller)).json()).orders.find((x) => x.orderId === orderId); if (o?.state === "paid") break; await new Promise((r) => setTimeout(r, 3000)); }

@@ -23,7 +23,7 @@ export function firstLine(s: string): string {
 const plural = (n: number, one: string, many: string) => `${fmt(n)} ${n === 1 ? one : many}`;
 
 const Check: FC<{ dark?: boolean; children: unknown }> = ({ dark, children }) => (
-  <span class="land-item"><Icon n="check" s={16} c={dark ? "#00ec97" : "#007a4f"} />{children}</span>
+  <span class="land-item"><Icon n="check" s={16} c={dark ? "#00ec97" : "var(--proof)"} />{children}</span>
 );
 
 export const LandingPage: FC<{ cfg: UiConfig; test: boolean; d: LandingData }> = ({ cfg, test, d }) => {
@@ -48,7 +48,7 @@ export const LandingPage: FC<{ cfg: UiConfig; test: boolean; d: LandingData }> =
           </div>
           <span class="foot muted">No crypto needed: we create your NEAR account for you.</span>
           <form class="feed-search" action="/feed" method="get" style="width:100%;max-width:640px;margin-top:8px">
-            <span class="feed-q"><Icon n="sparkles" s={18} c="#AF52DE" /><input class="input" name="q" maxlength={200} placeholder="Shopping? Try “protein in New York” or “denim jacket”" aria-label="Search the shop feed" /></span>
+            <span class="feed-q"><Icon n="sparkles" s={18} c="var(--purple)" /><input class="input" name="q" maxlength={200} placeholder="Shopping? Try “protein in New York” or “denim jacket”" aria-label="Search the shop feed" /></span>
             <button class="btn secondary" type="submit">Search stores</button>
           </form>
 
@@ -66,7 +66,7 @@ export const LandingPage: FC<{ cfg: UiConfig; test: boolean; d: LandingData }> =
               <span class="foot muted">On Nearchant so far</span>
               <span class="t2">{plural(d.stats.proofs, "post", "posts")}</span>
               <span class="foot b okt">verified on NEAR · {fmt(d.stats.stores)} stores</span>
-              <div class="land-insight"><Icon n="sparkles" s={16} c="#AF52DE" /><span class="foot">AI checks every caption for offers you never made before it goes live.</span></div>
+              <div class="land-insight"><Icon n="sparkles" s={16} c="var(--purple)" /><span class="foot">AI checks every caption for offers you never made before it goes live.</span></div>
             </div>
           </div>
         </section>
