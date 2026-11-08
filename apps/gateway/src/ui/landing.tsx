@@ -34,7 +34,7 @@ export const LandingPage: FC<{ cfg: UiConfig; test: boolean; d: LandingData }> =
         <nav class="land-nav">
           <a class="land-logo" href="/"><Mark />Nearchant</a>
           <span class="land-links sub"><a href="#how">How it works</a><a href="/feed">Shop feed</a><a href="/verify">Verify a post</a><a href="#pricing">Pricing</a></span>
-          <span class="row" style="gap:16px;align-items:center"><a class="sub" href="/app">Sign in</a><a class="btn" href="/start">Create your store</a></span>
+          <span class="row" style="gap:16px;align-items:center"><a class="sub only-m" href="/feed">Shop</a><a class="sub" href="/app">Seller sign in</a><a class="btn" href="/start">Create your store</a></span>
         </nav>
 
         <section class="land-hero">

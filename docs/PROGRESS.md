@@ -1514,3 +1514,30 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 
 **Not done**
 - Card / Apple Pay / Google Pay: needs a provider and mainnet.
+
+## 2026-11-08: buyer navigation stress test (owner: "super incorrect navigation in buyer mode")
+
+**Found** (`e2e/buyer-nav.mjs` crawls 60 buyer pages at phone size, on `/h/…` and the store subdomain; plus reading the code)
+- The feed menu (Feed / Following / Liked / Orders) was hidden on phones with nothing instead.
+- On phones, store, post and item pages had no way back to the feed.
+- No page except the feed linked "My orders".
+- The feed logo went to the sellers' landing; "Sign in" on the landing opened the seller app with no label saying so.
+- Tapping your name in a store header signed you out at once.
+- Orders paid without signing in were never listed in My orders: the buyer only had the link.
+- The Account tab did nothing if tapped before "who am I" loaded.
+
+**Fixed**
+- One buyer navigation on every buyer page:
+  - phone: bottom tabs Shop · Following · Liked · Orders · Sign in/You;
+  - desktop: the same links in the header.
+  - Links are absolute to the main site, because the store subdomain doesn't share the buyer's sign-in.
+- The account sheet lists My orders, Following and Liked; signing out asks twice.
+- The checkout keeps paid orders in this browser, and My orders lists them ("In this browser") with live state, signed in or not.
+- The order page links My orders. The payment sheet says "It's saved in My orders" and offers "Keep shopping".
+- The feed logo goes to `/feed`. The landing says "Seller sign in" and shows "Shop" on phones.
+- Items without a photo show an icon instead of an empty box.
+
+**Verified**
+- The crawler: 0 broken links. Every buyer page shows a way to the feed and My orders on a phone (the remaining "hidden" links are the desktop header copies).
+- `e2e/buyer-journey.mjs` (phone, not signed in): store → Shop tab → item → paid in 11 s → My orders lists it → Account opens sign-in → Following / Liked / Shop tabs. No page errors.
+- Gateway tests: 71.

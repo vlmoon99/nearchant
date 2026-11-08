@@ -138,11 +138,59 @@ for (const f of document.querySelectorAll<HTMLFormElement>("form[data-ask]")) {
 }
 
 // ── header: who is signed in ──
-for (const el of document.querySelectorAll<HTMLElement>("[data-buyer-me]")) {
-  void getMe().then((m) => {
-    if (m) { el.textContent = m.email ?? m.wallet ?? "Signed in"; el.title = "Sign out"; el.addEventListener("click", async (e) => { e.preventDefault(); await api("/api/buyer/logout", {}); location.reload(); }); }
-    else el.addEventListener("click", async (e) => { e.preventDefault(); if (await signInSheet("Like posts and get a feed that learns what you want.")) location.reload(); });
+// Signed in: the name opens an account sheet (orders, liked, following, sign out with a confirmation) — it used to
+// sign out on the first tap. Not signed in: the sign-in sheet.
+const site = cfg.main ?? "";
+const esc = (x: string) => x.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+function accountSheet(m: NonNullable<Me>) {
+  const name = m.email ?? m.wallet ?? "Signed in";
+  const s = sheet(`<span class="headline">Your account</span><span class="foot muted">${esc(name)}</span>
+    <div class="list"><a class="list-row nav" href="${site}/feed/orders"><span class="list-text"><span class="body">My orders</span></span></a>
+      <a class="list-row nav" href="${site}/feed/following"><span class="list-text"><span class="body">Stores you follow</span></span></a>
+      <a class="list-row nav" href="${site}/feed/liked"><span class="list-text"><span class="body">Posts you liked</span></span></a></div>
+    <button class="btn secondary" data-out style="color:var(--red)">Sign out</button>`);
+  s.el.querySelector("[data-out]")!.addEventListener("click", async (e) => {
+    const b = e.currentTarget as HTMLButtonElement;
+    if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Tap again to sign out"; return; }
+    await api("/api/buyer/logout", {}).catch(() => {}); location.reload();
   });
+}
+for (const el of document.querySelectorAll<HTMLElement>("[data-buyer-me]")) {
+  // The tap works at once; who is signed in is asked then (it may still be loading).
+  el.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const m = await getMe();
+    if (m) accountSheet(m);
+    else if (await signInSheet("Keep your orders, likes and the stores you follow on every device.")) location.reload();
+  });
+  void getMe().then((m) => {
+    if (!m) return;
+    const label = el.querySelector<HTMLElement>("[data-buyer-label]");
+    const short = (m.email ?? m.wallet ?? "You").replace(/@.*/, "").slice(0, 14);
+    if (label) label.textContent = el.hasAttribute("data-buyer-tab") ? "You" : short; else el.textContent = short;
+    el.title = `Signed in as ${m.email ?? m.wallet ?? ""}`;
+  });
+}
+
+// My orders: orders paid in this browser (saved by the checkout), with their state — also for buyers who never signed in.
+const localBox = document.querySelector<HTMLElement>("[data-local-orders]");
+if (localBox) {
+  const known = new Set(JSON.parse(localBox.dataset.localOrders || "[]") as string[]);
+  let list: { orderId: string; handle: string; title: string; store: string; amount: string; at: string }[] = [];
+  try { list = JSON.parse(localStorage.getItem(`nc:${cfg.network}:orders`) ?? "[]"); } catch { /* none */ }
+  const label: Record<string, string> = { paid: "Paid — in escrow", in_progress: "Being prepared", delivered: "Shipped — confirm when you get it", released: "Done", refunded: "Refunded" };
+  void (async () => {
+    const rows = await Promise.all(list.filter((o) => !known.has(o.orderId)).map(async (o) => {
+      const r = await fetch(`/h/${o.handle}/public/orders/${o.orderId}`).then((x) => (x.ok ? x.json() : null)).catch(() => null) as { state?: string } | null;
+      return r && r.state && r.state !== "awaiting_payment" ? { ...o, state: r.state } : null;
+    }));
+    const shown = rows.filter((x): x is NonNullable<typeof x> => !!x);
+    if (!shown.length) return;
+    document.querySelector("[data-no-orders]")?.remove();
+    localBox.innerHTML = `<span class="group-h">In this browser</span>` + shown.map((o) => `<a class="card white" href="/h/${encodeURIComponent(o.handle)}/o/${encodeURIComponent(o.orderId)}" style="flex-direction:row;gap:12px;align-items:center;color:inherit">
+      <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="callout b">${esc(o.title)}</span><span class="foot muted">${esc(o.store)} · ${esc(o.at.slice(0, 10))}</span></span>
+      <span class="stack" style="gap:2px;align-items:flex-end"><span class="sub b">${esc(o.amount)}</span><span class="cap ${o.state === "delivered" ? "warn-t" : "muted"}">${esc(label[o.state] ?? o.state)}</span></span></a>`).join("");
+  })();
 }
 
 // ── shorts play muted while on screen ──

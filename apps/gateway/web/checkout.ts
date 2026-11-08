@@ -165,6 +165,11 @@ async function payItem(form: HTMLFormElement): Promise<void> {
       deposit: BigInt(order.payment.depositYocto), gas: BigInt(order.payment.gasTgas) * 10n ** 12n,
     });
     paidTx = true;
+    // Kept in this browser, so "My orders" lists it even without signing in.
+    try {
+      const k = `nc:${cfg.network}:orders`, all = JSON.parse(localStorage.getItem(k) ?? "[]") as unknown[];
+      localStorage.setItem(k, JSON.stringify([{ orderId: order.orderId, handle: form.dataset.handle ?? "", title: form.dataset.title ?? "Order", store, amount: order.amountDisplay, at: new Date().toISOString() }, ...all].slice(0, 50)));
+    } catch { /* private mode: the order page link still works */ }
     at = 3; draw("Almost done — NEAR is recording it.");
     let confirmed = false;
     for (let i = 0; i < 30 && !confirmed; i++) {
@@ -177,7 +182,7 @@ async function payItem(form: HTMLFormElement): Promise<void> {
     const orderUrl = `${cfg.base}o/${order.orderId}`;
     if (confirmed) {
       at = 4;
-      w.set("Paid ✓", `${order.amountDisplay} is safe in escrow on NEAR. ${store} gets it only when you confirm you received your order.\n\n${store} will contact you ${reach}.`, { steps: steps(), icon: "ok", buttons: [{ label: "Open my order", primary: true, href: orderUrl }, { label: "Back to the store", onClick: () => location.reload() }] });
+      w.set("Paid ✓", `${order.amountDisplay} is safe in escrow on NEAR. ${store} gets it only when you confirm you received your order.\n\n${store} will contact you ${reach}.\n\nIt's saved in My orders.`, { steps: steps(), icon: "ok", buttons: [{ label: "Open my order", primary: true, href: orderUrl }, { label: "Keep shopping", onClick: () => { w.close(); } }] });
     } else {
       w.set("Payment sent", "NEAR is taking longer than usual to confirm it. Your order page updates by itself.", { steps: steps(), icon: "busy", buttons: [{ label: "Open my order", primary: true, href: orderUrl }] });
     }

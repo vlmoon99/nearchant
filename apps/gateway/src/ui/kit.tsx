@@ -29,7 +29,7 @@ const P: Record<string, string> = {
   msg: '<path d="M4 5h16v11H8l-4 4z"/>', phone: '<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2z"/>',
   mail: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/>', eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   eyeoff: '<path d="M3 3l18 18"/><path d="M10.6 6.1A10 10 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-3.2 3.9M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a10 10 0 0 0 4.4-1"/>',
-  bag: '<path d="M5 8h14l-1 13H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>', globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.7 5.7 3.7 9s-1.2 6.3-3.7 9c-2.5-2.7-3.7-5.7-3.7-9S9.5 5.7 12 3z"/>',
+  bag: '<path d="M5 8h14l-1 13H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>', person: '<circle cx="12" cy="8" r="4"/><path d="M4 21c.9-4 4.1-6.5 8-6.5s7.1 2.5 8 6.5"/>', globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.7 5.7 3.7 9s-1.2 6.3-3.7 9c-2.5-2.7-3.7-5.7-3.7-9S9.5 5.7 12 3z"/>',
 };
 
 export const Icon: FC<{ n: string; s?: number; c?: string }> = ({ n, s = 18, c }) =>
@@ -140,4 +140,20 @@ export const Segmented: FC<{ items: { label: string; href?: string; value?: stri
   <div class="seg" role="tablist" {...(name ? { "data-seg": name } : {})}>{items.map((x) => x.href
     ? <a href={x.href} role="tab" aria-selected={x.on ? "true" : "false"} class={x.on ? "on" : ""}>{x.label}</a>
     : <button type="button" role="tab" data-value={x.value} aria-selected={x.on ? "true" : "false"} class={x.on ? "on" : ""}>{x.label}</button>)}</div>
+);
+
+/** Buyer navigation (8 Nov): the same places on every buyer page — the feed, stores you follow, posts you liked, your
+ *  orders and your account. Phone: a bottom tab bar; desktop: links in the header (BuyerLinks). Links are absolute
+ *  to the main site, because a store's own subdomain doesn't share the buyer's sign-in. */
+export type BuyerTab = "feed" | "following" | "liked" | "orders" | null;
+const BUYER_TABS = [["feed", "grid", "Shop", "/feed"], ["following", "users", "Following", "/feed/following"], ["liked", "heart", "Liked", "/feed/liked"], ["orders", "box", "Orders", "/feed/orders"]] as const;
+export const BuyerTabs: FC<{ active: BuyerTab; site?: string }> = ({ active, site = "" }) => (
+  <nav class="buyertabs" aria-label="Shopping">
+    {BUYER_TABS.map(([k, ic, label, href]) => <a href={`${site}${href}`} class={active === k ? "on" : ""} aria-current={active === k ? "page" : undefined}><Icon n={ic} s={22} />{label}</a>)}
+    <a href="#" data-buyer-me data-buyer-tab><Icon n="person" s={22} /><span data-buyer-label>Sign in</span></a>
+  </nav>
+);
+export const BuyerLinks: FC<{ active: BuyerTab; site?: string }> = ({ active, site = "" }) => (
+  <span class="buyerlinks sub">{BUYER_TABS.map(([k, , label, href]) => <a href={`${site}${href}`} class={active === k ? "on" : ""}>{k === "feed" ? "Shop feed" : k === "orders" ? "My orders" : label}</a>)}
+    <a href="#" data-buyer-me><span data-buyer-label>Sign in</span></a></span>
 );

@@ -2,7 +2,7 @@
 // — and a feed of posts and shorts from the stores that fit. Without a query: "For you" (what this buyer liked pulls
 // similar posts up), newest and most liked first. A post opens on its store, where it can be bought.
 import type { FC } from "hono/jsx";
-import { Badge, Icon, Mark, UiPage, type UiConfig } from "./kit.js";
+import { Badge, BuyerLinks, BuyerTabs, Icon, Mark, UiPage, type UiConfig } from "./kit.js";
 
 export interface StoreCard { handle: string; name: string; place: string | null; img: string | null; goods: { name: string; match: boolean }[]; matched: number; followers: number }
 
@@ -31,9 +31,9 @@ export const FeedTiles: FC<{ posts: FeedTile[]; next: string | null }> = ({ post
 export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: string; summary: string | null; posts: FeedTile[]; next: string | null; suggestions: string[]; forYou: boolean; liked?: boolean; following?: boolean; stores?: StoreCard[] }> = ({ cfg, test, q, city, summary, posts, next, suggestions, forYou, liked, following, stores = [] }) => (
   <UiPage title={q ? `${q} · Nearchant` : "Shop feed · Nearchant"} cfg={cfg} page="feed" test={test} buyer>
     <div class="land">
-      <nav class="land-nav"><a class="land-logo" href="/"><Mark />Nearchant</a>
-        <span class="land-links sub"><a href="/feed">Feed</a><a href="/feed/following">Following</a><a href="/feed/liked">Liked</a><a href="/feed/orders">Orders</a></span>
-        <span class="row" style="gap:14px;align-items:center"><a class="sub" href="#" data-buyer-me>Sign in</a><a class="btn" href="/start">Sell here</a></span></nav>
+      <nav class="land-nav"><a class="land-logo" href="/feed"><Mark />Nearchant</a>
+        <BuyerLinks active={following ? "following" : liked ? "liked" : "feed"} />
+        <a class="btn sm secondary" href="/">Sell here</a></nav>
       <section class="stack" style="max-width:1200px;margin:0 auto;padding:24px 16px 80px;gap:18px">
         <form class="feed-search" action="/feed" method="get">
           <span class="feed-q"><Icon n="sparkles" s={18} c="var(--purple)" /><input class="input" name="q" value={q} maxlength={200} placeholder="What are you looking for? e.g. protein and creatine, a denim jacket" autocomplete="off" /></span>
@@ -55,6 +55,7 @@ export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: st
           </a>)}</div></div> : null}
         <div class="grid4" data-feed-grid><FeedTiles posts={posts} next={null} /></div>
         {next ? <div data-feed-more={next} class="foot muted" style="text-align:center;padding:20px">Loading more…</div> : null}
+        <BuyerTabs active={following ? "following" : liked ? "liked" : "feed"} />
         <p class="cap muted" style="margin:0">Every post has a proof on NEAR; you pay into escrow and the store is paid when you confirm. Posts are checked by AI moderation; we keep the IP address, email and wallet of accounts that break the rules.</p>
       </section>
     </div>

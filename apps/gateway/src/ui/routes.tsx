@@ -8,7 +8,7 @@ import { OrdersPage, SellerOrderPage, type SellerOrder } from "./orders.js";
 import { OnboardingPage } from "./onboarding.js";
 import { CreatePage, HomePage, PostPage, PostsPage, SignInPage, checklistFor, type StoreView } from "./app-pages.js";
 import { createHash } from "node:crypto";
-import { Mark, UiPage, assetV, type UiConfig } from "./kit.js";
+import { BuyerLinks, BuyerTabs, Mark, UiPage, assetV, type UiConfig } from "./kit.js";
 import { ExplorePage, FeedTiles, type FeedTile } from "./explore.js";
 import { feedFor, searchSource, type SearchIntent } from "../buyer-app.js";
 import { clientIp } from "../buyers.js";
@@ -138,15 +138,17 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const orders = buyer && d.buyerOrders ? await d.buyerOrders(buyer) : [];
     const label: Record<string, string> = { paid: "Paid — in escrow", in_progress: "Being prepared", delivered: "Shipped — confirm when you get it", released: "Done", refunded: "Refunded" };
     return c.html(<UiPage title="My orders · Nearchant" cfg={d.cfg} page="feed" test={d.test} buyer>
-      <div class="land"><nav class="land-nav"><a class="land-logo" href="/"><Mark />Nearchant</a><span class="land-links sub"><a href="/feed">Feed</a><a href="/feed/following">Following</a><a href="/feed/liked">Liked</a><a href="/feed/orders">Orders</a></span><a class="sub" href="#" data-buyer-me>Sign in</a></nav>
+      <div class="land"><nav class="land-nav"><a class="land-logo" href="/feed"><Mark />Nearchant</a><BuyerLinks active="orders" /><a class="btn sm secondary" href="/">Sell here</a></nav>
         <section class="stack" style="max-width:760px;margin:0 auto;padding:24px 16px 80px;gap:14px"><h1 class="t2" style="margin:0">My orders</h1>
-          {!buyer ? <div class="card"><span class="headline">Sign in to see your orders</span><span class="foot muted">Orders you pay while signed in show up here, from every store.</span><a class="btn" href="#" data-buyer-me>Sign in</a></div>
-            : !orders.length ? <div class="card"><span class="headline">No orders yet</span><span class="foot muted">Find something in the <a href="/feed">shop feed</a> — you pay into escrow on NEAR and the store is paid when you confirm.</span></div>
+          {/* Orders paid in this browser (kept by the checkout), also when not signed in — filled by buyer.ts */}
+          <div class="stack s12" data-local-orders={JSON.stringify(orders.map((o) => o.orderId))}></div>
+          {!buyer ? <div class="card"><span class="headline">See your orders on every device</span><span class="foot muted">Orders you pay in this browser are listed above. Sign in to keep them with your account, on any phone or computer.</span><a class="btn" href="#" data-buyer-me>Sign in</a></div>
+            : !orders.length ? <div class="card" data-no-orders><span class="headline">No orders yet</span><span class="foot muted">Find something in the <a href="/feed">shop feed</a> — you pay into escrow on NEAR and the store is paid when you confirm.</span></div>
             : orders.map((o) => <a class="card white" href={`/h/${o.handle}/o/${o.orderId}`} style="flex-direction:row;gap:12px;align-items:center;color:inherit">
               <span class="stack" style="gap:2px;flex:1;min-width:0"><span class="callout b">{o.title}</span><span class="foot muted">{o.store} · {o.at.slice(0, 10)}</span></span>
               <span class="stack" style="gap:2px;align-items:flex-end"><span class="sub b">{o.amount}</span><span class="cap" style={o.state === "delivered" ? "color:var(--orange-text)" : "color:var(--label-2)"}>{label[o.state] ?? o.state}</span></span></a>)}
           <span class="cap muted">Money waits in escrow on NEAR until you confirm you got your order. Not delivered in time? You get it back automatically.</span>
-        </section></div></UiPage>);
+        </section><BuyerTabs active="orders" /></div></UiPage>);
   });
   app.get("/explore", (c) => c.redirect(`/feed${new URL(c.req.url).search}`, 301));
   app.get("/verify", (c) => verify(c, c.req.query("id")?.trim() || undefined));

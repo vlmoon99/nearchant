@@ -1,7 +1,7 @@
 // Buyer storefront (Figma "Storefront for buyers"): store page + item page with the existing escrow checkout
 // (web/checkout.ts hooks onto form.order[data-service] and the #nc-config tag).
 import type { FC, PropsWithChildren } from "hono/jsx";
-import { Badge, BuyerScripts, ContactList, Icon, asset } from "./kit.js";
+import { Badge, BuyerLinks, BuyerScripts, BuyerTabs, ContactList, Icon, asset } from "./kit.js";
 import { APPS, type Contact } from "../contact.js";
 import { itemFacts, ships, soldOut, type ItemDetails } from "../item-details.js";
 
@@ -27,10 +27,11 @@ const Shell: FC<PropsWithChildren<{ title: string; s: StoreData; cfg: CheckoutCf
       {test ? <div class="cap testbar">TEST network — payments use free test tokens</div> : null}
       <header class="spread" style="padding:14px 20px;border-bottom:1px solid var(--sep)">
         <a class="row" href={cfg.base} style="align-items:center;gap:10px;color:inherit"><span class="dot" style="width:28px;height:28px;background:linear-gradient(135deg,#ff9966,#b052de)"></span><span class="headline">{s.name}</span></a>
-        <span class="row" style="gap:12px;align-items:center"><a class="foot hide-m" href="/feed">Shop feed</a><a class="foot clamp1" style="max-width:180px" href="#" data-buyer-me>Sign in</a>
+        <span class="row" style="gap:12px;align-items:center"><BuyerLinks active={null} site={cfg.site ?? ""} />
           <span class="acct-pill pay hidden" data-pay-wallet title="Your test wallet in this browser — it pays at checkout"><Icon n="wallet" s={14} /><span data-pay-balance>…</span></span></span>
       </header>
       <main class="stack" style="max-width:1200px;margin:0 auto;padding:24px 20px 80px;gap:24px">{children}</main>
+      <BuyerTabs active={null} site={cfg.site ?? ""} />
     </body></html>
 );
 
@@ -47,7 +48,7 @@ export const StorePage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean }> = 
     <h2 class="t4">Shop</h2>
     {s.items.length ? <div class="grid4">{s.items.map((i) => (
       <a class="post" href={`${cfg.base}i/${i.id}`} style="color:inherit">
-        <div class="img" style={i.img ? `background-image:url('${i.img}');aspect-ratio:4/5` : "aspect-ratio:4/5"}></div>
+        <div class="img" style={i.img ? `background-image:url('${i.img}');aspect-ratio:4/5` : "aspect-ratio:4/5;display:grid;place-items:center"}>{i.img ? null : <Icon n={i.kind === "service" ? "users" : "bag"} s={40} c="var(--label-3)" />}</div>
         <div class="spread" style="align-items:flex-start"><span class="sub b">{i.title}</span><span class="sub b" style="white-space:nowrap">{i.details?.priceFrom ? "from " : ""}{i.price}</span></div>
         <span class="foot muted">{soldOut(i.kind, i.details ?? {}) ? "Sold out" : itemFacts(i.kind, i.details ?? {}).join(" · ")}</span>
       </a>))}</div> : <p class="sub muted">Nothing for sale yet — check back soon.</p>}
@@ -139,7 +140,7 @@ export const ItemPage: FC<{ s: StoreData; i: StoreItem; cfg: CheckoutCfg; test: 
             <span class="foot muted">{gone ? "Sold out" : itemFacts(i.kind, d).join(" · ")}</span></div>
           {i.description ? <p class="body" style="margin:0;white-space:pre-line">{i.description}</p> : null}
           {gone ? <div class="card"><span class="headline">Sold out</span><span class="foot muted">Follow {s.name} to see when it is back.</span></div> :
-          <form class="order stack" data-service={i.id} data-price={i.price} data-store={s.name} novalidate style="gap:20px">
+          <form class="order stack" data-service={i.id} data-price={i.price} data-store={s.name} data-handle={s.handle} data-title={i.title} novalidate style="gap:20px">
             {i.options.length ? <div class="group"><span class="group-h">{d.optionName || "Choose"}</span>
               <div class="seg" data-seg="option">{i.options.map((o, k) => <button type="button" data-value={o} class={k === 0 ? "on" : ""} aria-selected={k === 0 ? "true" : "false"}>{o}</button>)}</div>
               <input type="hidden" name="option" value={i.options[0]} /></div> : null}
@@ -179,7 +180,7 @@ export const ItemOrderPage: FC<{ s: StoreData; cfg: CheckoutCfg; test: boolean; 
   ];
   return (
     <Shell title={`Order · ${s.name}`} s={s} cfg={cfg} test={test}>
-      <a class="sub" href={cfg.base}>‹ {s.name}</a>
+      <div class="spread"><a class="sub" href={cfg.base}>‹ {s.name}</a><a class="sub" href={`${cfg.site ?? ""}/feed/orders`}>My orders</a></div>
       <section class="card" style="align-items:center;text-align:center;gap:10px" {...(st !== "Released" && st !== "Refunded" ? { "data-live-buyer": o.orderId, "data-chain": st ?? "" } : {})}>
         <span class={`dot ${step >= 1 ? "ok" : "now"}`} style="width:64px;height:64px"><Icon n={step >= 1 ? "check" : "lock"} s={32} /></span>
         <h1 class="t2">{st === "Released" ? "Done — thank you!" : st === "Delivered" ? "Shipped — confirm when you get it" : st === "Held" ? "Paid — safe in escrow" : st === "Refunded" ? "Refunded — the money is back in your wallet"
