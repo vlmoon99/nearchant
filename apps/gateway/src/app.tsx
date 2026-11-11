@@ -19,6 +19,8 @@ import { parseContact, type Contact } from "./contact.js";
 export interface ItemForSale { kind: string; sellable: boolean; ships: boolean; question?: string; optionName?: string; options: string[] }
 
 export interface Deps {
+  /** Middleware that must wrap every page (the review translations, ADR 0029). */
+  beforeRoutes?: (app: Hono<any>) => void;
   config: GatewayConfig;
   handles: { get(handle: string): Promise<HandleRecord | null> };
   store: Store;
@@ -125,6 +127,7 @@ export function createApp(d: Deps) {
   });
   const isEmbed = (path: string) => /^(\/h\/[a-z0-9_-]+)?\/embed(\/|$)/.test(path);
   app.use("*", (c, next) => (c.req.path.startsWith("/media/") ? next() : isEmbed(c.req.path) ? embedHeaders(c, next) : pageHeaders(c, next)));
+  d.beforeRoutes?.(app);
 
   // Deliverables. M0: an unguessable order id is the capability; files exist only after delivery.
   app.get("/media/:order/:file", async (c) => {

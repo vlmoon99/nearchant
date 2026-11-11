@@ -1635,3 +1635,66 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 - `buy-item.mjs` live: paid 12 s → shipped 30 s → the buyer's "I got it" released the payment 4 s later. No page errors.
 - Clicking from a browser that didn't pay shows the explanation.
 - The sponsor endpoint for an existing wallet was measured at 27 s before the fix.
+
+## 2026-11-11 — Shopping ↔ selling switch, "Become a seller", site back up on the Mac
+
+**Found**
+- nearchant.com was down (Cloudflare 530). Docker Desktop was not running, and the standby watchdog and keep-awake
+  launchd jobs were not loaded (the watchdog last logged a start at 13:00 EET today, then nothing).
+- Started Docker and bootstrapped `com.nearchant.standby` and `com.nearchant.awake` again: `/`, `/feed`, `/health` → 200.
+
+**Done**
+- `GET /api/me` → `{ buyer, store }`: both roles of this browser, never 401.
+- **Buyer → seller.** The account and sign-in sheets start with **Become a seller** or **Switch to selling — <store>**.
+  The buyer header has **Sell on Nearchant**, which reads **Your store** once this browser has one. `/sell` opens
+  `/app` if signed in to a store, otherwise `/start`.
+- **One sign-in.** Onboarding pre-fills the signed-in buyer's email and says the store will use the same sign-in.
+  After the store is created, `POST /api/app/link-buyer` links the buyer's proven email and wallet to it, only where
+  free on both sides.
+- **Seller → buyer.** The sidebar has a **Selling | Shopping** segmented switch. The phone top bar has a ⇄ button, and
+  Settings (phone) has **Switch to shopping**. Onboarding's welcome has "Just shopping? Go to the shop feed".
+- **Orders paid before signing in join the account.** `POST /api/buyer/claim-orders` takes order ids from the
+  checkout's localStorage; an order that already belongs to a buyer stays theirs.
+- `docs/test-tonight.md`: the owner's step-by-step full test.
+- `e2e/roles.mjs` checks the switch on the live site. `e2e/onboard.mjs` now fills the contact, which is required since
+  ADR 0026; the journey failed without it.
+- 28 automated test stores (Nova/Wd/Roles Test) added to `showcase_hidden`, so the public feed shows real stores only.
+
+**Verified**
+- gateway tests 75/75, with new tests for `/api/me`, claim-orders, link-buyer and `/sell`; tsc for server and web.
+- `e2e/roles.mjs` on nearchant.com: 20/20 checks, phone and desktop, no JS errors. The store's `email:` setting points
+  to the buyer email.
+- Store page header fits at 1440, 1024 and 393 px, with no sideways scroll.
+- Full journey on nearchant.com, no page errors:
+  - store created in 7 s; posts with pictures ready in 244 s (Comfy Cloud pictures still work);
+  - buyer paid 1 nUSD into escrow in 18 s; shipped and delivered on chain at 29 s; released at 35 s;
+  - both sides see each other's contact details.
+
+**Not verified**
+- The real email inbox flow; the e2e used a test buyer session.
+- Real-wallet buyer sign-in followed by Become a seller.
+
+## 2026-11-11 (afternoon) — Russian and Ukrainian review copy (ADR 0029)
+
+**Done**
+- `UI_LANGS=en,ru,uk` adds an EN | RU | UA bar at the top of every page and a translator (`web/i18n.ts`) fed by
+  `apps/gateway/i18n/{ru,uk}.json` (1,478 strings each).
+- The strings came from `scripts/i18n-extract.mjs`. Five agents translated them; about 120 were then filled or fixed
+  by hand in `i18n/overrides.json`.
+- Store names, captions and AI text stay as written.
+- The item form label "Name" is now "Title", so ru/uk can tell a person's name from a product's.
+- Review copy on the Mac: `gateway-review` and `review-tunnel` (compose profile `review`), with the same data,
+  `STORE_SUBDOMAINS=off`, and a Cloudflare quick tunnel URL. Production is English-only, as before.
+
+**Verified**
+- gateway tests 79/79, including 4 for i18n: production unchanged, and a review page gets the bar, the script and
+  the cookie.
+- `e2e/i18n-misses.mjs` over 19 pages in ru and uk: what remains in English is store or AI content, brand names,
+  and example placeholders.
+- Screenshots of landing, feed, store, item checkout, onboarding, Home, Shop, Settings and Wallet in ru/uk: no JS errors.
+- nearchant.com: no language bar, and `/assets/i18n/ru.js` → 404.
+
+**Not verified**
+- A full paid order clicked through in Russian.
+- Emails are English.
+- The quick-tunnel URL changes if the `review-tunnel` container restarts; read the new one from its log.

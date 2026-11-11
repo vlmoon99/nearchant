@@ -27,6 +27,7 @@ import { emailHtml, resendMailer } from "./email.js";
 import { LandingPage } from "./ui/landing.js";
 import { assetV } from "./ui/kit.js";
 import { mountUi } from "./ui/routes.js";
+import { mountI18n, parseLangs } from "./i18n.js";
 import { labApp } from "./admin/lab.js";
 import { ComfyCloud, type LabVariant } from "@nearchant/providers";
 import { RateLimit, sponsorBuyer } from "./buyers.js";
@@ -166,7 +167,7 @@ const isOwnerKey = async (accountId: string, publicKey: string) => {
 
 const mediaDir = process.env.MEDIA_DIR ?? join(configDir, "../.media");
 // The home page at nearchant.com: real counts and the latest posts with a proof on NEAR (ADR 0018, Figma Landing).
-const landingCfg = { base: "/", rpcUrl: config.rpc_urls[0] ?? "", network: config.network, token: config.token.symbol, decimals: config.token.decimals, storeBase: config.public_url.startsWith("https://") ? new URL(config.public_url).host : "" };
+const landingCfg = { base: "/", rpcUrl: config.rpc_urls[0] ?? "", network: config.network, token: config.token.symbol, decimals: config.token.decimals, storeBase: config.public_url.startsWith("https://") && process.env.STORE_SUBDOMAINS !== "off" ? new URL(config.public_url).host : "" };
 const landing = conn ? async () => {
   const sc = await new ContentStore(conn.db).showcase(3);
   const posts = sc.posts.map((p) => ({ caption: p.caption, img: p.publicImage ? `/files/${p.publicImage}?w=640` : null, proofId: p.proofId, store: p.storeName, href: `/h/${p.handle}/p/${p.id}?ref=landing`, line: `${p.storeName}${p.proofId ? ` · proof #${p.proofId}` : ""}` }));
@@ -192,6 +193,10 @@ const mailAbout = async (to: string | null | undefined, subject: string, lines: 
 const buyerKey = createHash("sha256").update(`nearchant-buyer:${process.env.NEARCHANT_SECRET_KEY ?? "dev"}`).digest();
 
 const app = createApp({
+  // Review copies only (UI_LANGS="en,ru,uk"): a language switch + translated interface. Production: English only.
+  beforeRoutes: (a) => mountI18n(a, { langs: parseLangs(process.env.UI_LANGS), dir: join(import.meta.dirname, "../i18n"),
+    clientJs: existsSync(join(import.meta.dirname, "../dist/web/i18n.js")) ? readFileSync(join(import.meta.dirname, "../dist/web/i18n.js"), "utf8") : undefined,
+    secureCookies: config.public_url.startsWith("https://") }),
   ...(landing ? { landing } : {}),
   config,
   handles,
@@ -476,6 +481,11 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
     walletRecipient: new URL(config.public_url).host,
     ...(mailer ? { mail: mailer } : {}), publicUrl: config.public_url,
     ...(feedStore ? { logIp: (k: "store", id: string, ip: string) => feedStore.logIp(k, id, ip) } : {}),
+    ...(feedStore ? { buyerOf: async (c: import("hono").Context) => {
+      const id = readSession(buyerKey, getCookie(c, "nc_buyer"));
+      const b = id ? await feedStore.getBuyer(id) : null;
+      return b && b.status === "active" ? { email: b.email, wallet: b.wallet } : null;
+    } } : {}),
   });
   const queueJob = async (task: string, payload: Record<string, unknown>, jobKey?: string) => {
     if (!queue) throw new Error("no job queue (DATABASE_URL unset)");
@@ -483,6 +493,8 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
   };
   mountBuyerApp(app, {
     feed: feedStore!, content: new ContentStore(conn.db), isOwnerKey, enqueue: queueJob, understand, key: buyerKey,
+    sellerKey: createHash("sha256").update(`nearchant-session:${process.env.NEARCHANT_SECRET_KEY}`).digest(),
+    orderOf: async (id: string) => { const o = await store.getOrder(id); return o ? { handle: o.handle } : null; },
     secureCookies: config.public_url.startsWith("https://"), walletRecipient: new URL(config.public_url).host, publicUrl: config.public_url,
     ...(mailer ? { mail: mailer } : {}),
   });
@@ -490,7 +502,8 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
 {
   const appFile = join(import.meta.dirname, "../dist/web/app.js");
   const sessionKey = createHash("sha256").update(`nearchant-session:${process.env.NEARCHANT_SECRET_KEY ?? "dev"}`).digest();
-  const storeBase = config.public_url.startsWith("https://") ? new URL(config.public_url).host : "";
+  // STORE_SUBDOMAINS=off (review copies on a host without a wildcard): store links stay on /h/<handle>/.
+  const storeBase = config.public_url.startsWith("https://") && process.env.STORE_SUBDOMAINS !== "off" ? new URL(config.public_url).host : "";
   mountUi(app, {
     cfg: { base: "/", rpcUrl: config.rpc_urls[0] ?? "", network: config.network, token: config.token.symbol, decimals: config.token.decimals, storeBase, tokenContract: accounts.nusd, accountSuffix: accounts.root },
     test: config.token.test, css: readFileSync(join(import.meta.dirname, "../web/ui.css"), "utf8"),

@@ -51,6 +51,22 @@ services:
     ports: ["127.0.0.1:8797:8787", "${ADMIN_BIND:-127.0.0.1}:8790:8790"]
     environment: { <<: *appenv, PORT: "8787", ADMIN_PORT: "8790" }
 
+  # Review copy (ADR 0029): the same site and data with the RU / UA language switch, for clients to review. Not for
+  # production. `--profile review up -d`; public through a Cloudflare quick tunnel (random https URL in its log) or a
+  # hostname the owner adds to the tunnel. REVIEW_URL must be that public URL (wallet sign-in, email links, cookies).
+  gateway-review:
+    <<: *app
+    command: ["node", "apps/gateway/dist/main.js"]
+    ports: ["127.0.0.1:8798:8787"]
+    environment: { <<: *appenv, PORT: "8787", UI_LANGS: "en,ru,uk", STORE_SUBDOMAINS: "off", PUBLIC_URL: "${REVIEW_URL:-http://localhost:8798}" }
+    profiles: [review]
+
+  review-tunnel:
+    image: cloudflare/cloudflared:2026.10.7
+    command: ["tunnel", "--no-autoupdate", "--url", "http://gateway-review:8787"]
+    profiles: [review]
+    restart: unless-stopped
+
   worker:
     <<: *app
     command: ["node", "apps/worker/dist/main.js"]
