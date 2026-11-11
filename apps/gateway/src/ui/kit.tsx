@@ -41,7 +41,7 @@ export const Icon: FC<{ n: string; s?: number; c?: string }> = ({ n, s = 18, c }
 export const assetV: Record<"css" | "js" | "checkout" | "buyer" | "wallet", string> = { css: "", js: "", checkout: "", buyer: "", wallet: "" };
 export const asset = (path: string, k: keyof typeof assetV) => (assetV[k] ? `${path}?v=${assetV[k]}` : path);
 
-export interface UiConfig { base: string; rpcUrl: string; network: string; token: string; decimals: number; storeBase: string; tokenContract?: string; accountSuffix?: string }
+export interface UiConfig { base: string; rpcUrl: string; network: string; token: string; decimals: number; storeBase: string; tokenContract?: string; accountSuffix?: string; videos?: boolean }
 
 /** HTML page with the UI stylesheet, the client config and the app script. */
 export const UiPage: FC<PropsWithChildren<{ title: string; cfg: UiConfig; page: string; test?: boolean; buyer?: boolean }>> = ({ title, cfg, page, test, buyer, children }) => (

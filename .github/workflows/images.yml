@@ -14,7 +14,6 @@ jobs:
         include:
           - { name: app, context: ., file: deploy/Dockerfile }
           - { name: image, context: deploy/image-engine/service, file: deploy/image-engine/service/Dockerfile }
-          - { name: tts, context: deploy/video-engine/tts, file: deploy/video-engine/tts/Dockerfile }
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3

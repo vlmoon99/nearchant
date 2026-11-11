@@ -34,3 +34,4 @@ Changing a default from `CLAUDE.md` or `architecture.md` needs a new ADR here.
 | [0027](0027-banners-and-buy-widget.md) | Banners (5 formats with QR) for social posts and websites; embeddable buy widget (script/iframe); card/Apple Pay/Google Pay planned |
 | [0028](0028-kits-copy-paste.md) | Kits: the market and content parts as self-contained folders anyone can copy into their project (`kits/`), each proven by a copy-alone check |
 | [0029](0029-review-translations.md) | Russian and Ukrainian for review copies (`UI_LANGS`, EN/RU/UA bar, dictionary translator); production stays English |
+| [0030](0030-phala-runs-no-models.md) | The Phala server runs no models (NEAR AI TEE + Comfy Cloud only); videos off until a hosted voice model exists |

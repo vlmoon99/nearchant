@@ -1,26 +1,36 @@
 # Deploying Nearchant to a Phala Cloud CVM (Intel TDX)
 
-The judged deployment (ADR 0007, 0019): gateway + worker + Postgres + image service (Comfy Cloud) + TTS in one CVM.
-Text, vision and caption checks run on NEAR AI Cloud TEE models; pictures and video on Comfy Cloud.
+The judged deployment (ADR 0007, 0019, 0030): gateway, worker, Postgres, the image service (a Comfy Cloud client),
+SearXNG and the Marp renderer in one CVM (`tdx.medium`, 2 vCPU / 4 GB, about $0.12 an hour). The CVM runs no
+models: text, vision, embeddings and speech-to-text go to NEAR AI Cloud TEE models, pictures to Comfy Cloud. Videos
+are off (no hosted voice model yet).
 
-## Images (pinned by digest — the attestation report binds exactly this code)
+## What the owner does
 
-Built by the `images` workflow (Actions → images → Run workflow) from commit `7d5568c`:
+1. **Phala Cloud API key.** cloud.phala.com → your account (top right) → **API Keys** → **Create**. The key starts
+   with `phak_`. A key that starts with `sk-rp-` is for Phala's AI models (RedPill), not for servers.
+   Save it in the Keychain from the Claude Code prompt, so it never appears in the chat:
+   `! security add-generic-password -U -a nearchant -s PHALA_CLOUD_API_KEY -w`
+2. **Credit** on the Phala account: about $2.85 a day.
+3. **Comfy Cloud credits** for pictures: without them, posts use the seller's own photo.
 
-```
-NEARCHANT_IMAGE=ghcr.io/vlmoon99/nearchant-app@sha256:98e99eebae15f1185046d5e83066cad2073a33f127e9d7a22289c04453107556
-IMAGE_SERVICE_IMAGE=ghcr.io/vlmoon99/nearchant-image@sha256:38f3c95cfe10989b7ba2b4960bb8e64eef3ad7bdab7c56cae81dfd919d3cdbb3
-TTS_IMAGE=ghcr.io/vlmoon99/nearchant-tts@sha256:8f3cf7121ad1e748b2311bc5352ebf1eb34cc158b33b2ee39715588c5db2858f
-```
+The image packages on GitHub (`ghcr.io/vlmoon99/nearchant-app`, `nearchant-image`) are already public.
 
-The packages are private on GitHub at first: make them public (GitHub → Packages → each package → Package
-settings → Change visibility) or give Phala a registry token.
+## What Claude does (in order)
 
-## Steps (owner)
+1. Build the images: Actions → `images` → Run workflow, then pin the digests in the deploy env.
+2. Create the CVM with the secrets in Phala's encrypted env (from the Keychain; never in a file in the repo), and
+   **without** `CF_TUNNEL_TOKEN` at first, so it doesn't take traffic from the Mac.
+3. Stop the Mac's watchdog (it would start the Mac site again when it sees the Spark down) and pause new orders.
+4. Copy the data: `pg_dump` of the Mac's database and the media folder into the CVM.
+5. Set `CF_TUNNEL_TOKEN` on the CVM; stop the Mac's tunnel. Never two tunnels on two databases.
+6. Check: `https://nearchant.com/health`, a post's `/verify/<n>` "unchanged", sign-in by email, a test order from
+   payment to release, a new store's posts with pictures.
 
-1. Create a Phala Cloud account with credit; install the CLI (`npx phala auth login`).
-2. Secrets — set them in the Phala dashboard (encrypted env), never in a file in the repo. `.env.example` lists them.
-3. `npx phala cvms create --name nearchant --compose deploy/phala/compose.yaml --env-file <your local, git-ignored env>`
-4. The CVM's `cloudflared` joins the same tunnel as the Spark. **Stop the Spark tunnel first** (never two tunnels on
-   two databases), after copying the Spark database: `pg_dump` from the Spark, `pg_restore` into the CVM's db.
-5. Check: `https://nearchant.com/` 200, `/verify/23` shows "unchanged", a new store's posts get pictures.
+## Secrets (Phala encrypted env)
+
+`POSTGRES_PASSWORD` (new), `NEARCHANT_SECRET_KEY` (**the same** as on the Mac, or sealed keys can't be opened),
+`NEAR_RELAYER_KEY`, `NEARAI_API_KEY`, `COMFY_API_KEY`, `IMAGE_API_KEY`, `RESEND_API_KEY`, `ADMIN_PASSWORD`,
+`NVIDIA_API_KEY`, `NRAS_URL`, `CF_TUNNEL_TOKEN`, plus `NEARCHANT_IMAGE` and `IMAGE_SERVICE_IMAGE` (digests).
+
+The admin panel listens on 8790 inside the CVM only; reach it with `phala ssh` port forwarding.

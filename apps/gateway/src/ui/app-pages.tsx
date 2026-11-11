@@ -181,8 +181,11 @@ export const PostPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; p: P
             {making ? <span class="sub">AI is making a 15-second video with an English voiceover and captions — about 3 minutes. This page refreshes by itself.</span>
               : video?.status === "ready" ? <span class="sub">Ready{video.script?.hook ? ` · “${video.script.hook}”` : ""}. It goes on your store with the post.</span>
               : <>{video?.status === "failed" ? <span class="foot" style="color:var(--red-text)">The last try failed: {video.error ?? "unknown error"}</span> : null}
-                <span class="sub muted">Turn this post into a 10–15 s vertical video: the picture comes alive, a voice tells the story, captions on screen. Uses 3 picture credits.</span>
-                <button class="btn secondary" data-make-video={p.id}><Icon n="sparkle" />Make a video</button></>}
+                {cfg.videos === false
+                  // No voice model on NEAR AI yet, and this server runs no models of its own (ADR 0030).
+                  ? <span class="sub muted">Videos are not available on this server yet: they need a voice model, and none is hosted for Nearchant right now. Pictures and posts work as usual.</span>
+                  : <><span class="sub muted">Turn this post into a 10–15 s vertical video: the picture comes alive, a voice tells the story, captions on screen. Uses 3 picture credits.</span>
+                    <button class="btn secondary" data-make-video={p.id}><Icon n="sparkle" />Make a video</button></>}</>}
           </div> : null}
           {p.status === "published" && !p.removedAt ? <div class="card" style="gap:10px"><span class="headline">Live on your store</span>
             <span class="foot muted">Buyers see it in your store’s feed and in the Nearchant shop feed. Share its link on Instagram or Telegram — people land on your store, where they can buy.</span>

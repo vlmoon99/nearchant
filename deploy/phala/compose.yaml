@@ -21,14 +21,20 @@ services:
       NEARAI_API_KEY: ${NEARAI_API_KEY}
       COMFY_API_KEY: ${COMFY_API_KEY}           # pictures + video on Comfy Cloud (ADR 0019)
       IMAGE_API_KEY: ${IMAGE_API_KEY}
-      TTS_URL: http://tts:8105
+      # No TTS_URL: this server runs no models (ADR 0030), so videos are off and the post page says so.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}       # email sign-in + order notices (ADR 0021)
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}       # NVIDIA NRAS: GPU part of the TEE attestation check
+      NRAS_URL: ${NRAS_URL:-}
       PUBLIC_URL: ${PUBLIC_URL:-https://nearchant.com}
       SEARXNG_URL: http://search:8080
       TRUST_PROXY: cloudflare
       MEDIA_DIR: /app/.media
       MEDIA_PUBLIC: /media
       PORT: "8787"
-    ports: ["8787:8787"]
+      # Admin panel (ADR 0022): inside the CVM only, reached over `phala ssh` port forwarding, never published.
+      ADMIN_PORT: "8790"
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    # No published port: the public reaches the site only through the Cloudflare tunnel (TRUST_PROXY relies on it).
     volumes: ["media:/app/.media"]
     depends_on: { db: { condition: service_healthy } }
     restart: unless-stopped
@@ -46,25 +52,6 @@ services:
     environment: { IMAGE_BACKEND: comfy_cloud, COMFY_API_KEY: "${COMFY_API_KEY}", IMAGE_QUALITY: medium, MODEL_NAME: qwen-image-edit, API_KEY: "${IMAGE_API_KEY}" }
     restart: unless-stopped
 
-  tts-weights: # one-shot: Kokoro-82M + faster-whisper base.en into a volume on first start (checksummed by size)
-    image: alpine:3.20
-    command:
-      - sh
-      - -c
-      - >-
-        set -e; mkdir -p /w/kokoro /w/whisper/base.en; cd /w/kokoro;
-        for f in kokoro-v1.0.onnx voices-v1.0.bin; do [ -s $$f ] || wget -q -O $$f https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/$$f; done;
-        cd /w/whisper/base.en;
-        for f in config.json model.bin tokenizer.json vocabulary.txt; do [ -s $$f ] || wget -q -O $$f https://huggingface.co/Systran/faster-whisper-base.en/resolve/main/$$f; done;
-        du -sh /w
-    volumes: ["tts-weights:/w"]
-
-  tts:        # English voice + word timings for the shorts (deploy/video-engine/tts), CPU only
-    image: ${TTS_IMAGE:?set TTS_IMAGE to ghcr.io/<owner>/nearchant-tts@sha256:...}
-    environment: { ASSETS_DIR: /data/assets, KOKORO_ONNX: /weights/kokoro/kokoro-v1.0.onnx, KOKORO_VOICES: /weights/kokoro/voices-v1.0.bin, WHISPER_MODEL_DIR: /weights/whisper/base.en, OMP_NUM_THREADS: "4" }
-    volumes: ["tts-weights:/weights:ro", "tts:/data/assets"]
-    depends_on: { tts-weights: { condition: service_completed_successfully } }
-    restart: unless-stopped
 
   search:     # SearXNG for the research scouts: JSON on, limiter off, settings written at start (no mounted files)
     image: searxng/searxng@sha256:3602e6ddbeba037f5d800d1ed9d296a8b93c9f5b3cf9d05fa179d0e766dd59a1
@@ -93,5 +80,3 @@ services:
 volumes:
   db: {}
   media: {}
-  tts-weights: {}
-  tts: {}

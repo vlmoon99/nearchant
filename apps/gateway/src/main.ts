@@ -505,7 +505,7 @@ if (conn && process.env.NEARCHANT_SECRET_KEY) {
   // STORE_SUBDOMAINS=off (review copies on a host without a wildcard): store links stay on /h/<handle>/.
   const storeBase = config.public_url.startsWith("https://") && process.env.STORE_SUBDOMAINS !== "off" ? new URL(config.public_url).host : "";
   mountUi(app, {
-    cfg: { base: "/", rpcUrl: config.rpc_urls[0] ?? "", network: config.network, token: config.token.symbol, decimals: config.token.decimals, storeBase, tokenContract: accounts.nusd, accountSuffix: accounts.root },
+    cfg: { base: "/", rpcUrl: config.rpc_urls[0] ?? "", network: config.network, token: config.token.symbol, decimals: config.token.decimals, storeBase, tokenContract: accounts.nusd, accountSuffix: accounts.root, videos: !!(process.env.TTS_URL && process.env.COMFY_API_KEY) },
     test: config.token.test, css: readFileSync(join(import.meta.dirname, "../web/ui.css"), "utf8"),
     js: existsSync(appFile) ? readFileSync(appFile, "utf8") : undefined, sessionKey, emailOn: !!mailer,
     ...(conn ? { content: new ContentStore(conn.db) } : {}),
