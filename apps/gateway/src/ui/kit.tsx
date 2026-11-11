@@ -22,7 +22,7 @@ const P: Record<string, string> = {
   heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
   flag: '<path d="M5 21V4h11l-1.5 4L16 12H5"/>',
   play: '<path d="M7 4v16l13-8z"/>',
-  chevron: '<path d="m9 6 6 6-6 6"/>',
+  chevron: '<path d="m9 6 6 6-6 6"/>', swap: '<path d="M4 8h15l-4-4"/><path d="M20 16H5l4 4"/>',
   camera: '<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>', image: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>',
   upload: '<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>', arrow: '<path d="M7 17 17 7"/><path d="M8 7h9v9"/>',
@@ -73,6 +73,7 @@ export const Shell: FC<PropsWithChildren<{ active: string; store: { name: string
   <div class="app">
     <aside class="side">
       <a class="logo" href="/app"><Mark />Nearchant</a>
+      <RoleSwitch role="sell" />
       <nav class="nav">{NAV.map(([ic, label, href]) => <a href={href} class={label === active ? "on" : ""}><Icon n={ic} />{label}</a>)}</nav>
       <div class="grow"></div>
       <div class="wallet-mini">
@@ -82,7 +83,7 @@ export const Shell: FC<PropsWithChildren<{ active: string; store: { name: string
       </div>
       <div class="sub" style="padding:12px 0 0 6px">{store.name}</div>
     </aside>
-    <header class="topbar"><a class="logo" style="padding:0;gap:10px;min-width:0" href="/app"><Mark /><span class="stack" style="gap:0;min-width:0"><span class="callout b clamp1">{store.name}</span><span class="cap muted ellip">{store.account}</span></span></a><a class="acct-pill pay" href="/app/wallet" style="margin-left:auto;margin-right:4px"><Icon n="wallet" s={14} />{store.balance ?? "Wallet"}</a><a class={`icon-btn ${active === "Settings" || active === "Wallet" || active === "Analytics" ? "on" : ""}`} href="/app/settings" aria-label="Settings, wallet and analytics" style="margin:0 -10px 0 0"><Icon n="sliders" s={22} /></a></header>
+    <header class="topbar"><a class="logo" style="padding:0;gap:10px;min-width:0" href="/app"><Mark /><span class="stack" style="gap:0;min-width:0"><span class="callout b clamp1">{store.name}</span><span class="cap muted ellip">{store.account}</span></span></a><a class="acct-pill pay" href="/app/wallet" style="margin-left:auto;margin-right:4px"><Icon n="wallet" s={14} />{store.balance ?? "Wallet"}</a><a class="icon-btn" href="/feed" aria-label="Switch to shopping" title="Switch to shopping" style="margin:0 -2px 0 0"><Icon n="swap" s={22} /></a><a class={`icon-btn ${active === "Settings" || active === "Wallet" || active === "Analytics" ? "on" : ""}`} href="/app/settings" aria-label="Settings, wallet and analytics" style="margin:0 -10px 0 0"><Icon n="sliders" s={22} /></a></header>
     <main class="main">{children}</main>
     <nav class="bottomnav">
       {(["Home", "Posts", "Create", "Shop", "Orders"] as const).map((l) => NAV.find(([, x]) => x === l)!).map(([ic, label, href]) => label === "Create"
@@ -155,5 +156,19 @@ export const BuyerTabs: FC<{ active: BuyerTab; site?: string }> = ({ active, sit
 );
 export const BuyerLinks: FC<{ active: BuyerTab; site?: string }> = ({ active, site = "" }) => (
   <span class="buyerlinks sub">{BUYER_TABS.map(([k, , label, href]) => <a href={`${site}${href}`} class={active === k ? "on" : ""}>{k === "feed" ? "Shop feed" : k === "orders" ? "My orders" : label}</a>)}
-    <a href="#" data-buyer-me><span data-buyer-label>Sign in</span></a></span>
+    <a href="#" data-buyer-me><span data-buyer-label>Sign in</span></a><SellLink site={site} /></span>
+);
+
+/** Shopping → selling (buyer pages). "/sell" opens the store this browser is signed in to, or creating one; buyer.ts
+ *  relabels it "Your store" when there is one. */
+export const SellLink: FC<{ site?: string; cls?: string }> = ({ site = "", cls = "" }) => (
+  <a class={`btn sm secondary sell-link ${cls}`} href={`${site}/sell`} data-sell-link><Icon n="store" s={15} /><span data-sell-label>Sell on Nearchant</span></a>
+);
+
+/** Selling ↔ shopping, the same two places for everyone: the seller app (Selling) and the shop feed (Shopping). */
+export const RoleSwitch: FC<{ role: "sell" | "buy"; site?: string }> = ({ role, site = "" }) => (
+  <div class="seg role-switch" role="tablist" aria-label="Selling or shopping">
+    <a href={`${site}/sell`} role="tab" aria-selected={role === "sell" ? "true" : "false"} class={role === "sell" ? "on" : ""}>Selling</a>
+    <a href={`${site}/feed`} role="tab" aria-selected={role === "buy" ? "true" : "false"} class={role === "buy" ? "on" : ""}>Shopping</a>
+  </div>
 );

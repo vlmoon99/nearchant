@@ -23,6 +23,7 @@ await page.goto(`${base}/start`);
 await shot("1-welcome");
 await page.click("[data-go=sell]");
 await page.fill("#store-name", `Nova Test ${Date.now().toString(36).slice(-4)}`);
+await page.fill("#contact-email", "e2e-journey@example.invalid"); // buyers reach the store here (required since ADR 0026)
 await shot("2-sell");
 await page.click("#create-store");
 await visible("show", 120_000);

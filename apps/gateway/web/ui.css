@@ -431,3 +431,7 @@ html:has(body.embed) { background: transparent; }
 .ellip { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) .btn.near { background: #fff; color: #000; } :root:not([data-theme=light]) .btn.near svg { color: #000; } }
 .noimg, .post > .img.noimg { display: grid; place-items: center; background: var(--fill-3); }
+
+/* Selling ↔ shopping (role switch in the seller sidebar; "Sell on Nearchant" / "Your store" on buyer pages) */
+.side .role-switch { margin: 4px 0 12px; }
+.sell-link { gap: 6px; white-space: nowrap; }

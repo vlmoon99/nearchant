@@ -21,7 +21,17 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
   if (!res.ok) throw Object.assign(new Error((j as { error?: string }).error ?? `HTTP ${res.status}`), { code: (j as { code?: string }).code });
   return j as T;
 }
-const getMe = async (): Promise<Me> => (me !== undefined ? me : (me = await api<NonNullable<Me>>("/api/buyer/me").catch(() => null)));
+// Both roles of this browser: the buyer account and the store it is signed in to (the shopping ↔ selling switch).
+// On a store's own subdomain neither cookie is there; its buttons continue on the main site (above).
+type MyStore = { handle: string; name: string } | null;
+let myStore: MyStore | undefined;
+const onMain = !cfg.main || location.origin === cfg.main;
+async function loadRoles(): Promise<void> {
+  const r = onMain ? await api<{ buyer: Me; store: MyStore }>("/api/me").catch(() => null) : null;
+  me = r?.buyer ?? null; myStore = r?.store ?? null;
+}
+const getMe = async (): Promise<Me> => { if (me === undefined) await loadRoles(); return me ?? null; };
+const getStore = async (): Promise<MyStore> => { if (myStore === undefined) await loadRoles(); return myStore ?? null; };
 
 function sheet(html: string): { el: HTMLElement; close: () => void } {
   const back = document.createElement("div");
@@ -39,7 +49,8 @@ function signInSheet(why: string): Promise<boolean> {
   return new Promise((resolve) => {
     const s = sheet(`<span class="headline">Sign in to Nearchant</span><span class="foot muted">${why}</span>
       <form class="stack" style="gap:8px"><input class="input" type="email" name="email" required placeholder="Your email" autocomplete="email"><button class="btn" type="submit">Email me a sign-in link</button></form>
-      <button class="btn near" data-w>Use a NEAR wallet</button><span class="cap muted">Meteor, HOT, HERE, Intear, MyNearWallet and more — a one-time signed message, no fee.</span><output class="foot"></output>`);
+      <button class="btn near" data-w>Use a NEAR wallet</button><span class="cap muted">Meteor, HOT, HERE, Intear, MyNearWallet and more — a one-time signed message, no fee.</span><output class="foot"></output>
+      ${sellRow(myStore ?? null)}`);
     const out = s.el.querySelector("output")!;
     s.el.querySelector("form")!.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -142,9 +153,17 @@ for (const f of document.querySelectorAll<HTMLFormElement>("form[data-ask]")) {
 // sign out on the first tap. Not signed in: the sign-in sheet.
 const site = cfg.main ?? "";
 const esc = (x: string) => x.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+/** The way to selling, in the account and sign-in sheets: your store, or opening one with the same sign-in. */
+function sellRow(st: MyStore): string {
+  return st
+    ? `<div class="list"><a class="list-row nav" href="${site}/sell" data-switch-sell><span class="list-ic" style="background:var(--green)">${STORE_SVG}</span><span class="list-text"><span class="body">Switch to selling</span><span class="foot muted">${esc(st.name)}</span></span></a></div>`
+    : `<div class="list"><a class="list-row nav" href="${site}/sell" data-become-seller><span class="list-ic" style="background:var(--green)">${STORE_SVG}</span><span class="list-text"><span class="body">Become a seller</span><span class="foot muted">Open a free store for your items or services — same sign-in</span></span></a></div>`;
+}
+const STORE_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M5 13v7h14v-7"/></svg>`;
 function accountSheet(m: NonNullable<Me>) {
   const name = m.email ?? m.wallet ?? "Signed in";
   const s = sheet(`<span class="headline">Your account</span><span class="foot muted">${esc(name)}</span>
+    ${sellRow(myStore ?? null)}
     <div class="list"><a class="list-row nav" href="${site}/feed/orders"><span class="list-text"><span class="body">My orders</span></span></a>
       <a class="list-row nav" href="${site}/feed/following"><span class="list-text"><span class="body">Stores you follow</span></span></a>
       <a class="list-row nav" href="${site}/feed/liked"><span class="list-text"><span class="body">Posts you liked</span></span></a></div>
@@ -161,7 +180,7 @@ for (const el of document.querySelectorAll<HTMLElement>("[data-buyer-me]")) {
     e.preventDefault();
     const m = await getMe();
     if (m) accountSheet(m);
-    else if (await signInSheet("Keep your orders, likes and the stores you follow on every device.")) location.reload();
+    else { await getStore(); if (await signInSheet("Keep your orders, likes and the stores you follow on every device.")) location.reload(); }
   });
   void getMe().then((m) => {
     if (!m) return;
@@ -171,6 +190,30 @@ for (const el of document.querySelectorAll<HTMLElement>("[data-buyer-me]")) {
     el.title = `Signed in as ${m.email ?? m.wallet ?? ""}`;
   });
 }
+
+// "Sell on Nearchant" → "Your store" when this browser is signed in to one.
+void getStore().then((st) => {
+  if (!st) return;
+  for (const a of document.querySelectorAll<HTMLElement>("[data-sell-link]")) {
+    const l = a.querySelector("[data-sell-label]"); if (l) l.textContent = "Your store";
+    a.title = `Switch to selling — ${st.name}`;
+  }
+});
+
+// Orders paid in this browser before signing in join the account (once signed in, on every page load; cheap).
+void getMe().then(async (m) => {
+  if (!m) return;
+  let list: { orderId: string }[] = [];
+  try { list = JSON.parse(localStorage.getItem(`nc:${cfg.network}:orders`) ?? "[]"); } catch { /* none */ }
+  const k = `nc:${cfg.network}:claimed:${m.id}`;
+  let done: string[] = []; try { done = JSON.parse(localStorage.getItem(k) ?? "[]"); } catch { /* none */ }
+  const todo = list.filter((o) => o && typeof o.orderId === "string" && !done.includes(o.orderId)).map((o) => ({ orderId: o.orderId }));
+  if (!todo.length) return;
+  const r = await api<{ claimed: number }>("/api/buyer/claim-orders", { orders: todo }).catch(() => null);
+  if (!r) return;
+  try { localStorage.setItem(k, JSON.stringify([...done, ...todo.map((o) => o.orderId)].slice(-200))); } catch { /* ignore */ }
+  if (r.claimed && location.pathname === "/feed/orders") location.reload();
+});
 
 // My orders: orders paid in this browser (saved by the checkout), with their state — also for buyers who never signed in.
 const localBox = document.querySelector<HTMLElement>("[data-local-orders]");

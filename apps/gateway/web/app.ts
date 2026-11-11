@@ -62,6 +62,13 @@ function onboarding() {
   // 2: kind + name → NEAR account + store + session + business
   let kind = "products";
   $$<HTMLLabelElement>("[data-kind]").forEach((o) => o.addEventListener("click", () => { kind = o.dataset.kind!; $$("[data-kind]").forEach((x) => x.classList.toggle("on", x === o)); }));
+  // A signed-in buyer becoming a seller: their email is the store's contact and sign-in (linked after creation).
+  void api<{ buyer: { email: string | null; wallet: string | null } | null }>("/api/me").then((r) => {
+    const em = $<HTMLInputElement>("#contact-email");
+    if (r.buyer?.email && em && !em.value) em.value = r.buyer.email;
+    const note = document.getElementById("buyer-note");
+    if (r.buyer && note) { note.textContent = `Signed in as ${r.buyer.email ?? r.buyer.wallet} — your store will use the same sign-in.`; note.classList.remove("hidden"); }
+  }).catch(() => {});
   const name = $<HTMLInputElement>("#store-name");
   name.addEventListener("input", () => { $("#store-link").textContent = `Your store link: ${storeUrl(slug(name.value)).replace(/^https?:\/\//, "")}`; });
   $("#create-store").addEventListener("click", async (e) => {
@@ -85,6 +92,7 @@ function onboarding() {
       await api("/api/app/business", { name: n, kind });
       await api("/api/app/contact", contact).catch(() => {}); // checked above; Settings shows it if it didn't save
       await api("/api/app/wallet/claim", {}).catch(() => {}); // a wallet that just found no store signs in to this one
+      await api("/api/app/link-buyer", {}).catch(() => {}); // a buyer becoming a seller: same email / wallet sign-in
       out.textContent = "";
       show("show");
     } catch (err) { out.textContent = `Could not create the store: ${(err as Error).message}`; btn.disabled = false; }

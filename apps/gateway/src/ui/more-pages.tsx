@@ -125,7 +125,8 @@ export const SettingsPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
   <Page cfg={cfg} test={test} title="Settings" active="Settings" store={store}>
     <PageHead kicker={store.name} title="Settings" />
     <div class="list only-m"><a class="list-row nav" href="/app/wallet"><span class="list-ic" style="background:#121916"><Icon n="wallet" s={16} c="#00ec97" /></span><span class="list-text"><span class="body">Wallet</span><span class="foot muted">{store.balance ?? "Balance, withdraw"}</span></span><Icon n="chevron" s={16} c="var(--label-3)" /></a>
-      <a class="list-row nav" href="/app/analytics"><span class="list-ic" style="background:var(--purple)"><Icon n="chart" s={16} c="#fff" /></span><span class="list-text"><span class="body">Analytics</span></span><Icon n="chevron" s={16} c="var(--label-3)" /></a></div>
+      <a class="list-row nav" href="/app/analytics"><span class="list-ic" style="background:var(--purple)"><Icon n="chart" s={16} c="#fff" /></span><span class="list-text"><span class="body">Analytics</span></span><Icon n="chevron" s={16} c="var(--label-3)" /></a>
+      <a class="list-row nav" href="/feed"><span class="list-ic" style="background:var(--blue)"><Icon n="swap" s={16} c="#fff" /></span><span class="list-text"><span class="body">Switch to shopping</span><span class="foot muted">The shop feed, your orders as a buyer</span></span><Icon n="chevron" s={16} c="var(--label-3)" /></a></div>
     <div class="cols">
       <div class="stack">
         <form class={`card ${contact ? "" : "warn"}`} id="settings-contact"><span class="headline">How buyers reach you</span>

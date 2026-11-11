@@ -508,3 +508,21 @@ describe("seller API", () => {
     expect((await app.request("http://x/api/wallet/verify", post(body(w2, "b.testnet", "signin")))).status).toBe(200);
   });
 });
+
+describe("become a seller", () => {
+  it("a buyer's proven email and wallet sign in to their new store, only where free", async () => {
+    let b: { email: string | null; wallet: string | null } | null = { email: "ann@example.com", wallet: "ann.testnet" };
+    const { app, db, cookie } = setup([], false, Date.now(), { buyerOf: async () => b });
+    expect((await app.request("http://x/api/app/link-buyer", post({}))).status).toBe(401);
+    expect(await (await app.request("http://x/api/app/link-buyer", post({}, cookie))).json()).toEqual({ email: "ann@example.com", wallet: "ann.testnet" });
+    expect([db.settings.get("email:ann@example.com"), db.settings.get("emailOf:nova"), db.settings.get("wallet:ann.testnet"), db.settings.get("walletOf:nova")]).toEqual(["nova", "ann@example.com", "nova", "ann.testnet"]);
+    // Another store's sign-in is never moved, and a store keeps the one it has.
+    db.settings.set("email:bob@example.com", "other");
+    b = { email: "bob@example.com", wallet: "bob.testnet" };
+    expect(await (await app.request("http://x/api/app/link-buyer", post({}, cookie))).json()).toEqual({ email: null, wallet: null });
+    expect(db.settings.get("email:bob@example.com")).toBe("other");
+    b = null;
+    expect(await (await app.request("http://x/api/app/link-buyer", post({}, cookie))).json()).toEqual({ email: null, wallet: null });
+  });
+});
+

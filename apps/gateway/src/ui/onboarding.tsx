@@ -26,7 +26,7 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
       {[["sparkles", "var(--blue)", "AI makes your posts from a few photos"], ["chart", "var(--purple)", "AI shows what sells, to whom and when"], ["shield", "var(--green)", "Buyers pay you directly — safe escrow on NEAR"]].map(([ic, c, t]) => (
         <div class="row" style="align-items:center;gap:12px"><span class="dot" style="background:var(--fill-3);border-radius:10px;width:34px;height:34px"><Icon n={ic!} c={c} /></span><span class="sub">{t}</span></div>
       ))}
-      <div class="onb-bottom"><button class="btn" data-go="sell">Start free — 2 minutes</button><a class="sub" href="/app">I already have a store · Sign in</a></div>
+      <div class="onb-bottom"><button class="btn" data-go="sell">Start free — 2 minutes</button><a class="sub" href="/app">I already have a store · Sign in</a><a class="sub muted" href="/feed">Just shopping? Go to the shop feed</a></div>
     </section>
 
     {/* 2 What you sell */}
@@ -39,6 +39,7 @@ export const OnboardingPage: FC<{ cfg: UiConfig; test: boolean }> = ({ cfg, test
       ))}
       <label class="field">Store name<input class="input" id="store-name" maxlength={60} placeholder="Nova Wear" autocomplete="organization" /></label>
       <span class="cap muted" id="store-link">Your store link: —</span>
+      <span class="foot hidden" id="buyer-note" style="color:var(--green-text)"></span>
       <div class="group"><span class="group-h">How buyers reach you</span>
         <div class="list">
           <label class="list-field"><span>Phone</span><input id="contact-phone" type="tel" autocomplete="tel" placeholder="+971 50 123 4567" /></label>

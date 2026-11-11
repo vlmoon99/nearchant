@@ -80,7 +80,7 @@ export const ItemEditPage: FC<{ cfg: UiConfig; test: boolean; store: StoreView; 
             <span class="group-f">Pick one of your photos or AI pictures, or add a new one.</span></div>
           <div class="group"><span class="group-h">Details</span>
             <div class="list">
-              <label class="list-field"><span>Name</span><input name="title" required minlength={2} maxlength={120} value={item?.title ?? prefill?.title ?? ""} placeholder={k === "service" ? "Security upgrade for your phone" : "Gold iPhone 16 Pro, black diamonds"} /></label>
+              <label class="list-field"><span>Title</span><input name="title" required minlength={2} maxlength={120} value={item?.title ?? prefill?.title ?? ""} placeholder={k === "service" ? "Security upgrade for your phone" : "Gold iPhone 16 Pro, black diamonds"} /></label>
               <label class="list-field"><span>Price, {cfg.token}</span><input name="price" type="number" inputmode="decimal" min="0.5" step="0.01" required value={item ? String(item.priceNumber) : ""} placeholder="0.00" /></label>
               <label class="list-field" data-for="service"><span>“From” price</span><span class="grow foot muted">The buyer pays this now; you agree the rest</span><input type="checkbox" class="switch" name="priceFrom" checked={!!d.priceFrom} /></label>
               <label class="list-field top"><span>About</span><textarea name="description" rows={4} maxlength={2000} placeholder={k === "service" ? "What you do, what's included, how it works" : "Materials, size, what's in the box"}>{item?.description ?? prefill?.description ?? ""}</textarea></label>

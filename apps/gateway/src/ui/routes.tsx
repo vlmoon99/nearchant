@@ -8,7 +8,7 @@ import { OrdersPage, SellerOrderPage, type SellerOrder } from "./orders.js";
 import { OnboardingPage } from "./onboarding.js";
 import { CreatePage, HomePage, PostPage, PostsPage, SignInPage, checklistFor, type StoreView } from "./app-pages.js";
 import { createHash } from "node:crypto";
-import { BuyerLinks, BuyerTabs, Mark, UiPage, assetV, type UiConfig } from "./kit.js";
+import { BuyerLinks, BuyerTabs, Mark, SellLink, UiPage, assetV, type UiConfig } from "./kit.js";
 import { ExplorePage, FeedTiles, type FeedTile } from "./explore.js";
 import { feedFor, searchSource, type SearchIntent } from "../buyer-app.js";
 import { clientIp } from "../buyers.js";
@@ -63,6 +63,8 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
   app.get("/assets/ui.css", (c) => c.body(d.css, 200, { "content-type": "text/css; charset=utf-8", "cache-control": "public, max-age=300" }));
   app.get("/assets/app.js", (c) => (d.js ? c.body(d.js, 200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=300" }) : c.text("app.js not built", 503)));
   app.get("/start", (c) => c.html(<OnboardingPage cfg={d.cfg} test={d.test} />));
+  // "Selling": the store this browser is signed in to, or creating one (buyer pages, the role switch).
+  app.get("/sell", (c) => c.redirect(readSession(d.sessionKey, getCookie(c, "nc_session")) ? "/app" : "/start", 302));
   // Verify a post: the proof from NEAR, the fingerprint recomputed from the published caption + picture file.
   const verify = async (c: Context, id: string | undefined) => {
     const latest = d.content ? (await d.content.showcase(8)).posts.filter((p) => p.proofId).map((p) => ({ id: p.proofId!, store: p.storeName, caption: p.caption })) : [];
@@ -138,7 +140,7 @@ export function mountUi(app: Hono<any>, d: UiDeps): void {
     const orders = buyer && d.buyerOrders ? await d.buyerOrders(buyer) : [];
     const label: Record<string, string> = { paid: "Paid — in escrow", in_progress: "Being prepared", delivered: "Shipped — confirm when you get it", released: "Done", refunded: "Refunded" };
     return c.html(<UiPage title="My orders · Nearchant" cfg={d.cfg} page="feed" test={d.test} buyer>
-      <div class="land"><nav class="land-nav"><a class="land-logo" href="/feed"><Mark />Nearchant</a><BuyerLinks active="orders" /><a class="btn sm secondary" href="/">Sell here</a></nav>
+      <div class="land"><nav class="land-nav"><a class="land-logo" href="/feed"><Mark />Nearchant</a><BuyerLinks active="orders" /><SellLink cls="only-m" /></nav>
         <section class="stack" style="max-width:760px;margin:0 auto;padding:24px 16px 80px;gap:14px"><h1 class="t2" style="margin:0">My orders</h1>
           {/* Orders paid in this browser (kept by the checkout), also when not signed in — filled by buyer.ts */}
           <div class="stack s12" data-local-orders={JSON.stringify(orders.map((o) => o.orderId))}></div>

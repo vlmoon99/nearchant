@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { mountUi } from "../src/ui/routes.js";
+import { signSession } from "../src/seller-app.js";
 
 const h = (b: string | Buffer) => createHash("sha256").update(b).digest("hex");
 
@@ -47,3 +48,14 @@ describe("verify a post", () => {
     expect(html).not.toContain("Written by");
   });
 });
+
+describe("selling ↔ shopping", () => {
+  it("/sell opens the signed-in store, or creating one", async () => {
+    const app = setup("x");
+    const r1 = await app.request("http://x/sell");
+    expect([r1.status, r1.headers.get("location")]).toEqual([302, "/start"]);
+    const r2 = await app.request("http://x/sell", { headers: { cookie: `nc_session=${signSession(Buffer.alloc(32), "nova", Date.now() + 60_000)}` } });
+    expect(r2.headers.get("location")).toBe("/app");
+  });
+});
+

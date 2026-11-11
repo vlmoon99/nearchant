@@ -2,7 +2,7 @@
 // — and a feed of posts and shorts from the stores that fit. Without a query: "For you" (what this buyer liked pulls
 // similar posts up), newest and most liked first. A post opens on its store, where it can be bought.
 import type { FC } from "hono/jsx";
-import { Badge, BuyerLinks, BuyerTabs, Icon, Mark, UiPage, type UiConfig } from "./kit.js";
+import { Badge, BuyerLinks, BuyerTabs, Icon, Mark, SellLink, UiPage, type UiConfig } from "./kit.js";
 
 export interface StoreCard { handle: string; name: string; place: string | null; img: string | null; goods: { name: string; match: boolean }[]; matched: number; followers: number }
 
@@ -33,7 +33,7 @@ export const ExplorePage: FC<{ cfg: UiConfig; test: boolean; q: string; city: st
     <div class="land">
       <nav class="land-nav"><a class="land-logo" href="/feed"><Mark />Nearchant</a>
         <BuyerLinks active={following ? "following" : liked ? "liked" : "feed"} />
-        <a class="btn sm secondary" href="/">Sell here</a></nav>
+        <SellLink cls="only-m" /></nav>
       <section class="stack" style="max-width:1200px;margin:0 auto;padding:24px 16px 80px;gap:18px">
         <form class="feed-search" action="/feed" method="get">
           <span class="feed-q"><Icon n="sparkles" s={18} c="var(--purple)" /><input class="input" name="q" value={q} maxlength={200} placeholder="What are you looking for? e.g. protein and creatine, a denim jacket" autocomplete="off" /></span>

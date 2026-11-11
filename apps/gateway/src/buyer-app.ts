@@ -18,7 +18,11 @@ export interface SearchIntent { summary: string; terms: string[]; city: string |
 export interface BuyerAppDeps {
   feed: FeedStore;
   /** Lowest-cost surface of ContentStore the buyer side needs. */
-  content: { getPost(id: string): Promise<{ id: string; handle: string; status: string; removedAt: Date | null } | null>; getSetting<T>(k: string): Promise<T | null>; setSetting(k: string, v: unknown): Promise<void>; getBusiness(h: string): Promise<{ handle: string } | null> };
+  content: { getPost(id: string): Promise<{ id: string; handle: string; status: string; removedAt: Date | null } | null>; getSetting<T>(k: string): Promise<T | null>; setSetting(k: string, v: unknown): Promise<void>; getBusiness(h: string): Promise<{ handle: string; name?: string } | null>; prependSetting?(k: string, item: unknown, max: number): Promise<void> };
+  /** Seller session key: /api/me also says whether this browser is signed in to a store (the buyer ↔ seller switch). */
+  sellerKey?: Buffer;
+  /** An order's store, so a buyer can keep orders paid in this browser before signing in. */
+  orderOf?: (orderId: string) => Promise<{ handle: string } | null>;
   isOwnerKey: (accountId: string, publicKey: string) => Promise<boolean>;
   enqueue: (task: string, payload: Record<string, unknown>, jobKey?: string) => Promise<void>;
   /** Search planner + embedding (cached by the caller). */
@@ -118,6 +122,36 @@ export function mountBuyerApp(app: Hono<any>, d: BuyerAppDeps): void {
     if (!b) return c.json({ error: "not signed in" }, 401);
     void d.feed.touchBuyer(b.id);
     return c.json({ id: b.id, email: b.email, wallet: b.wallet });
+  });
+  // Both roles of this browser at once (the switch between shopping and selling): the buyer account, if any, and the
+  // store this browser is signed in to, if any. Never 401: the header and sheets ask on every buyer page.
+  app.get("/api/me", async (c) => {
+    const b = await buyer(c);
+    const handle = d.sellerKey ? readSession(d.sellerKey, getCookie(c, "nc_session"), now()) : null;
+    const biz = handle ? await d.content.getBusiness(handle).catch(() => null) : null;
+    c.header("cache-control", "no-store");
+    return c.json({ buyer: b ? { id: b.id, email: b.email, wallet: b.wallet } : null, store: biz ? { handle: biz.handle, name: biz.name ?? biz.handle } : null });
+  });
+  // Orders paid in this browser before signing in join the account (the checkout keeps their ids in localStorage).
+  // An order that already belongs to a buyer stays theirs.
+  app.post("/api/buyer/claim-orders", async (c) => {
+    if (!jsonOnly(c)) return c.json({ error: "JSON only" }, 415);
+    const b = await buyer(c);
+    if (!b) return c.json({ error: "sign in first", code: "signin" }, 401);
+    if (!d.orderOf || !d.content.prependSetting) return c.json({ claimed: 0 });
+    const body = await json(c), list = Array.isArray(body.orders) ? (body.orders as unknown[]) : [];
+    const mine = new Set(((await d.content.getSetting<{ orderId: string }[]>(`buyerOrders:${b.id}`)) ?? []).map((o) => o.orderId));
+    let claimed = 0;
+    for (const x of list.slice(0, 50)) {
+      const orderId = String((x as { orderId?: unknown })?.orderId ?? "");
+      if (!/^[\w-]{1,80}$/.test(orderId) || mine.has(orderId)) continue;
+      const o = await d.orderOf(orderId).catch(() => null);
+      if (!o || (await d.content.getSetting<string>(`orderBuyer:${orderId}`))) continue;
+      await d.content.setSetting(`orderBuyer:${orderId}`, b.id);
+      await d.content.prependSetting(`buyerOrders:${b.id}`, { orderId, handle: o.handle, at: new Date(now()).toISOString() }, 200);
+      mine.add(orderId); claimed++;
+    }
+    return c.json({ claimed });
   });
   app.post("/api/buyer/logout", (c) => { deleteCookie(c, BUYER_COOKIE, { path: "/" }); return c.json({ ok: true }); });
 

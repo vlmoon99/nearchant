@@ -62,6 +62,8 @@ export interface SellerAppDeps {
   publicUrl?: string;
   /** IPs per store account, for the violators list (ADR 0022). */
   logIp?: (kind: "store", id: string, ip: string) => Promise<void>;
+  /** The buyer account signed in in this browser (buyer cookie), for "Become a seller": its proven email / wallet. */
+  buyerOf?: (c: Context) => Promise<{ email: string | null; wallet: string | null } | null>;
   now?: () => number;
 }
 
@@ -172,6 +174,25 @@ export function mountSellerApp(app: Hono<any>, d: SellerAppDeps): void {
     await d.content.setSetting(`walletOf:${handle}`, accountId);
     deleteCookie(c, NEW_WALLET, { path: "/" });
     return c.json({ linked: accountId });
+  }));
+  // "Become a seller": a buyer who opens a store keeps one sign-in. Their email (proven by a one-time link) and wallet
+  // (proven by a NEP-413 signature with a full-access key) sign in to the new store too — each only when free on both
+  // sides, so it never moves another store's sign-in.
+  app.post("/api/app/link-buyer", (c) => authed(c, async (handle) => {
+    const b = d.buyerOf ? await d.buyerOf(c).catch(() => null) : null;
+    if (!b) return c.json({ email: null, wallet: null });
+    let email: string | null = null, wallet: string | null = null;
+    if (b.email && !(await d.content.getSetting<string>(`email:${b.email}`)) && !(await d.content.getSetting<string>(`emailOf:${handle}`))) {
+      await d.content.setSetting(`email:${b.email}`, handle);
+      await d.content.setSetting(`emailOf:${handle}`, b.email);
+      email = b.email;
+    }
+    if (b.wallet && !(await d.content.getSetting<string>(`wallet:${b.wallet}`)) && !(await d.content.getSetting<string>(`walletOf:${handle}`))) {
+      await d.content.setSetting(`wallet:${b.wallet}`, handle);
+      await d.content.setSetting(`walletOf:${handle}`, b.wallet);
+      wallet = b.wallet;
+    }
+    return c.json({ email, wallet });
   }));
   // Email (ADR 0021): the owner links an email in Settings (confirm link), then can sign in with a one-time link.
   // Links open a page with one button (POST), so mail scanners that open links don't use them up. Unknown emails

@@ -4,6 +4,7 @@ import { KeyPair } from "near-api-js";
 import { describe, expect, it } from "vitest";
 import type { FeedStore } from "@nearchant/db";
 import { feedFor, mountBuyerApp } from "../src/buyer-app.js";
+import { signSession } from "../src/seller-app.js";
 import { walletSign } from "./wallet-helper.js";
 
 function setup() {
@@ -26,11 +27,13 @@ function setup() {
   mountBuyerApp(app, {
     feed, isOwnerKey: async (a, pk) => a === "alice.testnet" && pk === owner.getPublicKey().toString(),
     content: { getPost: async (id) => (id === "p1" ? { id, handle: "nova", status: "published", removedAt: null } : id === "gone" ? { id, handle: "nova", status: "published", removedAt: new Date() } : null),
-      getSetting: async <T,>(k: string) => (settings.get(k) as T) ?? null, setSetting: async (k, v) => { settings.set(k, v); }, getBusiness: async (h) => (h === "nova" ? { handle: h } : null) },
+      getSetting: async <T,>(k: string) => (settings.get(k) as T) ?? null, setSetting: async (k, v) => { settings.set(k, v); }, getBusiness: async (h) => (h === "nova" ? { handle: h, name: "Nova Wear" } : null),
+      prependSetting: async (k, v) => { settings.set(k, [v, ...((settings.get(k) as unknown[]) ?? [])]); } },
+    sellerKey: Buffer.alloc(32, 9), orderOf: async (id) => (id.startsWith("o-") ? { handle: "nova" } : null),
     enqueue: async (t, p) => { jobs.push([t, p]); }, key: Buffer.alloc(32, 3), secureCookies: false, walletRecipient: "nearchant.com", publicUrl: "https://nearchant.com",
     mail: async (m) => { mails.push(m); },
   });
-  return { app, buyers, likes, reports, jobs, ips, mails, owner };
+  return { app, buyers, likes, reports, jobs, ips, mails, owner, settings };
 }
 const post = (body: unknown, cookie?: string) => ({ method: "POST", headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) }, body: JSON.stringify(body) });
 const cookieOf = (r: Response) => r.headers.get("set-cookie")!.split(";")[0]!;
@@ -115,5 +118,35 @@ describe("buyers", () => {
     expect(seen).toMatchObject({ terms: [], city: "Austin", country: "US", vector: null });
     await feedFor({ feed, understand: async () => { throw new Error("model down"); } }, "Denim jacket", null, 0, { city: "Austin", country: "us" });
     expect(seen).toMatchObject({ terms: ["denim", "jacket"], city: "Austin", country: "US", vector: null });
+  });
+});
+
+describe("shopping ↔ selling", () => {
+  const walletIn = async (t: ReturnType<typeof setup>) => {
+    const nonce = randomBytes(32), message = `nearchant:buyer:signin:${Date.now()}`;
+    const r = await t.app.request("http://x/api/buyer/wallet", post({ accountId: "alice.testnet", publicKey: t.owner.getPublicKey().toString(), signature: walletSign(t.owner, { message, nonce, recipient: "nearchant.com", callbackUrl: null }), message, nonce: nonce.toString("base64"), recipient: "nearchant.com" }));
+    return cookieOf(r);
+  };
+  it("/api/me tells both roles of this browser, never 401", async () => {
+    const t = setup();
+    expect(await (await t.app.request("http://x/api/me")).json()).toEqual({ buyer: null, store: null });
+    const buyer = await walletIn(t);
+    const seller = `nc_session=${signSession(Buffer.alloc(32, 9), "nova", Date.now() + 60_000)}`;
+    expect(await (await t.app.request("http://x/api/me", { headers: { cookie: `${buyer}; ${seller}` } })).json()).toEqual({ buyer: { id: "b0", email: null, wallet: "alice.testnet" }, store: { handle: "nova", name: "Nova Wear" } });
+    // A seller cookie signed with another key is not a store.
+    const forged = `nc_session=${signSession(Buffer.alloc(32, 1), "nova", Date.now() + 60_000)}`;
+    expect(await (await t.app.request("http://x/api/me", { headers: { cookie: forged } })).json()).toEqual({ buyer: null, store: null });
+  });
+  it("orders paid before signing in join the account once; someone else's stay theirs", async () => {
+    const t = setup();
+    expect((await t.app.request("http://x/api/buyer/claim-orders", post({ orders: [{ orderId: "o-1" }] }))).status).toBe(401);
+    const cookie = await walletIn(t);
+    t.settings.set("orderBuyer:o-taken", "b9");
+    const r = await t.app.request("http://x/api/buyer/claim-orders", post({ orders: [{ orderId: "o-1" }, { orderId: "o-taken" }, { orderId: "nope" }, { orderId: "o-1" }, { orderId: "../x" }] }, cookie));
+    expect(await r.json()).toEqual({ claimed: 1 });
+    expect(t.settings.get("orderBuyer:o-1")).toBe("b0");
+    expect(t.settings.get("orderBuyer:o-taken")).toBe("b9");
+    expect((t.settings.get("buyerOrders:b0") as { orderId: string; handle: string }[]).map((o) => [o.orderId, o.handle])).toEqual([["o-1", "nova"]]);
+    expect(await (await t.app.request("http://x/api/buyer/claim-orders", post({ orders: [{ orderId: "o-1" }] }, cookie))).json()).toEqual({ claimed: 0 });
   });
 });
