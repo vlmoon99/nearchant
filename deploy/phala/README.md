@@ -5,6 +5,20 @@ SearXNG and the Marp renderer in one CVM (`tdx.medium`, 2 vCPU / 4 GB, about $0.
 models: text, vision, embeddings and speech-to-text go to NEAR AI Cloud TEE models, pictures to Comfy Cloud. Videos
 are off (no hosted voice model yet).
 
+## Live (11 Nov 2026)
+
+- CVM `nearchant` (`4544e812-8a3a-4a29-8e6a-5f063a206f41`, app id `db172769cb7b208c3736520e5661d2d6f36248d0`),
+  tdx.medium, 20 GB disk, private logs (read them with `phala ssh nearchant -- docker logs <container>`).
+- nearchant.com and `*.nearchant.com` come through its `tunnel`; the Mac's site, tunnel and watchdog are stopped
+  (its database and media stay as they were at the move, a cold copy).
+- The deploy env (all secrets) is in the Keychain as `PHALA_ENV`. To update the CVM after a new image build:
+  ```
+  security find-generic-password -a nearchant -s PHALA_ENV -w > /tmp/p.env   # then delete it
+  phala deploy --cvm-id nearchant -c deploy/phala/compose.yaml -e /tmp/p.env --wait
+  ```
+- Review copy (RU/UA): `phala ssh nearchant -- docker logs nearchant-review-tunnel-1 | grep trycloudflare` gives
+  its link; it changes when the CVM restarts. A fixed `review.nearchant.com` needs that hostname on the tunnel.
+
 ## What the owner does
 
 1. **Phala Cloud API key.** cloud.phala.com → your account (top right) → **API Keys** → **Create**. The key starts

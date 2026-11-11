@@ -1,11 +1,11 @@
 # Full test of nearchant.com: seller, buyer, and switching between them
 
-The site runs on the Mac (Docker + the standby watchdog) on NEAR **testnet**: payments use free test nUSD, no real
+The site runs on Phala Cloud (since 11 Nov evening) on NEAR **testnet**: payments use free test nUSD, no real
 money. Plan about 60–75 minutes; the AI part of a new store takes 10–15 minutes and runs while you do other steps.
 
 ## Before you start (2 min)
 
-- The Mac stays on, plugged in, Docker Desktop running. `https://nearchant.com/health` should answer `ok`.
+- `https://nearchant.com/health` should answer `ok`.
 - Use **two browsers**, because a store's key lives in the browser that made it:
   - **A = seller**: Chrome on the Mac.
   - **B = buyer**: your phone (Safari), or a Chrome *Incognito* window.
@@ -91,16 +91,13 @@ The page URL, the time, a screenshot, and the step number above (e.g. "4.1: stuc
 - **AI is slow on NEAR AI:** onboarding to first posts takes about 10–15 min, because the Sparks are off.
 - **Pictures and videos need Comfy Cloud credits.** If posts come without pictures, that's the credit, not the app.
 - **It's testnet:** nUSD is a test token, and the yellow bar says so.
-- **The Mac hosts the site.** If it sleeps or Docker quits, nearchant.com shows a Cloudflare error until the watchdog
-  restarts it (≈2 min).
+- **Phala Cloud hosts the site** (since 11 Nov): the Mac can sleep. Videos are off there (no hosted voice model).
 
 ## Review copy in Russian / Ukrainian (for clients)
 
-- Link now: **https://outlined-bureau-medal-stress.trycloudflare.com**. If it changed, read the new one with
-  `docker logs nearchant-standby-review-tunnel-1 2>&1 | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | head -1`.
+- Since 11 Nov evening the site and the review copy run on Phala Cloud (`deploy/phala/README.md`).
+- Link now: **https://temple-clan-unlike-earn.trycloudflare.com**. It changes when the Phala server restarts; read
+  the new one with `phala ssh nearchant -- docker logs nearchant-review-tunnel-1 | grep trycloudflare`.
 - The **EN | RU | UA** bar is at the top of every page, and the choice is remembered.
 - It uses the same stores, orders and data as nearchant.com; only the interface language differs.
-- Store names, posts and AI texts stay in the language they were written in.
-- **If the link changes:** after a restart of `review-tunnel`, start the review gateway again with the new link:
-  `cd ~/nearchant-standby/run && REVIEW_URL=<new link> docker compose -f compose.yaml --env-file .env --profile review up -d gateway-review`.
-- To stop it: `docker compose -f compose.yaml --env-file .env --profile review stop`.
+- Store names, posts and AI texts stay in the language they were written in. Sign-in links lead to nearchant.com.

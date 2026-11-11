@@ -1698,3 +1698,27 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 - A full paid order clicked through in Russian.
 - Emails are English.
 - The quick-tunnel URL changes if the `review-tunnel` container restarts; read the new one from its log.
+
+## 2026-11-11 (evening) — nearchant.com moved to Phala Cloud; no models in the CVM (ADR 0030)
+
+**Done**
+- Phala compose: images pinned by digest (`nearchant-app@sha256:9c5e1976…`, `nearchant-image@sha256:e99d9772…`),
+  no voice service (owner: the CVM runs no models; videos off with a note on the post page), email / NRAS / admin
+  settings added, no published port, a one-time encrypted restore (database + media), and the RU/UA review copy with
+  its own quick tunnel.
+- Dry run of the whole compose on the Mac first (found and fixed: media owned by the wrong user).
+- Switch: Mac watchdog, site and tunnels stopped → final encrypted copy served on a temporary link → CVM `nearchant`
+  created (tdx.medium, 20 GB, private logs) → restored → nearchant.com served by the CVM's tunnel. Down ~5 min.
+- Secrets: deploy env in the Keychain (`PHALA_ENV`), Phala key `PHALA_CLOUD_API_KEY`, Phala AI key `REDPILL_API_KEY`.
+- Checked Comfy Cloud for audio: Qwen3-TTS, Chatterbox, ElevenLabs (voice) and ACE-Step 1.5 (music) are installed.
+  Test runs: a 5 s voice in 22 s, 15 s of music in 46 s. NEAR AI Whisper returns segments, not word times.
+
+**Verified**
+- `/health`, `/feed`, a store, `/app`, `/verify` 200 on nearchant.com from the CVM; the review copy 200 with RU.
+- Full journey on the CVM, no page errors: store 11 s, posts with pictures 149 s, paid 19 s, shipped 76 s, released
+  111 s, contacts visible both ways. Test store `novatestx65d` added to `showcase_hidden`.
+- Memory on the CVM: containers ~1 GB; the rest is ZFS cache.
+
+**Not verified / next**
+- Videos with a Comfy Cloud voice + ACE-Step music (tested in isolation only, not wired in).
+- A fixed `review.nearchant.com` (needs the hostname on the Cloudflare tunnel; the quick-tunnel link changes on restart).
