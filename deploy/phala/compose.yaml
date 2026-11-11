@@ -10,8 +10,32 @@ services:
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U nearchant"], interval: 3s, retries: 20 }
     restart: unless-stopped
 
+  # One-time move of an existing site into this CVM (deploy/phala/README.md): with RESTORE_URL set, it downloads
+  # db.sql.gz.enc and media.tar.enc (AES-256, key RESTORE_KEY in the encrypted env), loads them into an empty
+  # database and the media volume, and leaves a marker so it never runs again. Without RESTORE_URL it does nothing.
+  restore:
+    image: alpine:3.20
+    environment:
+      RESTORE_URL: ${RESTORE_URL:-}
+      RESTORE_KEY: ${RESTORE_KEY:-}
+      DATABASE_URL: postgres://nearchant:${POSTGRES_PASSWORD}@db:5432/nearchant
+    command:
+      - sh
+      - -c
+      - >-
+        set -eu;
+        if [ -z "$$RESTORE_URL" ] || [ -f /media/.restored ]; then echo "restore: nothing to do"; exit 0; fi;
+        apk add -q --no-cache postgresql16-client openssl curl;
+        dec() { curl -fsS --retry 5 --max-time 1800 "$$RESTORE_URL/$$1" | openssl enc -d -aes-256-cbc -pbkdf2 -pass env:RESTORE_KEY; };
+        if [ "$$(psql "$$DATABASE_URL" -tAc "select count(*) from information_schema.tables where table_schema='public'")" = "0" ];
+        then dec db.sql.gz.enc | gunzip | psql -q -v ON_ERROR_STOP=1 "$$DATABASE_URL" >/dev/null; echo "restore: database loaded";
+        else echo "restore: database not empty, skipped"; fi;
+        dec media.tar.enc | tar -x -C /media; chown -R 1000:1000 /media; touch /media/.restored; echo "restore: media loaded"
+    volumes: ["media:/media"]
+    depends_on: { db: { condition: service_healthy } }
+
   gateway:
-    image: ${NEARCHANT_IMAGE:?set NEARCHANT_IMAGE to ghcr.io/<owner>/nearchant@sha256:...}
+    image: ghcr.io/vlmoon99/nearchant-app@sha256:9c5e19764a9221177e3e3f4f3bd321106e3fa789dd44c39b2cfe718f5589126d
     command: ["node", "apps/gateway/dist/main.js"]
     environment: &env
       DATABASE_URL: postgres://nearchant:${POSTGRES_PASSWORD}@db:5432/nearchant
@@ -36,19 +60,19 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     # No published port: the public reaches the site only through the Cloudflare tunnel (TRUST_PROXY relies on it).
     volumes: ["media:/app/.media"]
-    depends_on: { db: { condition: service_healthy } }
+    depends_on: { db: { condition: service_healthy }, restore: { condition: service_completed_successfully } }
     restart: unless-stopped
 
   worker:
-    image: ${NEARCHANT_IMAGE}
+    image: ghcr.io/vlmoon99/nearchant-app@sha256:9c5e19764a9221177e3e3f4f3bd321106e3fa789dd44c39b2cfe718f5589126d
     command: ["node", "apps/worker/dist/main.js"]
     environment: { <<: *env, RENDERER_URL: http://renderer:8080, FACTCHECK_A2A_URL: "http://gateway:8787/h/verity/a2a/v1" }
     volumes: ["media:/app/.media"]
-    depends_on: { db: { condition: service_healthy } }
+    depends_on: { db: { condition: service_healthy }, restore: { condition: service_completed_successfully } }
     restart: unless-stopped
 
   image:      # the image service in Comfy Cloud mode (deploy/image-engine/service); no GPU in the CVM
-    image: ${IMAGE_SERVICE_IMAGE:?set IMAGE_SERVICE_IMAGE to ghcr.io/<owner>/nearchant-image@sha256:...}
+    image: ghcr.io/vlmoon99/nearchant-image@sha256:e99d9772b84274a9fc4c844213784b0aac4469f385a87eeb5903957b2dac0643
     environment: { IMAGE_BACKEND: comfy_cloud, COMFY_API_KEY: "${COMFY_API_KEY}", IMAGE_QUALITY: medium, MODEL_NAME: qwen-image-edit, API_KEY: "${IMAGE_API_KEY}" }
     restart: unless-stopped
 
@@ -75,6 +99,21 @@ services:
     image: cloudflare/cloudflared:2026.10.7
     command: ["tunnel", "--no-autoupdate", "run"]
     environment: { TUNNEL_TOKEN: "${CF_TUNNEL_TOKEN}" }
+    restart: unless-stopped
+
+  # Russian / Ukrainian review copy for clients (ADR 0029): the same data with the EN/RU/UA switch. Public through a
+  # Cloudflare quick tunnel (its https URL is in the review-tunnel log; REVIEW_URL must be set to it) or a hostname.
+  gateway-review:
+    image: ghcr.io/vlmoon99/nearchant-app@sha256:9c5e19764a9221177e3e3f4f3bd321106e3fa789dd44c39b2cfe718f5589126d
+    command: ["node", "apps/gateway/dist/main.js"]
+    environment: { <<: *env, UI_LANGS: "en,ru,uk", STORE_SUBDOMAINS: "off", PUBLIC_URL: "${REVIEW_URL:-https://nearchant.com}", ADMIN_PORT: "" }
+    volumes: ["media:/app/.media"]
+    depends_on: { gateway: { condition: service_started } }
+    restart: unless-stopped
+
+  review-tunnel:
+    image: cloudflare/cloudflared:2026.10.7
+    command: ["tunnel", "--no-autoupdate", "--url", "http://gateway-review:8787"]
     restart: unless-stopped
 
 volumes:
