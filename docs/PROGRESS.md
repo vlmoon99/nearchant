@@ -1722,3 +1722,31 @@ decisions in `docs/adr/0022-feed-buyers-moderation.md`.
 **Not verified / next**
 - Videos with a Comfy Cloud voice + ACE-Step music (tested in isolation only, not wired in).
 - A fixed `review.nearchant.com` (needs the hostname on the Cloudflare tunnel; the quick-tunnel link changes on restart).
+
+## 2026-11-13 (night) — "New era of web apps" story, TLS inside the CVM (built, waiting on Phala), publishing kit
+
+**Done**
+- `docs/new-era.md`: the thesis (TEE backend + TEE AI + NEAR + open source), the architecture, an honest table of
+  what is private today and what is next, how to take it as a core, and the story in nine pictures.
+- README leads with the thesis; Privacy & Private AI is the lead track; the live site is described as the Phala CVM;
+  shorts marked off on the CVM; the proof link is now `/verify/93` (written in a NEAR AI TEE, TDX quote verified),
+  not #23 (own GPUs, no TEE report).
+- X thread (6 posts, each under 280 characters) in `docs/hackathon-tracks.md`; submission text rewritten around the
+  thesis (1,895 characters, in the git-ignored `docs/submission.local.md`).
+- `apps/gateway/e2e/story-cards.mjs` → `docs/media/story/*.png`: nine 1600×900 cards (screenshot + what happens
+  underneath) from a live journey run.
+- TLS inside the CVM: `ingress` (dstack-ingress 2.8) + `edge` (Caddy, PROXY protocol → `cf-connecting-ip`), gateway
+  port policy 443 pp=true. Test names `private.nearchant.com`, `*.t.nearchant.com`. Details in `deploy/phala/README.md`.
+- Test store `novatestfhol` added to `showcase_hidden`.
+
+**Verified**
+- Journey on nearchant.com: store 11 s, posts with pictures 128 s, paid 19 s, delivered on chain 46 s, released 54 s,
+  contacts both ways, no page errors.
+- Ingress: certificates issued inside the CVM; `<app_id>-443s.dstack-pha1-prod9.phala.network/health` → 200 through
+  ingress → edge → gateway, with the visitor's real IP in the ingress log.
+
+**Not verified / open**
+- Phala's gateway does not route our custom SNI (`private.nearchant.com` gets an EOF), although Phala's DNS diagnose
+  passes. The owner decided to leave it (prototype); nearchant.com stays on the Cloudflare tunnel.
+- The CVM runs a dev OS image (`dstack-dev-0.5.12`, SSH for the operator); named in new-era.md.
+- Onboarding's "Your store is live" screen still says a short video is being made, but videos are off on the CVM.

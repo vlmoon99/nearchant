@@ -2,17 +2,21 @@
 
 [![ci](https://github.com/vlmoon99/nearchant/actions/workflows/ci.yml/badge.svg)](https://github.com/vlmoon99/nearchant/actions/workflows/ci.yml)
 
-**Sell more, work less, get paid on NEAR.** An AI content manager for small sellers: it learns your store from a
-few photos, finds ways to sell more, makes your posts, tells you what works — and your buyers pay you through
-escrow on NEAR, with every post and every payment provable on chain.
+**A new era of web applications: private by default, personal for everyone, open to anyone.**
+Nearchant is a working prototype on NEAR testnet of how apps will be built from now on: a **TEE backend** (the whole
+server and database in a Phala Cloud Intel TDX machine), **TEE AI inference** (NEAR AI Cloud models that nobody can
+look into, with attestation we check ourselves), **NEAR** for money, limits and proofs, and **open source** so anyone
+can read what the sealed machine runs. Users don't have to worry about their data, so an app can finally be deeply
+personal. → **[The idea, the architecture and an honest status](docs/new-era.md)**
 
-Nearchant (NEAR + merchant) is open source (MIT). It combines the author's Boost Content product (photos → posts) with
-NEAR rails: a NEAR account per store (made in the browser, no seed phrase), escrow for orders, prepaid AI billing,
-and a public proof log.
+The example app: **sell more, work less, get paid on NEAR.** A small seller's own AI agents learn the store from a
+few photos, find ways to sell more, make the posts, answer buyers and moderate the market; buyers pay through escrow
+on NEAR, and every post and payment is provable on chain. MIT. Take the whole stack, a few [kits](kits/), or just the
+architecture.
 
-> Built for the [NEAR Hackathon](https://nearhackathon.com) (Nov 2026). Tracks: **Agent Economy**, Autonomous Business,
-> Privacy & Private AI, AI Security & Defense ([how it fits each](docs/hackathon-tracks.md)). Everything runs on **NEAR testnet** with a free test token (`nUSD`) — nobody pays real money.
-> Live: **https://nearchant.com/start** · 109-second recorded walkthrough: recorded with `apps/gateway/e2e/walkthrough.mjs` (not in git)
+> Built for the [NEAR Hackathon](https://nearhackathon.com) (Nov 2026). Tracks: **Privacy & Private AI**, Agent Economy,
+> Autonomous Business, AI Security & Defense ([how it fits each](docs/hackathon-tracks.md)). Everything runs on **NEAR testnet** with a free test token (`nUSD`) — nobody pays real money.
+> Live: **https://nearchant.com/start** — served from a Phala Cloud CVM (Intel TDX) since 11 Nov.
 
 ## Build your own: [kits/](kits/)
 
@@ -35,7 +39,7 @@ packages, import it. Each is checked by copying it alone into an empty folder, i
 4. **First posts in a minute.** Captions in the store's voice + AI pictures of the real product in new scenes
    (Qwen-Image-Edit keeps the product intact) with a short headline strip in the brand colour — text on pictures is
    always ours, never drawn by the model; a vision check re-draws pictures with stray lettering. **Levanto Sage**
-   (NEAR AI) checks every caption for offers the owner never stated. The first post also gets an **8-second short**:
+   (NEAR AI) checks every caption for offers the owner never stated. The first post also gets an **8-second short** (off on the live CVM, which runs no models: no hosted voice model yet, ADR 0030):
    hook on a brand-colour box, word-timed captions, an English voice, an end-card with the store link.
 5. **Published post → proof on NEAR.** The store's own agent key writes a `proof-log` entry: fingerprint of caption
    + image, the AI that made it, the time, the caption check. When the text model ran in a NEAR AI TEE the proof
@@ -72,7 +76,7 @@ flowchart LR
     A["Seller app /app<br/>Home · Create · Posts · Analytics · Wallet · Settings"]
     S["Storefront /h/&lt;store&gt;<br/>shop · item · escrow checkout"]
   end
-  subgraph Gateway["Gateway + worker (Spark or Mac, later Phala TEE)"]
+  subgraph Gateway["Gateway + worker + Postgres (Phala CVM, Intel TDX)"]
     G["Hono gateway<br/>pages, JSON API, sessions"]
     Q[("Postgres<br/>stores, posts, events, queue, outbox")]
     W["Worker: analyze → opportunities →<br/>posts → render → publish"]
@@ -80,7 +84,7 @@ flowchart LR
     L["Admin image lab (tailnet only)"]
   end
   subgraph Models
-    LL["Two DGX Sparks (own GPUs)<br/>Qwen3.6-35B: vision, analysis<br/>Qwen3.8-27B: posts, scripts<br/>Kokoro voice + Whisper"]
+    LL["Own GPUs (local option, not on the CVM)<br/>Qwen3.6-35B: vision, analysis<br/>Qwen3.8-27B: posts, scripts<br/>Kokoro voice + Whisper"]
     NA["NEAR AI Cloud TEE<br/>+ Levanto Sage checks"]
     CC["Comfy Cloud<br/>Qwen-Image-Edit, Qwen-Image,<br/>Wan 2.2 14B video"]
   end
@@ -116,8 +120,8 @@ flowchart LR
 | Proofs of posts, deliveries and shipments | `proofs.nearchant.testnet` (`get {proof_id}`) |
 | Agent hiring budgets | `escrow.nearchant.testnet` |
 | Example stores | any `<store>.nearchant.testnet` created at nearchant.com/start |
-| Demo store | [Nova Wear NYC](https://nearchant.com/h/novatest1rxu/) — posts with proofs #21–#23 and a short |
-| Check a post yourself | [nearchant.com/verify/23](https://nearchant.com/verify/23) — fingerprint recomputed from the published post, TEE attestation check |
+| Demo store | [Nova Wear NYC](https://nearchant.com/h/novatest1rxu/) — posts with proofs #21–#23 (made on own GPUs) and a short; [VIP Electronics](https://nearchant.com/h/vipelectronics/) — proof #93 made in a NEAR AI TEE |
+| Check a post yourself | [nearchant.com/verify/93](https://nearchant.com/verify/93) — fingerprint recomputed from the published post, TEE attestation check |
 
 ## Run it
 
@@ -155,8 +159,8 @@ pnpm -r test                                             # unit + integration te
 
 `docker compose -f deploy/local/compose.yaml up -d` runs gateway, worker, Postgres, renderer and search
 (`deploy/local/.env.example` lists the keys; `config/providers.local.yaml` = own GPU, `providers.mac.yaml` =
-NEAR AI TEE text + Comfy Cloud images). The live site itself runs this way on one Mac:
-`deploy/standby/mac-only.sh` (ADR 0023). Then:
+NEAR AI TEE text + Comfy Cloud images). The live site runs the same images in a Phala CVM
+(`deploy/phala/`, ADR 0030; NEAR AI TEE models only, `config/providers.cloud.yaml`). Then:
 
 - `http://localhost:8787/start` — onboarding: create a store, add photos, get opportunities and first posts.
 - `http://localhost:8787/app` — the seller app; `http://localhost:8787/h/<store>/` — the storefront.

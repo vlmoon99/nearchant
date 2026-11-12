@@ -5,8 +5,8 @@ track says how strongly Nearchant fits, then gives a pitch for that track: what 
 and the parts of Nearchant that show it. Everything named here is built and runs at https://nearchant.com on NEAR
 testnet.
 
-**Recommended picks (strongest first):** 07 Agent Economy · 04 Autonomous Business · 03 Privacy & Private AI ·
-06 AI Security & Defense. Optional: 08 Real-World Money, 05 AI Swarms.
+**Recommended picks (lead first):** 03 Privacy & Private AI (the lead story: [docs/new-era.md](new-era.md)) ·
+07 Agent Economy · 04 Autonomous Business · 06 AI Security & Defense. Optional: 08 Real-World Money, 05 AI Swarms.
 
 | # | Track | Fit |
 |---|---|---|
@@ -93,13 +93,54 @@ provable on chain, and every AI answer can be traced to an attested TEE.
 
 ---
 
-## X post (demo post link)
+## X post (demo post link): a thread
 
-Text, up to 280 characters plus the video:
+Post 1 is the demo link for the form. Each post is under 280 characters (links count as 23).
 
-> Built Nearchant at NEAR HACKATHON 🛍️ Your own AI agents run your store: photos → posts, pictures & shorts →
-> buyers pay through NEAR escrow. Private AI in NEAR AI TEEs, every post proven on chain.
-> Try it: nearchant.com/start · code: github.com/vlmoon99/nearchant @NEARProtocol #NEARHackathon
+```
+Built at NEAR HACKATHON: Nearchant, a prototype of the next era of web apps 🔒
 
-Attach the walkthrough video (`node apps/gateway/e2e/walkthrough.mjs`, re-recorded on the final build) and 2–3
-screenshots: the landing page, a post next to the original photo, and the proof page.
+TEE backend (Phala) + private AI in NEAR AI TEEs + NEAR + open source.
+Your data is read only by open code, in machines nobody can look into.
+
+nearchant.com/start @NEARProtocol #NEARHackathon
+```
+
+```
+2/ Why: a useful AI has to read your photos, sales, messages, plans. Today all of that goes to someone's server in the clear.
+
+When users don't have to worry about their data, apps can finally be deeply personal. That's the shift.
+```
+
+```
+3/ The example app: a small seller's own AI agents.
+
+A few product photos → the AI learns the store → ideas to sell more → posts with the real product in new scenes → buyers pay into a NEAR escrow → money released on delivery.
+```
+
+```
+4/ How private:
+• the whole server + database run in a Phala Intel TDX machine
+• private data goes only to NEAR AI TEE models; we check their attestation ourselves
+• every post gets a proof on NEAR anyone can re-check
+
+nearchant.com/verify/93
+```
+
+```
+5/ Agents hold their own NEAR accounts with function-call keys only, spend under on-chain limits, and settle AI usage on chain.
+
+It's a testnet prototype, with an honest list of what's private today and what's next.
+```
+
+```
+6/ MIT. Take the whole stack, 16 copy-paste kits (escrow, checkout, NEAR wallet login, proof log…), or just the architecture.
+
+github.com/vlmoon99/nearchant
+```
+
+**Images** (1600×900, `docs/media/story/`, made by `apps/gateway/e2e/story-cards.mjs` from a live run on 13 Nov):
+- Post 1: `01-new-era`, `03-learn`, `05-picture`, `06-proof`
+- Post 3: `02-sell`, `04-ideas` · Post 4: `06-proof` (or `03-learn`) · Post 5: `07-pay`, `08-released` · Post 6: `09-take-it`
+
+Tag `@PhalaNetwork` and `@near_ai` in post 4 if those handles are right (check before posting).
