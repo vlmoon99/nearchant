@@ -19,6 +19,23 @@ are off (no hosted voice model yet).
 - Review copy (RU/UA): `phala ssh nearchant -- docker logs nearchant-review-tunnel-1 | grep trycloudflare` gives
   its link; it changes when the CVM restarts. A fixed `review.nearchant.com` needs that hostname on the tunnel.
 
+## TLS inside the CVM (dstack-ingress, 13 Nov 2026, in progress)
+
+- `ingress` (dstack-ingress 2.8) gets Let's Encrypt certificates inside the CVM for `INGRESS_DOMAINS` (now
+  `private.nearchant.com,*.t.nearchant.com`, test names) and writes their DNS-only records on Cloudflare with
+  `CLOUDFLARE_API_TOKEN` (Keychain `CLOUDFLARE_DNS_TOKEN`). Proof files: `https://<domain>/evidences/`.
+- `edge` (Caddy) reads the PROXY header and gives the gateway the visitor's address as `cf-connecting-ip`, so rate
+  limits work without Cloudflare. `EDGE_HOST=nearchant.com` while the test names are used (so `private` isn't read
+  as a store handle); drop it when nearchant.com itself moves.
+- Gateway port policy, set once by API (a compose deploy keeps it):
+  `phala api -X PATCH /cvms/<uuid> -d '{"compose":{"port_policy":{"restrict_mode":false,"ports":[{"port":443,"pp":true}]}}}'`
+- Verified: `https://<app_id>-443s.dstack-pha1-prod9.phala.network/health` → 200 through ingress → edge → gateway,
+  with the visitor's real IP in the ingress log.
+- Open: Phala's gateway does not route the custom SNI (`private.nearchant.com` gets an EOF like an unknown name),
+  although Phala's `customize-domain-diagnose` says the CNAME and TXT are valid. Asked Phala. Until then
+  nearchant.com stays on the Cloudflare tunnel.
+- The deploy env in the Keychain (`PHALA_ENV`) holds `DSTACK_AUTHORIZED_KEYS`: a deploy without it removes SSH access.
+
 ## What the owner does
 
 1. **Phala Cloud API key.** cloud.phala.com → your account (top right) → **API Keys** → **Create**. The key starts

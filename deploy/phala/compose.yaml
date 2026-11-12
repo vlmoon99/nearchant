@@ -95,6 +95,46 @@ services:
     volumes: ["media:/home/marp/app"]
     restart: unless-stopped
 
+  # TLS ends inside this CVM (dstack-ingress): a Let's Encrypt certificate whose key is made here, published with a
+  # TDX quote at https://<domain>/evidences/. Phala's gateway forwards encrypted TCP by SNI (DNS-only records written
+  # by the ingress with CLOUDFLARE_API_TOKEN, Zone:Read + DNS:Edit on nearchant.com). PROXY protocol carries the
+  # visitor's address: gateway (port_policy pp on 443) → ingress → edge.
+  ingress:
+    image: ghcr.io/dstack-tee/dstack-ingress:2.8@sha256:60e682449534715a2f2e5b72326ca4229209c8e26c931c6f34d27e02200ac086
+    ports: ["443:443"]
+    environment:
+      DNS_PROVIDER: cloudflare
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+      GATEWAY_DOMAIN: gateway.dstack-pha1-prod9.phala.network
+      DOMAINS: ${INGRESS_DOMAINS}
+      TARGET_ENDPOINT: edge:8080
+      SET_CAA: "false"                 # Cloudflare adds its own CAA at the apex while Universal SSL is on
+      ACCEPT_PROXY_PROTOCOL: ${INGRESS_PP:-false}
+      SEND_PROXY_PROTOCOL: ${INGRESS_PP:-false}
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+      - /var/run/tappd.sock:/var/run/tappd.sock
+      - cert-data:/etc/letsencrypt
+      - evidences:/evidences
+    restart: unless-stopped
+
+  # Reads the PROXY header from the ingress and hands the gateway the visitor's address in the header it already
+  # trusts (TRUST_PROXY=cloudflare reads cf-connecting-ip); a visitor's own cf-* headers are replaced or dropped.
+  # EDGE_HOST, when set, rewrites Host (test hostnames that must not look like a store subdomain).
+  edge:
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    environment: { EDGE_PP: "${INGRESS_PP:-false}", EDGE_HOST: "${EDGE_HOST:-}" }
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        if [ "$$EDGE_PP" = "true" ]; then W='listener_wrappers {\n proxy_protocol {\n timeout 5s\n allow 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16\n }\n }'; else W=''; fi;
+        if [ -n "$$EDGE_HOST" ]; then H="header_up Host $$EDGE_HOST"; else H=''; fi;
+        printf '{\n admin off\n auto_https off\n servers :8080 {\n %b\n }\n}\n:8080 {\n reverse_proxy gateway:8787 {\n header_up Cf-Connecting-Ip {remote_host}\n header_up -Cf-Ipcountry\n %s\n }\n}\n' "$$W" "$$H" > /etc/caddy/Caddyfile;
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    depends_on: { gateway: { condition: service_started } }
+    restart: unless-stopped
+
   tunnel:
     image: cloudflare/cloudflared:2026.10.7
     command: ["tunnel", "--no-autoupdate", "run"]
@@ -119,3 +159,5 @@ services:
 volumes:
   db: {}
   media: {}
+  cert-data: {}
+  evidences: {}
